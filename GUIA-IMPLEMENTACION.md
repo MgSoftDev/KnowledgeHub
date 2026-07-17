@@ -83,25 +83,26 @@ Requisitos: **.NET 10**, y para la UI **Radzen.Blazor** (lo trae el paquete Blaz
 | WASM (cliente) | `Http.Client` + `Blazor` |
 | WASM (server API) | `KnowledgeHub` + `Storage.*` + `AspNetCore` + `Http.Server` |
 
-**Consumir el feed local** (mientras no estén publicados en nuget.org). En tu solución crea un
-`nuget.config` junto al `.sln`:
+**Instalar desde nuget.org.** Los paquetes están publicados (perfil `migeru_garcia`), así que se
+instalan como cualquier otro:
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <add key="knowledgehub-local"
-         value="C:\Users\miger\OneDrive\9 Proyectos\1 Personales\MgSoftDev\KnowledgeHub\Source\artifacts" />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-  </packageSources>
-</configuration>
+```bash
+dotnet add package MgSoftDev.KnowledgeHub
+dotnet add package MgSoftDev.KnowledgeHub.Storage.LiteDb   # el provider que uses
+dotnet add package MgSoftDev.KnowledgeHub.Blazor
 ```
 
-y referencia con la versión actual:
+o con `PackageReference`:
 
 ```xml
 <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.1.0-preview.1" />
 ```
+
+> **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
+> versión no publicada, empaqueta con `dotnet pack -c Release -o artifacts` y añade en tu
+> `nuget.config` una fuente apuntando a la ruta **absoluta** de esa carpeta `artifacts`. No uses
+> una ruta relativa `artifacts` en un repo (rompería el restore en un checkout limpio, porque la
+> carpeta está en `.gitignore` y solo la crea `dotnet pack`).
 
 ---
 

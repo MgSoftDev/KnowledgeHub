@@ -86,11 +86,36 @@ proyecto `.Server`).
 - Para el provider SQL Server: una instancia de **SQL Server** (la BD debe existir; las tablas
   las crea el script DDL embebido).
 
+## Instalación
+
+Los paquetes están **publicados en nuget.org** (perfil
+[migeru_garcia](https://www.nuget.org/profiles/migeru_garcia)). Instala los que necesites según
+tu hosting (ver la [guía](GUIA-IMPLEMENTACION.md#2-los-paquetes-y-cuál-instalar)):
+
+```bash
+dotnet add package MgSoftDev.KnowledgeHub
+dotnet add package MgSoftDev.KnowledgeHub.Storage.LiteDb   # o .Storage.SqlServer
+dotnet add package MgSoftDev.KnowledgeHub.Blazor
+```
+
+### Publicación (mantenedores)
+
+La publicación a nuget.org es automática vía GitHub Actions con **Trusted Publishing (OIDC)** —
+sin API keys. Se dispara al pushear un tag `v*`, y la versión sale del tag (`v1.2.3` → `1.2.3`,
+misma versión para los 9 paquetes):
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml).
+
 ## Estado
 
-**v0.1.0-preview.1.** Las 9 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-46/46 en los 4 modos de store; los demos están verificados end-to-end. Los paquetes aún no se
-publican en nuget.org (se consumen desde el feed local `artifacts/`).
+**v0.1.0-preview.1** (primera publicación en nuget.org). Las 9 librerías + 3 demos compilan sin
+warnings; el arnés de paridad pasa 46/46 en los 4 modos de store; los demos están verificados
+end-to-end.
 
 ## Licencia
 

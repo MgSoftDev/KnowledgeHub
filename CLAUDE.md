@@ -52,8 +52,19 @@ Demos/Wpf/            anfitrión WPF+LiteDB (TFM net10.0-windows10.0.19041.0, vi
 Demos/BlazorServer/   anfitrión Server+LiteDB (cookie auth, patrón AcceptsInteractiveRouting, puerto 5210)
 Demos/Wasm(+.Server)/ anfitrión WASM hosted + API (token opaco en memoria, puerto 5220)
 Tests/KnowledgeHub.ParityHarness/  guion de paridad: modos inmemory|litedb|sqlserver|http
-artifacts/       feed NuGet local (dotnet pack -c Release -o artifacts)
+.github/workflows/publish-nuget.yml  CI: publica a nuget.org al pushear tag v* (Trusted Publishing/OIDC)
+artifacts/       feed NuGet local, git-ignored (dotnet pack -c Release -o artifacts)
 ```
+
+## Publicación (nuget.org)
+
+Los 9 paquetes están **publicados en nuget.org** (perfil `migeru_garcia`), primera versión
+`0.1.0-preview.1`. La publicación es automática: `.github/workflows/publish-nuget.yml` se dispara
+al pushear un tag `v*`, empaqueta los 9 proyectos de librería (glob `MgSoftDev.KnowledgeHub*/*.csproj`
+en ubuntu-latest — NO `dotnet pack` del `.slnx`, que arrastraría el demo WPF `net10.0-windows`
+que no compila en Linux), toma la versión del tag (`-p:Version=${GITHUB_REF_NAME#v}`), y sube con
+**Trusted Publishing (OIDC)** vía `NuGet/login@v1` (usuario `migeru_garcia`, sin API keys). Nueva
+release = tag/versión nuevo (nuget.org no permite re-publicar una versión existente).
 
 ## Verificación (cómo se probó)
 
@@ -85,12 +96,25 @@ artifacts/       feed NuGet local (dotnet pack -c Release -o artifacts)
    paquete dispara NU1510 (warning-as-error).
 7. **Clicks sintéticos del Browser pane no disparan eventos Blazor WASM** (Server sí);
    verificar WASM con JS: `element.click()` y setters nativos + `dispatchEvent(new Event('input'))`.
+8. **`nuget.config` con fuente local de ruta relativa (`<add value="artifacts" />`) rompe el
+   restore en checkout limpio** (`NU1301`: la carpeta está git-ignored y solo la crea `dotnet
+   pack`). Rompió el primer run del CI. El `nuget.config` del repo debe listar solo `nuget.org`
+   (con `<clear/>`); el feed local va en el `nuget.config` del proyecto consumidor con ruta
+   ABSOLUTA.
 
 ## Pendientes / siguientes pasos
 
 - Captura visual del demo WPF (la sesión de Windows estaba bloqueada durante la verificación;
   el arranque/seed/auto-login se verificó por log). Env vars DEBUG: `KNOWLEDGEHUB_AUTOLOGIN=admin`,
   `KNOWLEDGEHUB_STARTPAGE=<slug|/ruta>`.
+- Publicar versión estable `v0.1.0` (sin `-preview`) cuando la API se considere congelada:
+  `git tag v0.1.0 && git push origin v0.1.0` (el resto es automático).
 - Posible: provider PostgreSQL sobre Storage.EntityFramework; ContractTests xunit permanentes;
-  persistir token WASM en sessionStorage; publicar a nuget.org (quitar -preview).
-- **No es repo git** todavía.
+  persistir token WASM en sessionStorage; workflow de CI de build/test en PRs (hoy solo hay
+  publish en tags).
+
+## Repo / release
+
+- Repo git en `Source\`, remoto `origin` = **https://github.com/MgSoftDev/KnowledgeHub** (público),
+  rama default `main`.
+- Publicado en nuget.org en `0.1.0-preview.1` (ver sección Publicación arriba).
