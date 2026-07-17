@@ -1,0 +1,47 @@
+name: Publish NuGet
+
+# Publica los paquetes a nuget.org al pushear un tag de versión (v1.2.3 -> 1.2.3),
+# usando Trusted Publishing (OIDC) con NuGet/login@v1 — sin API keys almacenadas.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # requerido para el OIDC de Trusted Publishing
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Derivar versión del tag (v1.2.3 -> 1.2.3)
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      # Empaqueta los 9 proyectos de librería (todos los paquetes del repo). No se usa
+      # `dotnet pack` sobre el .slnx porque incluiría el demo WPF (net10.0-windows), que
+      # no compila en Linux; las librerías nunca referencian a los demos.
+      - name: Empaquetar todas las librerías (versión del tag)
+        run: |
+          for proj in MgSoftDev.KnowledgeHub*/*.csproj; do
+            dotnet pack "$proj" -c Release -p:Version="$VERSION" -o packages
+          done
+
+      - name: Login OIDC en nuget.org (Trusted Publishing)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: migeru_garcia
+
+      - name: Publicar en nuget.org
+        run: >
+          dotnet nuget push "packages/*.nupkg"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
