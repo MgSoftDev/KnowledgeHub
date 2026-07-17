@@ -1,0 +1,16 @@
+@inject IKnowledgeHubUserContext User
+
+@* HOST component injected into the KnowledgeHub sidebar: admin link + session control. *@
+
+@if (User.IsAdmin())
+{
+    <RadzenLink Path="/admin" Text="Administración" />
+}
+@if (User.IsAuthenticated)
+{
+    <a href="/auth/logout" style="color:#6b7280;font-size:0.9rem;">Cerrar sesión</a>
+}
+else
+{
+    <a href="/login" style="color:#2563eb;font-size:0.9rem;">Iniciar sesión</a>
+}

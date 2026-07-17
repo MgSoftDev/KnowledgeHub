@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KnowledgeHub Server Demo</title>
+    <base href="/" />
+    <link rel="stylesheet" href="_content/Radzen.Blazor/css/material.css" />
+    <link rel="stylesheet" href="_content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <HeadOutlet @rendermode="@PageRenderMode" />
+</head>
+
+<body>
+    <Routes @rendermode="@PageRenderMode" />
+
+    <div id="blazor-error-ui">
+        Ocurrió un error inesperado.
+        <a href="" class="reload">Recargar</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // Pages marked [ExcludeFromInteractiveRouting] (the login page) render fully static so
+    // the auth cookie can be issued by a plain HTTP form post; everything else runs on an
+    // interactive server circuit.
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}

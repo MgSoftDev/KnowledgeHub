@@ -1,0 +1,26 @@
+<Window x:Class="KnowledgeHub.Demo.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KnowledgeHub Demo — Portal de Documentación"
+        Height="768" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized">
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Background="#111827" Height="28">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
+                <TextBlock Foreground="#E5E7EB" FontSize="11" Text="{Binding UserInfo}" />
+                <TextBlock Foreground="#4B5563" FontSize="11" Text="   |   " />
+                <TextBlock Foreground="#E5E7EB" FontSize="11" Text="{Binding RolesInfo}" />
+                <TextBlock Foreground="#4B5563" FontSize="11" Text="   |   " />
+                <TextBlock Foreground="#E5E7EB" FontSize="11" Text="{Binding StorageInfo}" />
+                <TextBlock Foreground="#4B5563" FontSize="11" Text="   |   " />
+                <TextBlock Foreground="#E5E7EB" FontSize="11" Text="{Binding MachineInfo}" />
+            </StackPanel>
+        </Border>
+
+        <Grid x:Name="RootHost">
+            <TextBlock Text="Cargando portal…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="#9CA3AF" FontSize="16" />
+        </Grid>
+    </DockPanel>
+</Window>

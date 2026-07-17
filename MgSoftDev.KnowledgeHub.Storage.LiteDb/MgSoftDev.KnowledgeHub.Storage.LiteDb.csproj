@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.Storage.LiteDb</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>LiteDB storage provider for MgSoftDev.KnowledgeHub. File-based, zero-server persistence for host applications without a database. Single-process by design — concurrent multi-machine editing requires the SqlServer provider.</Description>
+    <PackageTags>knowledgehub;litedb;storage;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LiteDB" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

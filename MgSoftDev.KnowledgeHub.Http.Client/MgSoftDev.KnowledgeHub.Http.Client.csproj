@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.Http.Client</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>HttpClient implementations of the MgSoftDev.KnowledgeHub service contracts, for Blazor WebAssembly (or any remote client) talking to a host that maps MapKnowledgeHubApi. The UI components from the Blazor package work unchanged on top of these.</Description>
+    <PackageTags>knowledgehub;httpclient;wasm;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

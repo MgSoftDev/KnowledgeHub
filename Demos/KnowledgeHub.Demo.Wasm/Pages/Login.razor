@@ -1,0 +1,28 @@
+@page "/login"
+@layout EmptyLayout
+
+<div class="login-shell">
+    <div class="login-card">
+        <h1>KnowledgeHub</h1>
+        <p class="login-subtitle">Demo Blazor WebAssembly + Web API</p>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <p class="login-error">@ErrorMessage</p>
+        }
+
+        <label>Usuario</label>
+        <input type="text" @bind="UserName" @bind:event="oninput" />
+        <label>Contraseña</label>
+        <input type="password" @bind="Password" @bind:event="oninput"
+               @onkeydown="@(e => { if (e.Key == "Enter") LoginCommand.CanAndExecute(); })" />
+
+        <button type="button" disabled="@(!LoginCommand.CanExecute())"
+                @onclick="() => LoginCommand.CanAndExecute()">
+            @(Wait ? "Entrando…" : "Iniciar sesión")
+        </button>
+
+        <p class="login-hint">Usuarios de prueba: admin · editor1 · prod1 · ofi1 — contraseña Demo123!</p>
+        <p class="login-hint"><a href="@KnowledgeHubRoutes.Home">Entrar como invitado (solo páginas públicas)</a></p>
+    </div>
+</div>

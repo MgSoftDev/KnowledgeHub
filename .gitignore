@@ -1,0 +1,65 @@
+## ------------------------------------------------------------------
+##  MgSoftDev.KnowledgeHub — .gitignore (.NET 10)
+## ------------------------------------------------------------------
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+artifacts/
+
+# Local NuGet package cache / restored packages
+packages/
+*.nupkg
+*.snupkg
+
+# .NET / MSBuild
+project.lock.json
+project.assets.json
+*.binlog
+msbuild.log
+*.nuget.props
+*.nuget.targets
+
+# User-specific and secrets (never commit)
+*.user
+*.suo
+*.userprefs
+secrets.json
+appsettings.*.local.json
+*.pfx
+*.snk
+
+# Visual Studio
+.vs/
+*.vspscc
+*.vssscc
+*.VisualState.xml
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+
+# Test / coverage results
+[Tt]est[Rr]esult*/
+[Cc]overage*/
+*.coverage
+*.trx
+
+# LiteDB runtime files (in case a demo writes next to the binaries)
+*.db
+*.db-log
+*-log.db
+
+# Logs
+[Ll]ogs/
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini

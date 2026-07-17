@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.AspNetCore</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>ASP.NET Core hosting helpers for MgSoftDev.KnowledgeHub: the image assets endpoint (MapKnowledgeHubAssets) that serves hash-addressed WebP images with immutable browser caching. Used by Blazor Server hosts and by the Http.Server API package.</Description>
+    <PackageTags>knowledgehub;aspnetcore;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

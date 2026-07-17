@@ -1,0 +1,9 @@
+@page "/"
+@layout EmptyLayout
+@inject NavigationManager Nav
+
+@* The host's landing page simply forwards into the KnowledgeHub module. *@
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo(KnowledgeHubRoutes.Home);
+}

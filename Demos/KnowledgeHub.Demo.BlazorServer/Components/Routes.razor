@@ -1,0 +1,18 @@
+@* Router of the HOST app, scanning also the KnowledgeHub RCL and the shared demo pages. *@
+<RadzenComponents />
+
+<Router AppAssembly="@typeof(Program).Assembly"
+        AdditionalAssemblies="new[] { typeof(KnowledgeHubAssemblyMarker).Assembly, typeof(KnowledgeHub.Demo.SharedAuth.Components.HostLinks).Assembly }">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(KnowledgeHubLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(KnowledgeHubLayout)">
+            <div class="kh-doc-content">
+                <h1>Página no encontrada</h1>
+                <p>La ruta solicitada no existe.</p>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

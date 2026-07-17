@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.Blazor</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>Blazor UI of MgSoftDev.KnowledgeHub (Razor Class Library): navigation tree, reader, Radzen HTML editor with injectable custom tools, history, permissions and diagnostics. Works in WPF BlazorWebView, Blazor Server and Blazor WebAssembly — depends only on the Abstractions contracts.</Description>
+    <PackageTags>knowledgehub;blazor;radzen;rcl;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <PackageReference Include="Radzen.Blazor" />
+    <PackageReference Include="MgSoftDev.PrismPlus.Returning" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

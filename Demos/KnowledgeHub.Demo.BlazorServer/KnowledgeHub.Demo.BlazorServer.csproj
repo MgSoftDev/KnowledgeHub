@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>KnowledgeHub.Demo.BlazorServer</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub\MgSoftDev.KnowledgeHub.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Storage.LiteDb\MgSoftDev.KnowledgeHub.Storage.LiteDb.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Blazor\MgSoftDev.KnowledgeHub.Blazor.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.AspNetCore\MgSoftDev.KnowledgeHub.AspNetCore.csproj" />
+    <ProjectReference Include="..\KnowledgeHub.Demo.SharedAuth\KnowledgeHub.Demo.SharedAuth.csproj" />
+  </ItemGroup>
+
+</Project>

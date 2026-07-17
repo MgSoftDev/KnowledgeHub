@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>Core services of MgSoftDev.KnowledgeHub — a reusable collaborative documentation module: permission-filtered page tree, insert-only versioning, atomic publishing with conflict detection, WebP image ingestion with hash deduplication, and hash-addressed local caching. Pair it with a storage provider package (SqlServer / LiteDb) or a custom IKnowledgeHubStore.</Description>
+    <PackageTags>knowledgehub;documentation;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

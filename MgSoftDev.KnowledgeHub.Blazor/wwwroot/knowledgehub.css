@@ -1,0 +1,107 @@
+/* MgSoftDev.KnowledgeHub UI. Every class is kh-prefixed so the module can be embedded in a
+   host application without collisions. Reference from the host page as
+   _content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.css */
+
+/* Portal layout: fixed sidebar + scrollable content. */
+.kh-portal {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: 100vh;
+    overflow: hidden;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.kh-portal-sidebar {
+    border-right: 1px solid #e5e7eb;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.kh-portal-sidebar-header {
+    padding: 14px 16px;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kh-portal-search {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.kh-portal-tree {
+    flex: 1;
+    overflow: auto;
+    padding: 8px;
+}
+
+.kh-portal-user {
+    border-top: 1px solid #e5e7eb;
+    padding: 8px 16px;
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
+.kh-portal-links {
+    border-top: 1px solid #e5e7eb;
+    padding: 10px 16px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.kh-portal-content {
+    overflow: auto;
+    padding: 24px 32px;
+    min-width: 0;
+}
+
+/* Rendered documentation HTML. */
+.kh-doc-content {
+    max-width: 900px;
+    line-height: 1.6;
+    color: #1f2937;
+}
+
+.kh-doc-content h1 { font-size: 1.8rem; margin-top: 0; }
+.kh-doc-content h2 { font-size: 1.4rem; margin-top: 1.5rem; }
+.kh-doc-content img { max-width: 100%; height: auto; border-radius: 6px; }
+.kh-doc-content pre { background: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; }
+.kh-doc-content code { background: #f3f4f6; padding: 2px 5px; border-radius: 4px; }
+
+.kh-doc-meta {
+    color: #6b7280;
+    font-size: 0.82rem;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eef0f2;
+}
+
+/* Editor page that fills the content area; the html editor flexes to take the remaining
+   height while the note field and buttons stay pinned below it. The RadzenHtmlEditor inside
+   kh-editor-host needs style="position:absolute; inset:0;" because flex does not propagate
+   into Radzen's internals. */
+.kh-editor-fill {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 48px); /* content area = viewport minus .kh-portal-content padding */
+    max-width: 1100px;
+}
+
+.kh-editor-host {
+    flex: 1 1 auto;
+    min-height: 200px;
+    position: relative;
+    margin-bottom: 8px;
+}
+
+/* Diagnostics tables. */
+.kh-diag-table { border-collapse: collapse; width: 100%; max-width: 560px; }
+.kh-diag-table th, .kh-diag-table td { border: 1px solid #e5e7eb; padding: 6px 12px; text-align: left; font-size: 0.9rem; }
+.kh-diag-table th { background: #f9fafb; color: #374151; font-weight: 600; width: 45%; }

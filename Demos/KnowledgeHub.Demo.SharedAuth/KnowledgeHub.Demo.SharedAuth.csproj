@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <RootNamespace>KnowledgeHub.Demo.SharedAuth</RootNamespace>
+    <!-- Demo-host plumbing shared by the three demo apps (auth stack + host pages). Never packaged. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LiteDB" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <PackageReference Include="MgSoftDev.PrismPlus.Returning" />
+    <PackageReference Include="Radzen.Blazor" />
+    <PackageReference Include="Serilog" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Blazor\MgSoftDev.KnowledgeHub.Blazor.csproj" />
+  </ItemGroup>
+
+</Project>

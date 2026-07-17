@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>KnowledgeHub.ParityHarness</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Kestrel hosting for the "http" parity mode (also brings the DI container). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub\MgSoftDev.KnowledgeHub.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Storage.LiteDb\MgSoftDev.KnowledgeHub.Storage.LiteDb.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Storage.SqlServer\MgSoftDev.KnowledgeHub.Storage.SqlServer.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Server\MgSoftDev.KnowledgeHub.Http.Server.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Client\MgSoftDev.KnowledgeHub.Http.Client.csproj" />
+  </ItemGroup>
+
+</Project>

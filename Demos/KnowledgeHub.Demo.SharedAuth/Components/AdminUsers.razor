@@ -1,0 +1,102 @@
+@page "/admin"
+@layout KnowledgeHubLayout
+
+@* HOST page (not part of the KnowledgeHub RCL): administers the demo host's own users/roles. *@
+
+@if (!User.IsAdmin())
+{
+    <div class="kh-doc-content"><h1>Sin permiso</h1><p>Solo los administradores pueden acceder.</p></div>
+}
+else
+{
+    <div class="kh-doc-content" style="max-width:1100px;">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Administración del anfitrión (usuarios y roles)</RadzenText>
+
+        @* ---------- Users ---------- *@
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">Usuarios</RadzenText>
+
+        <RadzenCard class="rz-mb-3">
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Nuevo usuario</RadzenText>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
+                <RadzenTextBox @bind-Value="NewUserName" Placeholder="Usuario" style="width:150px;" />
+                <RadzenTextBox @bind-Value="NewFullName" Placeholder="Nombre completo" style="width:220px;" />
+                <RadzenPassword @bind-Value="NewPassword" Placeholder="Contraseña" style="width:170px;" />
+                <RadzenCheckBoxList @bind-Value="NewUserRoleIds" TValue="Guid" Orientation="Orientation.Horizontal">
+                    <Items>
+                        @foreach (var role in Roles)
+                        {
+                            <RadzenCheckBoxListItem Text="@role.Name" Value="@role.Pk" />
+                        }
+                    </Items>
+                </RadzenCheckBoxList>
+                <RadzenButton Text="Crear" Icon="person_add"
+                              Click="@(() => CreateUserCommand.CanAndExecute())"
+                              Disabled="@(!CreateUserCommand.CanExecute())" IsBusy="@Wait" />
+            </div>
+        </RadzenCard>
+
+        <RadzenDataGrid Data="@Users" TItem="DemoUserAdminDto" Density="Density.Compact" class="rz-mb-4">
+            <Columns>
+                <RadzenDataGridColumn TItem="DemoUserAdminDto" Property="UserName" Title="Usuario" Width="130px" />
+                <RadzenDataGridColumn TItem="DemoUserAdminDto" Property="FullName" Title="Nombre" />
+                <RadzenDataGridColumn TItem="DemoUserAdminDto" Property="RolesText" Title="Roles" />
+                <RadzenDataGridColumn TItem="DemoUserAdminDto" Title="Activo" Width="90px">
+                    <Template Context="u">
+                        <RadzenBadge Text="@(u.IsActive ? "Sí" : "No")"
+                                     BadgeStyle="@(u.IsActive ? BadgeStyle.Success : BadgeStyle.Light)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="DemoUserAdminDto" Title="Acciones" Width="320px" Sortable="false">
+                    <Template Context="u">
+                        <RadzenButton Text="Editar roles" Size="ButtonSize.ExtraSmall" Click="@(() => BeginEditRoles(u))" Disabled="@Wait" />
+                        <RadzenButton Text="@(u.IsActive ? "Desactivar" : "Activar")" Size="ButtonSize.ExtraSmall"
+                                      ButtonStyle="ButtonStyle.Light" class="rz-ml-1"
+                                      Click="@(() => ToggleActiveAsync(u))" Disabled="@Wait" />
+                        <RadzenButton Text="Reset" Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Warning"
+                                      class="rz-ml-1" Click="@(() => ResetPasswordAsync(u))" Disabled="@Wait" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+        @if (EditingUser is not null)
+        {
+            <RadzenCard class="rz-mb-4">
+                <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Roles de @EditingUser.UserName</RadzenText>
+                <RadzenCheckBoxList @bind-Value="EditingUserRoleIds" TValue="Guid" Orientation="Orientation.Horizontal">
+                    <Items>
+                        @foreach (var role in Roles)
+                        {
+                            <RadzenCheckBoxListItem Text="@role.Name" Value="@role.Pk" />
+                        }
+                    </Items>
+                </RadzenCheckBoxList>
+                <div style="margin-top:10px;display:flex;gap:8px;">
+                    <RadzenButton Text="Guardar roles" Icon="save" Click="@(() => SaveUserRolesCommand.CanAndExecute())"
+                                  Disabled="@(!SaveUserRolesCommand.CanExecute())" IsBusy="@Wait" />
+                    <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@(() => EditingUser = null)" Disabled="@Wait" />
+                </div>
+            </RadzenCard>
+        }
+
+        @* ---------- Roles ---------- *@
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">Roles</RadzenText>
+
+        <RadzenCard class="rz-mb-3">
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Nuevo rol</RadzenText>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <RadzenTextBox @bind-Value="NewRoleName" Placeholder="Nombre" style="width:180px;" />
+                <RadzenTextBox @bind-Value="NewRoleDescription" Placeholder="Descripción" style="width:320px;" />
+                <RadzenButton Text="Crear" Icon="add" Click="@(() => CreateRoleCommand.CanAndExecute())"
+                              Disabled="@(!CreateRoleCommand.CanExecute())" IsBusy="@Wait" />
+            </div>
+        </RadzenCard>
+
+        <RadzenDataGrid Data="@Roles" TItem="DemoRoleDto" Density="Density.Compact">
+            <Columns>
+                <RadzenDataGridColumn TItem="DemoRoleDto" Property="Name" Title="Nombre" Width="200px" />
+                <RadzenDataGridColumn TItem="DemoRoleDto" Property="Description" Title="Descripción" />
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+}

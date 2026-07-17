@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.Storage.SqlServer</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>SQL Server storage provider for MgSoftDev.KnowledgeHub. Places the module's tables in a configurable schema/prefix inside the host database, with an idempotent DDL script (GetCreateScript / EnsureDatabaseObjectsAsync) for installation.</Description>
+    <PackageTags>knowledgehub;sqlserver;efcore;storage;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Storage.EntityFramework\MgSoftDev.KnowledgeHub.Storage.EntityFramework.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Sql\CreateSchema.sql" />
+  </ItemGroup>
+
+</Project>

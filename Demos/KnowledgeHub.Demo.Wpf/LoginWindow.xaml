@@ -1,0 +1,40 @@
+<Window x:Class="KnowledgeHub.Demo.Wpf.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KnowledgeHub Demo — Iniciar sesión"
+        Height="440" Width="420"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#F5F6F8">
+    <Grid Margin="36">
+        <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="KnowledgeHub" FontSize="30" FontWeight="Bold"
+                       HorizontalAlignment="Center" Foreground="#1F2937" />
+            <TextBlock Text="Demo de módulo de documentación (host WPF + LiteDB)" FontSize="13"
+                       HorizontalAlignment="Center" Foreground="#6B7280" Margin="0,2,0,28" />
+
+            <TextBlock Text="Usuario" FontWeight="SemiBold" Foreground="#374151" />
+            <TextBox x:Name="UserNameBox" Height="34" Padding="8,6" Margin="0,4,0,0"
+                     FontSize="14"
+                     Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Text="Contraseña" FontWeight="SemiBold" Foreground="#374151" Margin="0,14,0,0" />
+            <PasswordBox x:Name="PasswordBox" Height="34" Padding="8,6" Margin="0,4,0,0"
+                         FontSize="14"
+                         PasswordChanged="PasswordBox_OnPasswordChanged" />
+
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="#C62828" TextWrapping="Wrap"
+                       Margin="0,14,0,0" FontSize="12" />
+
+            <Button Content="Iniciar sesión" Height="40" Margin="0,22,0,0"
+                    FontSize="14" FontWeight="SemiBold" Cursor="Hand"
+                    Background="#2563EB" Foreground="White" BorderThickness="0"
+                    IsDefault="True"
+                    Command="{Binding LoginCommand}" />
+
+            <TextBlock Text="{Binding HintText}" Foreground="#9CA3AF" FontSize="11"
+                       Margin="0,18,0,0" TextWrapping="Wrap" HorizontalAlignment="Center"
+                       TextAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</Window>

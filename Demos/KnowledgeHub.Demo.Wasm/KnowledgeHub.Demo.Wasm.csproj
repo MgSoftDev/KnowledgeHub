@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <RootNamespace>KnowledgeHub.Demo.Wasm</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Client\MgSoftDev.KnowledgeHub.Http.Client.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Blazor\MgSoftDev.KnowledgeHub.Blazor.csproj" />
+  </ItemGroup>
+
+</Project>

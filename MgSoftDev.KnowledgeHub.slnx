@@ -1,0 +1,21 @@
+<Solution>
+  <Project Path="MgSoftDev.KnowledgeHub.Abstractions/MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub/MgSoftDev.KnowledgeHub.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.Storage.LiteDb/MgSoftDev.KnowledgeHub.Storage.LiteDb.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.Storage.EntityFramework/MgSoftDev.KnowledgeHub.Storage.EntityFramework.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.Storage.SqlServer/MgSoftDev.KnowledgeHub.Storage.SqlServer.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.Blazor/MgSoftDev.KnowledgeHub.Blazor.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.AspNetCore/MgSoftDev.KnowledgeHub.AspNetCore.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.Http.Server/MgSoftDev.KnowledgeHub.Http.Server.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.Http.Client/MgSoftDev.KnowledgeHub.Http.Client.csproj" />
+  <Folder Name="/Demos/">
+    <Project Path="Demos/KnowledgeHub.Demo.SharedAuth/KnowledgeHub.Demo.SharedAuth.csproj" />
+    <Project Path="Demos/KnowledgeHub.Demo.Wpf/KnowledgeHub.Demo.Wpf.csproj" />
+    <Project Path="Demos/KnowledgeHub.Demo.BlazorServer/KnowledgeHub.Demo.BlazorServer.csproj" />
+    <Project Path="Demos/KnowledgeHub.Demo.Wasm/KnowledgeHub.Demo.Wasm.csproj" />
+    <Project Path="Demos/KnowledgeHub.Demo.Wasm.Server/KnowledgeHub.Demo.Wasm.Server.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/KnowledgeHub.ParityHarness/KnowledgeHub.ParityHarness.csproj" />
+  </Folder>
+</Solution>

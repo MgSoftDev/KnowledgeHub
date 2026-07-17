@@ -1,0 +1,38 @@
+<div style="display:flex;flex-direction:column;gap:12px;min-width:460px;">
+
+    <div style="display:flex;gap:12px;">
+        <RadzenFormField Text="Ícono" Style="width:110px;">
+            <RadzenTextBox @bind-Value="Spec.Icon" Change="@(_ => StateHasChanged())" />
+        </RadzenFormField>
+        <RadzenFormField Text="Título" Style="flex:1;">
+            <RadzenTextBox @bind-Value="Spec.Title" Change="@(_ => StateHasChanged())" />
+        </RadzenFormField>
+    </div>
+
+    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        @foreach (var emoji in Emojis)
+        {
+            <RadzenButton Text="@emoji" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                          Click="@(() => { Spec.Icon = emoji; StateHasChanged(); })" />
+        }
+    </div>
+
+    <RadzenFormField Text="Texto" Style="width:100%;">
+        <RadzenTextArea @bind-Value="Spec.Text" Rows="2" Change="@(_ => StateHasChanged())" />
+    </RadzenFormField>
+
+    <RadzenFormField Text="Color" Style="width:100%;">
+        <RadzenDropDown @bind-Value="SelectedScheme" Data="@Schemes" TextProperty="Name"
+                        Change="@OnSchemeChange" Style="width:100%;" />
+    </RadzenFormField>
+
+    <div>
+        <div style="font-size:0.8rem;color:#6b7280;margin-bottom:6px;">Vista previa:</div>
+        @((MarkupString)PreviewHtml)
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+        <RadzenButton Text="Insertar" Icon="check" Click="@Insert" />
+        <RadzenButton Text="Cancelar" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@Cancel" />
+    </div>
+</div>

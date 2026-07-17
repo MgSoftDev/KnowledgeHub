@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.Storage.EntityFramework</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>Provider-neutral Entity Framework Core storage base for MgSoftDev.KnowledgeHub. Referenced by the engine packages (SqlServer today, PostgreSQL in the future); not used directly by hosts.</Description>
+    <PackageTags>knowledgehub;efcore;storage;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

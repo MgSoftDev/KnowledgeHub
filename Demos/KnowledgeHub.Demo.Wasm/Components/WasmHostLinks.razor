@@ -1,0 +1,23 @@
+@inject ClientUserContext User
+@inject TokenHolder Tokens
+@inject NavigationManager Nav
+
+@* HOST component injected into the KnowledgeHub sidebar: session control. *@
+
+@if (User.IsAuthenticated)
+{
+    <a href="" @onclick="Logout" @onclick:preventDefault style="color:#6b7280;font-size:0.9rem;cursor:pointer;">Cerrar sesión</a>
+}
+else
+{
+    <a href="/login" style="color:#2563eb;font-size:0.9rem;">Iniciar sesión</a>
+}
+
+@code {
+    private void Logout()
+    {
+        Tokens.Token = null;
+        User.Clear();
+        Nav.NavigateTo("/login");
+    }
+}

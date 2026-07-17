@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- The Windows SDK version in the TFM is REQUIRED: without it Microsoft.Windows.SDK.NET
+         is not copied and the BlazorWebView crashes showing the window (D3DImage init). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>KnowledgeHub.Demo.Wpf</RootNamespace>
+    <AssemblyName>KnowledgeHubDemo</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" />
+    <PackageReference Include="MgSoftDev.PrismPlus.Returning" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub\MgSoftDev.KnowledgeHub.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Storage.LiteDb\MgSoftDev.KnowledgeHub.Storage.LiteDb.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Blazor\MgSoftDev.KnowledgeHub.Blazor.csproj" />
+    <ProjectReference Include="..\KnowledgeHub.Demo.SharedAuth\KnowledgeHub.Demo.SharedAuth.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,32 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>14.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Common NuGet metadata. Packing is opt-in: each library project sets IsPackable=true. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <Version>0.1.0-preview.1</Version>
+    <Authors>Miguel Garcia</Authors>
+    <Company>MgSoftDev</Company>
+    <Product>MgSoftDev.KnowledgeHub</Product>
+    <Copyright>Copyright © MgSoftDev</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: missing XML doc on public member — docs are encouraged, not mandatory. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Every packable project ships the README.md sitting next to its csproj. -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\README.md')">
+    <None Include="$(MSBuildProjectDirectory)\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

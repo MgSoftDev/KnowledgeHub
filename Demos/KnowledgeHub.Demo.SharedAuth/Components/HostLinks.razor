@@ -1,0 +1,9 @@
+@inject IKnowledgeHubUserContext User
+
+@* HOST component injected into the KnowledgeHub sidebar via
+   KnowledgeHubBlazorOptions.HeaderActionsComponent. *@
+
+@if (User.IsAdmin())
+{
+    <RadzenLink Path="/admin" Text="Administración" />
+}

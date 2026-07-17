@@ -1,0 +1,36 @@
+@page "/login"
+@attribute [ExcludeFromInteractiveRouting]
+@layout NoLayout
+
+@* Static SSR page: the cookie must be issued by a plain HTTP request, so this page posts a
+   classic HTML form to the /auth/login endpoint (no circuit involved). *@
+
+<div class="login-shell">
+    <div class="login-card">
+        <h1>KnowledgeHub</h1>
+        <p class="login-subtitle">Demo Blazor Server + LiteDB</p>
+
+        @if (HasError)
+        {
+            <p class="login-error">Usuario o contraseña incorrectos.</p>
+        }
+
+        <form method="post" action="/auth/login">
+            <label>Usuario</label>
+            <input type="text" name="userName" autofocus />
+            <label>Contraseña</label>
+            <input type="password" name="password" />
+            <button type="submit">Iniciar sesión</button>
+        </form>
+
+        <p class="login-hint">Usuarios de prueba: admin · editor1 · prod1 · ofi1 — contraseña Demo123!</p>
+        <p class="login-hint"><a href="@KnowledgeHubRoutes.Home">Entrar como invitado (solo páginas públicas)</a></p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    private bool HasError => !string.IsNullOrEmpty(Error);
+}
