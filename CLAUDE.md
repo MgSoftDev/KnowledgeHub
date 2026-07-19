@@ -31,6 +31,20 @@ Blazor Server, Blazor WASM). Estado: **10 fases completas y verificadas**, v0.1.
   HTTP 200 siempre que el pipeline funcionó, el conflicto de publicación viaja como Unfinished.
 - **Rutas RCL**: prefijo fijo `/kh` (`KnowledgeHubRoutes`); CSS prefijado `kh-*`; la RCL no
   trae router (el anfitrión agrega `KnowledgeHubAssemblyMarker` a `AdditionalAssemblies`).
+- **RCL en 3 capas (v0.2.0)** para poder embeber el módulo en apps con layout propio:
+  1. `Components/Embedded/` — componentes atómicos SIN `@page` ni `@layout`
+     (`KnowledgeHubNavTree`, `KnowledgeHubPageView`, `…PageEditor`, `…PageHistory`,
+     `…VersionView`, `…PagePermissions`, `…PageManage`, `…SearchResults`, `…DiagnosticsPanel`).
+  2. `KnowledgeHubBrowser` — compuesto maestro-detalle (árbol + panel) con navegación INTERNA;
+     es el punto de integración de una línea para el anfitrión.
+  3. `Components/Pages/` — páginas envoltorio de 2-3 líneas con las rutas `/kh/*`, **sin
+     `@layout`** (adoptan el `DefaultLayout` del anfitrión). `KnowledgeHubLayout` se conserva
+     para el escenario portal-standalone (lo fijan los 3 demos como `DefaultLayout`).
+  - **Navegación con fallback**: cada componente expone `EventCallback` opcionales; si el
+    anfitrión NO los pasa, el componente navega por URL (`KnowledgeHubRoutes`); si los pasa,
+    delega. Patrón: `if (OnX.HasDelegate) await OnX.InvokeAsync(pk); else Nav.NavigateTo(...)`.
+  - CSS: alturas por variables `--kh-portal-height` / `--kh-editor-height` (default `100vh`);
+    `KnowledgeHubBrowser` usa `.kh-embedded` (100% del contenedor).
 - **Editor tools**: `EditorToolDescriptor` en `KnowledgeHubBlazorOptions.EditorTools`; los 4
   callouts built-in se registran por el mismo mecanismo (removibles).
 
@@ -101,6 +115,13 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
    pack`). Rompió el primer run del CI. El `nuget.config` del repo debe listar solo `nuget.org`
    (con `<clear/>`); el feed local va en el `nuget.config` del proyecto consumidor con ruta
    ABSOLUTA.
+9. **Un `@layout` explícito en una página GANA sobre el `DefaultLayout` del Router del
+   anfitrión** — por eso la RCL v0.1 no se podía embeber en apps con layout propio. Las páginas
+   de la RCL ya no declaran `@layout`; quien quiera el shell del módulo debe fijarlo como
+   `DefaultLayout` (así lo hacen los demos).
+10. **`RadzenLink` no admite `@onclick` + `@onclick:preventDefault`** (RZ10010: el parámetro
+    'onclick' quedaría duplicado). Para un link que a veces navega y a veces delega, renderiza
+    condicionalmente `<a @onclick>` vs `<RadzenLink Path>` (ver `KnowledgeHubSearchResults`).
 
 ## Pendientes / siguientes pasos
 

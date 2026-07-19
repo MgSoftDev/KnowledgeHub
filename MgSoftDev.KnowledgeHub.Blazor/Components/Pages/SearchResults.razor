@@ -1,28 +1,12 @@
 @page "/kh/search"
-@layout KnowledgeHubLayout
 
-@* Route MUST match KnowledgeHubRoutes.Search *@
+@* Página envoltorio (opt-in vía AdditionalAssemblies). NO declara @layout a propósito:
+   así adopta el DefaultLayout del anfitrión. Ruta DEBE coincidir con KnowledgeHubRoutes.Search. *@
 
-<div class="kh-doc-content" style="max-width:900px;">
-    <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Resultados de búsqueda</RadzenText>
+<KnowledgeHubSearchResults Term="@Q" />
 
-    @if (Loading)
-    {
-        <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
-    }
-    else if (Results.Count == 0)
-    {
-        <p style="color:#6b7280;">No se encontraron páginas para «@Q».</p>
-    }
-    else
-    {
-        <p style="color:#6b7280;">@Results.Count resultado(s) para «@Q»:</p>
-        @foreach (var r in Results)
-        {
-            <div style="padding:12px 0;border-bottom:1px solid #eef0f2;">
-                <RadzenLink Path="@KnowledgeHubRoutes.Page(r.PagePk)" Text="@r.Title" style="font-weight:600;font-size:1.05rem;" />
-                <div style="color:#6b7280;font-size:0.9rem;margin-top:4px;">@r.Snippet</div>
-            </div>
-        }
-    }
-</div>
+@code {
+    // The routed page reads the term from ?q=; the component takes it as a plain parameter.
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+}

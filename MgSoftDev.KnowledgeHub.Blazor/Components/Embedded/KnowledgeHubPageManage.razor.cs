@@ -9,11 +9,24 @@ using MgSoftDev.ReturningCore;
 using Microsoft.AspNetCore.Components;
 using Radzen;
 
-namespace MgSoftDev.KnowledgeHub.Blazor.Components.Pages;
+namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 
-public partial class PageManage : ComponentBase
+/// <summary>
+/// Structural management of a page (rename, move, reorder, create child, delete). Embeddable;
+/// supply the callbacks to stay inside your own screen, or omit them to fall back to /kh routes.
+/// </summary>
+public partial class KnowledgeHubPageManage : ComponentBase
 {
     [Parameter] public Guid PagePk { get; set; }
+
+    /// <summary>Without a handler, navigates to /kh/page/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnBackRequested { get; set; }
+
+    /// <summary>Raised with the new child pk. Without a handler, navigates to /kh/edit/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnChildCreated { get; set; }
+
+    /// <summary>Raised after deleting the page. Without a handler, navigates to /kh.</summary>
+    [Parameter] public EventCallback OnDeleted { get; set; }
 
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IKnowledgeHubUserContext User { get; set; } = null!;
@@ -84,7 +97,8 @@ public partial class PageManage : ComponentBase
         if (result.OkNotNull)
         {
             Notify.ShowSuccess("Subpágina creada");
-            Nav.NavigateTo(KnowledgeHubRoutes.Edit(result.Value));
+            if (OnChildCreated.HasDelegate) await OnChildCreated.InvokeAsync(result.Value);
+            else Nav.NavigateTo(KnowledgeHubRoutes.Edit(result.Value));
         }
         else
         {
@@ -107,7 +121,8 @@ public partial class PageManage : ComponentBase
         if (result.Ok)
         {
             Notify.ShowSuccess("Página eliminada");
-            Nav.NavigateTo(KnowledgeHubRoutes.Home);
+            if (OnDeleted.HasDelegate) await OnDeleted.InvokeAsync();
+            else Nav.NavigateTo(KnowledgeHubRoutes.Home);
         }
         else
         {
@@ -137,5 +152,11 @@ public partial class PageManage : ComponentBase
 
         var slug = Regex.Replace(sb.ToString().Normalize(NormalizationForm.FormC), "[^a-z0-9]+", "-").Trim('-');
         return string.IsNullOrEmpty(slug) ? Guid.NewGuid().ToString("n")[..8] : slug;
+    }
+
+    private async Task GoBack()
+    {
+        if (OnBackRequested.HasDelegate) await OnBackRequested.InvokeAsync(PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.Page(PagePk));
     }
 }

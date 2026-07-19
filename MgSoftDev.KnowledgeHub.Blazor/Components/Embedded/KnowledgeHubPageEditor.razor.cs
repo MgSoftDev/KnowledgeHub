@@ -8,11 +8,22 @@ using MgSoftDev.ReturningCore;
 using Microsoft.AspNetCore.Components;
 using Radzen;
 
-namespace MgSoftDev.KnowledgeHub.Blazor.Components.Pages;
+namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 
-public partial class Editor : ComponentBase
+/// <summary>
+/// Editor of a page (Radzen HTML editor + injectable custom tools). Embeddable anywhere;
+/// supply the callbacks to stay inside your own screen after publishing/discarding, or omit
+/// them to fall back to URL navigation over the built-in /kh routes.
+/// </summary>
+public partial class KnowledgeHubPageEditor : ComponentBase
 {
     [Parameter] public Guid PagePk { get; set; }
+
+    /// <summary>Raised after publishing. Without a handler, navigates to /kh/page/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnPublished { get; set; }
+
+    /// <summary>Raised on Discard. Without a handler, navigates to /kh/page/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnDiscarded { get; set; }
 
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IKnowledgeHubHtmlImageRewriter Rewriter { get; set; } = null!;
@@ -86,7 +97,8 @@ public partial class Editor : ComponentBase
             if (!publish.Ok) return publish;
 
             Notify.ShowSuccess("Página publicada");
-            Nav.NavigateTo(KnowledgeHubRoutes.Page(SelectItem.PagePk));
+            if (OnPublished.HasDelegate) await OnPublished.InvokeAsync(SelectItem.PagePk);
+            else Nav.NavigateTo(KnowledgeHubRoutes.Page(SelectItem.PagePk));
             return Returning.Success();
         }, () => !Wait && SelectItem is not null)
         .StartAction(() => Wait = true)
@@ -97,7 +109,11 @@ public partial class Editor : ComponentBase
             StateHasChanged();
         });
 
-    private void Discard() => Nav.NavigateTo(KnowledgeHubRoutes.Page(PagePk));
+    private async Task Discard()
+    {
+        if (OnDiscarded.HasDelegate) await OnDiscarded.InvokeAsync(PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.Page(PagePk));
+    }
 
     /// <summary>
     /// Dispatches the custom toolbar buttons to their registered tool (built-in callouts and

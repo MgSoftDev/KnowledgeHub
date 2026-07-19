@@ -1,0 +1,55 @@
+@* Lector de una página publicada. Embebible: pásale PagePk y, opcionalmente, callbacks para
+   que las acciones (editar/permisos/gestionar/historial) las maneje tu app en vez de navegar. *@
+
+@if (Loading)
+{
+    <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+}
+else if (ErrorMessage is not null)
+{
+    <div class="kh-doc-content">
+        <h1>No disponible</h1>
+        <p style="color:#c62828;">@ErrorMessage</p>
+        @if (ShowActions && User.CanEdit())
+        {
+            <p style="color:#6b7280;">Puedes editar esta página y publicarla para que sea visible.</p>
+            <div style="display:flex;gap:6px;margin-top:8px;">
+                <RadzenButton Text="Editar" Icon="edit" Size="ButtonSize.Small" Click="@GoEdit" />
+                <RadzenButton Text="Permisos" Icon="lock" Size="ButtonSize.Small"
+                              ButtonStyle="ButtonStyle.Light" Click="@GoPermissions" />
+                <RadzenButton Text="Gestionar" Icon="settings" Size="ButtonSize.Small"
+                              ButtonStyle="ButtonStyle.Light" Click="@GoManage" />
+            </div>
+        }
+    </div>
+}
+else if (Page is not null)
+{
+    <div class="kh-doc-content">
+        @if (ShowActions)
+        {
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;" class="kh-doc-meta">
+                <span>
+                    Versión @Page.VersionNumber
+                    @if (Page.PublishedAt is not null)
+                    {
+                        <span> · Publicada el @Page.PublishedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                    }
+                </span>
+                <span style="display:flex;gap:6px;">
+                    @if (User.CanEdit())
+                    {
+                        <RadzenButton Text="Editar" Icon="edit" Size="ButtonSize.ExtraSmall" Click="@GoEdit" />
+                        <RadzenButton Text="Permisos" Icon="lock" Size="ButtonSize.ExtraSmall"
+                                      ButtonStyle="ButtonStyle.Light" Click="@GoPermissions" />
+                        <RadzenButton Text="Gestionar" Icon="settings" Size="ButtonSize.ExtraSmall"
+                                      ButtonStyle="ButtonStyle.Light" Click="@GoManage" />
+                    }
+                    <RadzenButton Text="Historial" Icon="history" Size="ButtonSize.ExtraSmall"
+                                  ButtonStyle="ButtonStyle.Light" Click="@GoHistory" />
+                </span>
+            </div>
+        }
+        @((MarkupString)RenderedHtml)
+    </div>
+}

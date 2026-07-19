@@ -1,58 +1,21 @@
 @inherits LayoutComponentBase
 
+@* Shell de dos columnas para el escenario "portal standalone" (la app ES la documentación).
+   Para embeber el módulo dentro del layout de una app anfitriona NO uses este layout: usa
+   los componentes de Components/Embedded (KnowledgeHubBrowser, KnowledgeHubNavTree, …). *@
+
 <div class="kh-portal">
     <div class="kh-portal-sidebar">
-        <div class="kh-portal-sidebar-header">
-            <span>@Options.PortalTitle</span>
-            <span style="display:flex;gap:4px;">
-                @if (User.CanEdit())
+        <KnowledgeHubNavTree @ref="NavTree">
+            <FooterContent>
+                <RadzenLink Path="@KnowledgeHubRoutes.Home" Text="Inicio" />
+                <RadzenLink Path="@KnowledgeHubRoutes.Diagnostics" Text="Diagnóstico" />
+                @if (Options.HeaderActionsComponent is not null)
                 {
-                    <RadzenButton Icon="add" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall"
-                                  Click="@CreateRootPageAsync" Disabled="@Wait" title="Nueva página raíz" />
+                    <DynamicComponent Type="@Options.HeaderActionsComponent" />
                 }
-                <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.ExtraSmall"
-                              Click="@ReloadTreeAsync" title="Recargar árbol" />
-            </span>
-        </div>
-
-        <div class="kh-portal-search">
-            <RadzenTextBox @bind-Value="SearchTerm" Placeholder="Buscar en el portal…"
-                           class="rz-w-100" @onkeydown="@OnSearchKeyDown" />
-        </div>
-
-        <div class="kh-portal-tree">
-            @if (Loading)
-            {
-                <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
-            }
-            else if (Roots.Count == 0)
-            {
-                <p style="color:#9ca3af;padding:8px;">No hay páginas visibles para tus permisos.</p>
-            }
-            else
-            {
-                <RadzenTree Data="@Roots" Change="@OnNodeSelect" Style="width:100%">
-                    <RadzenTreeLevel TextProperty="@nameof(PageTreeNodeDto.Title)"
-                                     ChildrenProperty="@nameof(PageTreeNodeDto.Children)"
-                                     HasChildren="@(o => ((PageTreeNodeDto)o).Children.Count > 0)"
-                                     Expanded="@(_ => true)" />
-                </RadzenTree>
-            }
-        </div>
-
-        @if (User.IsAuthenticated)
-        {
-            <div class="kh-portal-user">👤 @User.DisplayName</div>
-        }
-
-        <div class="kh-portal-links">
-            <RadzenLink Path="@KnowledgeHubRoutes.Home" Text="Inicio" />
-            <RadzenLink Path="@KnowledgeHubRoutes.Diagnostics" Text="Diagnóstico" />
-            @if (Options.HeaderActionsComponent is not null)
-            {
-                <DynamicComponent Type="@Options.HeaderActionsComponent" />
-            }
-        </div>
+            </FooterContent>
+        </KnowledgeHubNavTree>
     </div>
 
     <div class="kh-portal-content">

@@ -29,6 +29,7 @@ la librería.
 5. [Implementación en WPF (BlazorWebView)](#5-implementación-en-wpf-blazorwebview)
 6. [Implementación en Blazor Server](#6-implementación-en-blazor-server)
 7. [Implementación en Blazor WebAssembly + Web API](#7-implementación-en-blazor-webassembly--web-api)
+   - 7.3 Caso especial: Blazor Web App unificado (.NET 10, Interactive WebAssembly)
 8. [Herramientas personalizadas del editor HTML](#8-herramientas-personalizadas-del-editor-html)
 9. [Seeding de contenido de ejemplo](#9-seeding-de-contenido-de-ejemplo)
 10. [Permisos finos (opt-in)](#10-permisos-finos-opt-in)
@@ -69,6 +70,7 @@ Requisitos: **.NET 10**, y para la UI **Radzen.Blazor** (lo trae el paquete Blaz
 | `MgSoftDev.KnowledgeHub` | Servicios core (lógica de negocio) | Todo anfitrión que corre la lógica in-process (WPF, Server, el server de una API) |
 | `MgSoftDev.KnowledgeHub.Storage.LiteDb` | Provider LiteDB (archivo) | Anfitriones sin BD propia |
 | `MgSoftDev.KnowledgeHub.Storage.SqlServer` | Provider SQL Server + DDL | Anfitriones con SQL Server |
+| `MgSoftDev.KnowledgeHub.Storage.EntityFramework` | Base EF Core (transitiva de SqlServer; define `KnowledgeHubEfModelOptions`) | Explícito **solo** si referencias por `ProjectReference` |
 | `MgSoftDev.KnowledgeHub.Blazor` | La UI (RCL, 11 componentes) | Todo anfitrión que muestra la UI |
 | `MgSoftDev.KnowledgeHub.AspNetCore` | Endpoint de imágenes `/kh/assets` | Blazor Server y servers de API |
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos | El server que atiende clientes WASM |
@@ -249,6 +251,81 @@ services.AddKnowledgeHubBlazor(o =>
 
 `HeaderActionsComponent` es el gancho para inyectar acciones del anfitrión en el sidebar del
 módulo (link de administración, botón de cerrar sesión, etc.). Es un componente Blazor tuyo.
+
+### 3.5 Dos modos de integración: portal vs. embebido
+
+KnowledgeHub se puede usar de dos formas, y **puedes combinarlas en la misma app**:
+
+| | **Modo portal** (llave en mano) | **Modo embebido** (dentro de TU layout) |
+|---|---|---|
+| Qué usas | Las rutas `/kh/*` del módulo | Los componentes de `Components/Embedded` |
+| Cómo se activa | `AdditionalAssemblies` en tu Router | Pones el componente en una página tuya |
+| Layout | El que fije el `DefaultLayout` de tu Router | El de tu página (tu menú y topbar) |
+| Deep links | Sí, nativos (`/kh/page/{id}`) | Los defines tú (o usas los `/kh/*` en paralelo) |
+
+> **Importante (v0.2.0):** las páginas del módulo **ya no imponen `KnowledgeHubLayout`**. Adoptan
+> el `DefaultLayout` de tu Router. Si quieres el shell del módulo (escenario portal dedicado),
+> ponlo tú: `<RouteView RouteData="@routeData" DefaultLayout="@typeof(KnowledgeHubLayout)" />`.
+
+**Embeber el portal completo en una página tuya (lo más común):**
+
+```razor
+@page "/documentacion"
+@* Tu layout con menú y topbar ya aplica; el módulo se queda dentro *@
+<KnowledgeHubBrowser Title="Documentación" />
+```
+
+`KnowledgeHubBrowser` es el compuesto: árbol + panel de contenido, con navegación **interna**
+(al elegir una página o pulsar Editar/Historial/Permisos cambia el panel, **sin cambiar la URL**
+ni sacar al usuario de tu pantalla).
+
+**Componer a tu medida** (el árbol en tu sidebar, el lector en tu contenido):
+
+```razor
+<div class="mi-sidebar">
+    <KnowledgeHubNavTree OnPageSelected="@(id => _sel = id)" />
+</div>
+<div class="mi-contenido">
+    @if (_sel is not null)
+    {
+        <KnowledgeHubPageView PagePk="@_sel.Value" />
+    }
+</div>
+
+@code { private Guid? _sel; }
+```
+
+**Componentes públicos embebibles** (namespace `MgSoftDev.KnowledgeHub.Blazor.Components.Embedded`):
+
+| Componente | Parámetros principales | Callbacks (opcionales) |
+|---|---|---|
+| `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `@bind-SelectedPagePk` | — (navega internamente) |
+| `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
+| `KnowledgeHubPageView` | `PagePk`, `ShowActions` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
+| `KnowledgeHubPageEditor` | `PagePk` | `OnPublished`, `OnDiscarded` |
+| `KnowledgeHubPageHistory` | `PagePk` | `OnVersionRequested`, `OnBackRequested` |
+| `KnowledgeHubVersionView` | `VersionPk` | `OnBackRequested` |
+| `KnowledgeHubPagePermissions` | `PagePk` | `OnBackRequested` |
+| `KnowledgeHubPageManage` | `PagePk` | `OnBackRequested`, `OnChildCreated`, `OnDeleted` |
+| `KnowledgeHubSearchResults` | `Term` | `OnPageSelected` |
+| `KnowledgeHubDiagnosticsPanel` | — | — |
+
+**Regla de los callbacks:** si **no** pasas el callback, el componente **navega por URL** a la
+ruta `/kh/*` correspondiente (comportamiento del modo portal). Si **sí** lo pasas, te delega la
+acción y no navega. Así el mismo componente sirve en ambos modos.
+
+**Alturas (CSS).** El módulo asume pantalla completa por defecto. Embebido bajo tu topbar,
+`KnowledgeHubBrowser` ya se ajusta al 100% de su contenedor (parámetro `Embedded`, true por
+defecto) — solo asegúrate de que tu contenedor tenga altura. Si usas las páginas `/kh/*` dentro
+de tu layout, ajusta las variables en tu CSS:
+
+```css
+.mi-contenido { --kh-portal-height: calc(100vh - 56px); --kh-editor-height: calc(100vh - 120px); }
+```
+
+> Ejemplo completo y funcionando: `Demos/KnowledgeHub.Demo.BlazorServer` →
+> `Components/Layout/HostShellLayout.razor` (layout anfitrión simulado) y
+> `Components/Pages/HostDocs.razor` (la página `/mi-app/documentacion`).
 
 ---
 
@@ -791,6 +868,74 @@ Piezas del cliente (todas con ejemplo en el demo, carpeta `Auth\` y `Pages\Login
 
 ---
 
+## 7.3 Caso especial: Blazor Web App unificado (.NET 10, render Interactive WebAssembly)
+
+Los §5–§7 cubren WPF, Blazor Server y **WASM standalone + host** (`blazor.webassembly.js`,
+`UseBlazorFrameworkFiles`, `MapFallbackToFile`). La plantilla **Blazor Web App unificada** de .NET 10
+—un proyecto servidor + un proyecto `.Client` WebAssembly, `blazor.web.js`,
+`AddInteractiveWebAssemblyComponents`, render modes por componente— NO estaba documentada, y es un
+escenario muy común: integrar KnowledgeHub como **plugin** dentro de una app existente. El **reparto de
+paquetes es idéntico al de §7** (servidor = core + store + AspNetCore + Http.Server; cliente =
+Blazor + Http.Client), pero el *plumbing* tiene cinco diferencias que cuestan tiempo si no se conocen.
+Verificado end-to-end integrándolo en una app real (host + plugin):
+
+1. **El bootstrapper "de cliente" suele ejecutarse también en el servidor.** En la plantilla unificada
+   es común que el mismo `AddXxxDependencies()` se llame desde el `Program.cs` del servidor (registra
+   servicios y assemblies del render) y desde el `Program.cs` del `.Client`. Si registras ahí
+   `AddKnowledgeHubHttpClient()` sin guardar, el **servidor** acaba con los contratos HTTP apuntando a
+   sí mismo; y si además corre el core in-process, habrá dos registros de `IKnowledgeHubPageService` (el
+   último gana → el API se llama a sí mismo). Solución: **guarda el registro de cliente** con
+   `OperatingSystem.IsBrowser()`.
+
+   ```csharp
+   // Bootstrapper compartido (corre en server y client): solo el navegador registra el lado cliente.
+   if (OperatingSystem.IsBrowser())
+   {
+       services.AddScoped<IKnowledgeHubUserContext, MiClientUserContext>();
+       services.AddKnowledgeHubHttpClient();
+       services.AddKnowledgeHubBlazor(o => { o.PortalTitle = "📚 Documentación"; /* ... */ });
+   }
+   ```
+
+   El lado **servidor** se registra aparte, en el `Program.cs` del servidor: `AddKnowledgeHubSqlServerStore`
+   + `AddKnowledgeHubCore` + `AddKnowledgeHubFileImageCache` + tu `IKnowledgeHubUserContext` **scoped**
+   que lee el principal del JWT vía `IHttpContextAccessor`; y post-build
+   `MapKnowledgeHubApi("/kh/api", g => g.RequireAuthorization())` + `MapKnowledgeHubAssets()`.
+
+2. **Registra el ensamblado de la RCL (`KnowledgeHubAssemblyMarker`) en el router en AMBOS lados.** En
+   el servidor: `MapRazorComponents<App>().AddInteractiveWebAssemblyRenderMode()
+   .AddAdditionalAssemblies(typeof(KnowledgeHubAssemblyMarker).Assembly)`. En el `.Client`: el mismo
+   ensamblado en `Router AdditionalAssemblies`. Si falta en cualquiera de los dos, `/kh/*` da "not found".
+
+3. **`<RadzenComponents />` debe estar a nivel de ROUTER, no del layout del host.** Las páginas de
+   KnowledgeHub declaran `@layout KnowledgeHubLayout` y **reemplazan** el layout de tu app; si tu único
+   `<RadzenComponents />` vive en tu `MainLayout`, los diálogos/notificaciones de KnowledgeHub no tendrán
+   host y fallan silenciosamente. Móntalo junto al `<Router>`: una sola instancia global que cubre tanto
+   tus páginas como las de KnowledgeHub.
+
+4. **Hidrata el contexto de usuario del cliente desde el `AuthenticationStateProvider` del host.** El
+   demo (§7.2) puebla `ClientUserContext` llamando a `RefreshAsync` tras su propio login. En una app que
+   ya reparte su identidad al cliente (JWT en el navegador), suscríbete a
+   `AuthenticationStateProvider.AuthenticationStateChanged` y llama a `RefreshAsync()` (o `Clear()`) en
+   cada cambio — así reutilizas la sesión del host sin un login propio. `GET /kh/api/me` sigue siendo la
+   fuente del snapshot, y tu `HttpClient` compartida debe adjuntar el Bearer.
+
+5. **⚠️ Alineación de versiones si referencias por `ProjectReference` (NU1605).** Si consumes la librería
+   como código fuente (ProjectReference) en vez de NuGet, sus versiones *pineadas* por Central Package
+   Management (hoy **EF Core 10.0.10**, **Radzen.Blazor 11.1.5**, **Microsoft.Extensions/AspNetCore.Components
+   10.0.10**) llegan **transitivas** a tu host. Si tus proyectos referencian esos paquetes directamente en
+   una versión MENOR, NuGet aborta con **NU1605 (degradación de paquete)**. Solución: sube las
+   `PackageReference` directas **solo de los proyectos que referencian KnowledgeHub** al piso de la
+   librería (el resto de la solución no se toca). Y recuerda referenciar explícitamente
+   `MgSoftDev.KnowledgeHub.Storage.EntityFramework` (ahí vive `KnowledgeHubEfModelOptions`).
+
+> Dos proyectos, no uno: como el `.Client` (WASM) no puede referenciar los paquetes de servidor,
+> conviene un proyecto RCL para el cliente (referenciado por tu `.Client`) y un proyecto de biblioteca
+> aparte para el servidor (referenciado por tu proyecto servidor). El esquema SQL admite override:
+> `o.Schema = "KnowledgeHub"` en vez del default `kh` funciona sin más (verificado).
+
+---
+
 ## 8. Herramientas personalizadas del editor HTML
 
 El editor trae 4 callouts integrados (Nota, Advertencia, Importante, Personalizado…) que se
@@ -897,6 +1042,9 @@ anchas se reducen al ingresarlas).
 | (Store propio) Un usuario ve páginas ajenas | Filtro de visibilidad aplicado después de materializar | Filtra DENTRO de la query (§4.3 regla 2) |
 | El token WASM se pierde al refrescar | Token solo en memoria | Persistir en `sessionStorage` (nota del §7.2) |
 | Los servicios "recuerdan" al usuario anterior (Server) | Contexto de usuario registrado singleton | En Blazor Server el user context va **Scoped** (§3.1) |
+| NU1605 (degradación de paquete) al compilar tras `ProjectReference` | Versiones pineadas de la librería (EF/Radzen/Extensions) llegan transitivas por encima de tus refs directas | Sube las `PackageReference` de los proyectos que referencian KnowledgeHub al piso de la librería (§7.3, punto 5) |
+| En Blazor Web App unificado, el servidor llama al API de KnowledgeHub "a sí mismo" | `AddKnowledgeHubHttpClient` se registró también en el servidor | Guarda el registro de cliente con `if (OperatingSystem.IsBrowser())` (§7.3, punto 1) |
+| Los diálogos de KnowledgeHub no abren aunque Radzen esté configurado | `<RadzenComponents />` solo está en el layout del host, que las páginas `/kh` reemplazan | Móntalo a nivel de router (§7.3, punto 3) |
 
 ---
 

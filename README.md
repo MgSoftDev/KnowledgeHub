@@ -18,6 +18,22 @@ Fue extraído del demo de referencia `DocsPortal` a una librería desacoplada qu
 Server** o **LiteDB** (y extensible a otros motores). La aplicación anfitriona conserva su propio
 sistema de usuarios: solo le dice a KnowledgeHub quién es el usuario y qué permisos tiene.
 
+## Dos formas de usarlo
+
+**1. Embebido en tu app** (dentro de tu layout, con tu menú y topbar) — una línea:
+
+```razor
+@page "/documentacion"
+<KnowledgeHubBrowser Title="Documentación" />
+```
+
+También puedes componer a tu medida (`KnowledgeHubNavTree` en tu sidebar, `KnowledgeHubPageView`
+en tu contenido, el editor en una pestaña…). Ver la
+[guía §3.5](GUIA-IMPLEMENTACION.md#35-dos-modos-de-integración-portal-vs-embebido).
+
+**2. Portal llave en mano** — añades la RCL al Router y quedan listas las rutas `/kh/*`
+(`/kh/page/{id}`, `/kh/edit/{id}`, …), que adoptan el layout que fije tu Router.
+
 ## Documentación
 
 - **[GUIA-IMPLEMENTACION.md](GUIA-IMPLEMENTACION.md)** — guía paso a paso para integrar la

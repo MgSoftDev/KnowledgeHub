@@ -1,0 +1,47 @@
+@* Historial de versiones de una página (ver / restaurar). Embebible. *@
+
+<div class="kh-doc-content" style="max-width:1040px;">
+    <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Historial de versiones</RadzenText>
+
+    @if (Loading)
+    {
+        <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+    }
+    else
+    {
+        <RadzenDataGrid Data="@Versions" TItem="VersionListItemDto" AllowSorting="true" Density="Density.Compact">
+            <Columns>
+                <RadzenDataGridColumn TItem="VersionListItemDto" Property="VersionNumber" Title="Versión" Width="90px" />
+                <RadzenDataGridColumn TItem="VersionListItemDto" Property="AuthorName" Title="Autor" />
+                <RadzenDataGridColumn TItem="VersionListItemDto" Property="RowCreateDate" Title="Fecha"
+                                      FormatString="{0:dd/MM/yyyy HH:mm}" Width="160px" />
+                <RadzenDataGridColumn TItem="VersionListItemDto" Title="Estado" Width="170px">
+                    <Template Context="v">
+                        <RadzenBadge Text="@(v.Status == DocPageStatus.Published ? "Publicada" : "Borrador")"
+                                     BadgeStyle="@(v.Status == DocPageStatus.Published ? BadgeStyle.Success : BadgeStyle.Light)" />
+                        @if (v.IsCurrentPublished)
+                        {
+                            <RadzenBadge Text="actual" BadgeStyle="BadgeStyle.Info" class="rz-ml-1" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="VersionListItemDto" Property="ChangeNote" Title="Nota" />
+                <RadzenDataGridColumn TItem="VersionListItemDto" Title="Acciones" Width="190px" Sortable="false">
+                    <Template Context="v">
+                        <RadzenButton Text="Ver" Icon="visibility" Size="ButtonSize.ExtraSmall"
+                                      Click="@(() => GoVersion(v.Pk))" />
+                        @if (User.CanEdit())
+                        {
+                            <RadzenButton Text="Restaurar" Icon="restore" Size="ButtonSize.ExtraSmall"
+                                          ButtonStyle="ButtonStyle.Light" class="rz-ml-1"
+                                          Click="@(() => RestoreAsync(v.Pk))" Disabled="@Wait" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+        <RadzenButton Text="Volver a la página" Icon="arrow_back" ButtonStyle="ButtonStyle.Light" class="rz-mt-3"
+                      Click="@GoBack" />
+    }
+</div>

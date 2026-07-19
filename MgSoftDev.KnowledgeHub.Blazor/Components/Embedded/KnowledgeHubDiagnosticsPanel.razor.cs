@@ -8,9 +8,10 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Radzen;
 
-namespace MgSoftDev.KnowledgeHub.Blazor.Components.Pages;
+namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 
-public partial class Diagnostics : ComponentBase
+/// <summary>Performance/cache diagnostics panel. Embeddable anywhere.</summary>
+public partial class KnowledgeHubDiagnosticsPanel : ComponentBase
 {
     [Inject] private IKnowledgeHubDiagnostics DiagnosticsService { get; set; } = null!;
     [Inject] private IKnowledgeHubHtmlImageRewriter Rewriter { get; set; } = null!;

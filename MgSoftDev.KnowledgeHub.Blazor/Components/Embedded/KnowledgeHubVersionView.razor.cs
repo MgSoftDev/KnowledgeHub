@@ -2,11 +2,18 @@ using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
 using Microsoft.AspNetCore.Components;
 
-namespace MgSoftDev.KnowledgeHub.Blazor.Components.Pages;
+namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 
-public partial class VersionView : ComponentBase
+/// <summary>
+/// Renders a specific historical version. Embeddable; supply the callback to handle "back"
+/// yourself, or omit it to fall back to /kh/history/{pagePk}.
+/// </summary>
+public partial class KnowledgeHubVersionView : ComponentBase
 {
     [Parameter] public Guid VersionPk { get; set; }
+
+    /// <summary>Receives the page pk. Without a handler, navigates to /kh/history/{pagePk}.</summary>
+    [Parameter] public EventCallback<Guid> OnBackRequested { get; set; }
 
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IKnowledgeHubHtmlImageRewriter Rewriter { get; set; } = null!;
@@ -35,5 +42,13 @@ public partial class VersionView : ComponentBase
         var rewrite = await Rewriter.PrepareForDisplayAsync(Page.ContentHtml);
         RenderedHtml = rewrite.OkNotNull ? rewrite.Value.Html : Page.ContentHtml;
         Loading = false;
+    }
+
+    private async Task GoBack()
+    {
+        if (Page is null) return;
+
+        if (OnBackRequested.HasDelegate) await OnBackRequested.InvokeAsync(Page.PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.History(Page.PagePk));
     }
 }

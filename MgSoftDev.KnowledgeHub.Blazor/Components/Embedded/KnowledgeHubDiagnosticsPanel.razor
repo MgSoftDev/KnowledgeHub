@@ -1,0 +1,64 @@
+@* Panel de diagnóstico de rendimiento/caché. Embebible. *@
+
+<div class="kh-doc-content" style="max-width:820px;">
+    <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Panel de diagnóstico</RadzenText>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+        <RadzenButton Text="Actualizar" Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="@Refresh" Disabled="@Wait" />
+        @if (Cache is not null)
+        {
+            <RadzenButton Text="Limpiar caché" Icon="delete_sweep" ButtonStyle="ButtonStyle.Warning"
+                          Click="@(() => ClearCacheCommand.CanAndExecute())"
+                          Disabled="@(!ClearCacheCommand.CanExecute())" IsBusy="@Wait" />
+        }
+        <RadzenButton Text="Simular 50 navegaciones" Icon="speed" ButtonStyle="ButtonStyle.Info"
+                      Click="@(() => SimulateCommand.CanAndExecute())"
+                      Disabled="@(!SimulateCommand.CanExecute())" IsBusy="@Wait" BusyText="Simulando..." />
+    </div>
+
+    <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">Última navegación</RadzenText>
+    @if (Last is null)
+    {
+        <p style="color:#6b7280;">Aún no hay navegaciones registradas. Abre una página del árbol.</p>
+    }
+    else
+    {
+        <table class="kh-diag-table">
+            <tbody>
+                <tr><th>Página</th><td>@Last.PageTitle</td></tr>
+                <tr><th>Query HTML</th><td>@Last.HtmlQueryMs.ToString("F1") ms</td></tr>
+                <tr><th>Query hashes</th><td>@Last.HashesQueryMs.ToString("F1") ms</td></tr>
+                <tr><th>Query blobs</th><td>@Last.BlobsQueryMs.ToString("F1") ms</td></tr>
+                <tr><th>Tiempo total a render</th><td><strong>@Last.TotalMs.ToString("F1") ms</strong></td></tr>
+                <tr><th>Imágenes en la página</th><td>@Last.ImageCount</td></tr>
+                <tr><th>Desde caché (hits)</th><td>@Last.CacheHits</td></tr>
+                <tr><th>Descargadas (misses)</th><td>@Last.CacheMisses</td></tr>
+                <tr><th>Bytes desde el almacén</th><td>@Last.BytesFromStore.ToString("N0")</td></tr>
+            </tbody>
+        </table>
+    }
+
+    <RadzenText TextStyle="TextStyle.H6" class="rz-mt-4 rz-mb-2">Acumulado de la sesión</RadzenText>
+    <table class="kh-diag-table">
+        <tbody>
+            <tr><th>Cache hits acumulados</th><td>@CumulativeHits</td></tr>
+            <tr><th>Cache misses acumulados</th><td>@CumulativeMisses</td></tr>
+            @if (Cache is not null)
+            {
+                <tr><th>Tamaño de la carpeta de caché</th><td>@CacheSizeKb.ToString("N1") KB</td></tr>
+            }
+        </tbody>
+    </table>
+
+    @if (SimResult is not null)
+    {
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mt-4 rz-mb-2">Simulación de @SimResult.Count navegaciones</RadzenText>
+        <table class="kh-diag-table">
+            <tbody>
+                <tr><th>Promedio</th><td>@SimResult.AvgMs.ToString("F1") ms</td></tr>
+                <tr><th>p95</th><td>@SimResult.P95Ms.ToString("F1") ms</td></tr>
+                <tr><th>Total hits / misses</th><td>@SimResult.Hits / @SimResult.Misses</td></tr>
+            </tbody>
+        </table>
+    }
+</div>

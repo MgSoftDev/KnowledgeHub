@@ -2,13 +2,64 @@
    host application without collisions. Reference from the host page as
    _content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.css */
 
+/* Alturas: por defecto el módulo asume pantalla completa (portal standalone). Embebido bajo
+   la topbar de una app anfitriona, sobreescribe estas variables en tu contenedor, p. ej.
+   .mi-contenedor { --kh-portal-height: calc(100vh - 64px); } — o usa los componentes
+   embebibles (KnowledgeHubBrowser), que ya se ajustan al 100% de su contenedor. */
+:root {
+    --kh-portal-height: 100vh;
+    --kh-editor-height: calc(100vh - 48px);
+}
+
 /* Portal layout: fixed sidebar + scrollable content. */
 .kh-portal {
     display: grid;
     grid-template-columns: 320px 1fr;
-    height: 100vh;
+    height: var(--kh-portal-height);
     overflow: hidden;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Embeddable browser (tree + content) for use inside a host layout. */
+.kh-browser {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: var(--kh-portal-height);
+    overflow: hidden;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Embedded mode: fill the host container instead of the viewport. */
+.kh-browser.kh-embedded {
+    height: 100%;
+    min-height: 0;
+}
+
+.kh-browser.kh-embedded .kh-editor-fill {
+    height: 100%;
+}
+
+.kh-browser-sidebar {
+    border-right: 1px solid #e5e7eb;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+}
+
+.kh-browser-content {
+    overflow: auto;
+    padding: 24px 32px;
+    min-width: 0;
+}
+
+/* The nav tree fills whatever column hosts it (module sidebar or your own). */
+.kh-navtree {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
 }
 
 .kh-portal-sidebar {
@@ -90,7 +141,9 @@
 .kh-editor-fill {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 48px); /* content area = viewport minus .kh-portal-content padding */
+    /* Default: viewport minus .kh-portal-content padding. Override --kh-editor-height when
+       embedding under a host topbar (or use KnowledgeHubBrowser, which sets it to 100%). */
+    height: var(--kh-editor-height);
     max-width: 1100px;
 }
 

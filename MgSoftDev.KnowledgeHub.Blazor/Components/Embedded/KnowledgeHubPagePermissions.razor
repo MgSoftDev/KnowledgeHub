@@ -1,0 +1,49 @@
+@* Visibilidad de una página (pública / permisos del catálogo del anfitrión). Embebible. *@
+
+@if (!CanManage)
+{
+    <div class="kh-doc-content"><h1>Sin permiso</h1><p>No tienes permiso para gestionar la visibilidad.</p></div>
+}
+else if (Loading)
+{
+    <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+}
+else
+{
+    <div class="kh-doc-content" style="max-width:560px;">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Visibilidad de la página</RadzenText>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <RadzenSwitch @bind-Value="IsPublic" />
+            <span>Pública — visible para todos</span>
+        </div>
+
+        @if (!IsPublic)
+        {
+            <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Permisos con acceso:</RadzenText>
+            @if (Catalog.Count == 0)
+            {
+                <p style="color:#6b7280;">El sistema anfitrión no expone permisos en su catálogo.</p>
+            }
+            else
+            {
+                <RadzenCheckBoxList @bind-Value="SelectedPermissions" TValue="string" Orientation="Orientation.Vertical">
+                    <Items>
+                        @foreach (var permission in Catalog)
+                        {
+                            <RadzenCheckBoxListItem Text="@permission.DisplayName" Value="@permission.Name" />
+                        }
+                    </Items>
+                </RadzenCheckBoxList>
+            }
+        }
+
+        <div style="display:flex;gap:8px;margin-top:20px;">
+            <RadzenButton Text="Guardar" Icon="save"
+                          Click="@(() => SaveCommand.CanAndExecute())"
+                          Disabled="@(!SaveCommand.CanExecute())" IsBusy="@Wait" BusyText="Guardando..." />
+            <RadzenButton Text="Volver" Icon="arrow_back" ButtonStyle="ButtonStyle.Light"
+                          Click="@GoBack" Disabled="@Wait" />
+        </div>
+    </div>
+}

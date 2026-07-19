@@ -1,0 +1,75 @@
+@* Editor de una página (RadzenHtmlEditor + herramientas personalizables). Embebible: pásale
+   PagePk y, opcionalmente, callbacks para manejar publicar/descartar sin navegar. *@
+
+@if (!User.CanEdit())
+{
+    <div class="kh-doc-content">
+        <h1>Sin permiso</h1>
+        <p>No tienes permiso para editar páginas.</p>
+    </div>
+}
+else if (Loading)
+{
+    <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+}
+else if (SelectItem is null)
+{
+    <div class="kh-doc-content">
+        <h1>No disponible</h1>
+        <p>No se pudo cargar la página para edición.</p>
+    </div>
+}
+else
+{
+    <div class="kh-editor-fill">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-2">Editar página</RadzenText>
+
+        <RadzenTextBox @bind-Value="SelectItem.Title" Placeholder="Título" class="rz-w-100 rz-mb-2" />
+
+        <div class="kh-editor-host">
+            <RadzenHtmlEditor @bind-Value="SelectItem.ContentHtml" style="position:absolute; inset:0;"
+                              Execute="@OnEditorExecute">
+                <RadzenHtmlEditorUndo /> <RadzenHtmlEditorRedo />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorBold /> <RadzenHtmlEditorItalic /> <RadzenHtmlEditorUnderline /> <RadzenHtmlEditorStrikeThrough />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorAlignLeft /> <RadzenHtmlEditorAlignCenter /> <RadzenHtmlEditorAlignRight /> <RadzenHtmlEditorJustify />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorIndent /> <RadzenHtmlEditorOutdent />
+                <RadzenHtmlEditorUnorderedList /> <RadzenHtmlEditorOrderedList />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorColor /> <RadzenHtmlEditorBackground /> <RadzenHtmlEditorRemoveFormat />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorSubscript /> <RadzenHtmlEditorSuperscript />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorLink /> <RadzenHtmlEditorUnlink /> <RadzenHtmlEditorImage /> <RadzenHtmlEditorTable />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorFontName /> <RadzenHtmlEditorFontSize /> <RadzenHtmlEditorFormatBlock />
+                <RadzenHtmlEditorSeparator />
+                <RadzenHtmlEditorSource />
+                <RadzenHtmlEditorSeparator />
+                @foreach (var tool in Options.EditorTools)
+                {
+                    <RadzenHtmlEditorCustomTool CommandName="@tool.CommandName" Icon="@tool.Icon" Title="@tool.Title" />
+                }
+            </RadzenHtmlEditor>
+        </div>
+
+        <RadzenFormField Text="Nota de cambio (opcional)" class="rz-w-100 rz-mb-3">
+            <RadzenTextBox @bind-Value="SelectItem.ChangeNote" />
+        </RadzenFormField>
+
+        <div style="display:flex;gap:8px;">
+            <RadzenButton Text="Guardar borrador" Icon="save"
+                          Click="@(() => SaveDraftCommand.CanAndExecute())"
+                          Disabled="@(!SaveDraftCommand.CanExecute())"
+                          IsBusy="@Wait" BusyText="Guardando..." />
+            <RadzenButton Text="Publicar" Icon="publish" ButtonStyle="ButtonStyle.Success"
+                          Click="@(() => PublishCommand.CanAndExecute())"
+                          Disabled="@(!PublishCommand.CanExecute())"
+                          IsBusy="@Wait" BusyText="Publicando..." />
+            <RadzenButton Text="Descartar" Icon="close" ButtonStyle="ButtonStyle.Light"
+                          Click="@Discard" Disabled="@Wait" />
+        </div>
+    </div>
+}

@@ -1,0 +1,29 @@
+@inherits LayoutComponentBase
+
+@* Layout que SIMULA una aplicación anfitriona real: su topbar y su menú lateral.
+   Sirve para demostrar que el módulo KnowledgeHub se embebe dentro del layout del
+   anfitrión, en vez de imponer el suyo. *@
+
+<div class="host-shell">
+    <header class="host-topbar">
+        <span class="host-brand">🏭 Mi ERP</span>
+        <nav class="host-topnav">
+            <a href="/mi-app/inicio">Inicio</a>
+            <a href="/mi-app/documentacion">Documentación</a>
+        </nav>
+        <span class="host-user">Sesión del anfitrión</span>
+    </header>
+
+    <div class="host-body">
+        <aside class="host-menu">
+            <div class="host-menu-title">Módulos</div>
+            <a href="/mi-app/inicio">📊 Tablero</a>
+            <a href="/mi-app/documentacion">📚 Documentación</a>
+            <a href="/admin">👥 Usuarios</a>
+        </aside>
+
+        <main class="host-content">
+            @Body
+        </main>
+    </div>
+</div>

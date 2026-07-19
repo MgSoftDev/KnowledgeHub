@@ -4,11 +4,31 @@ using MgSoftDev.KnowledgeHub.Dtos;
 using MgSoftDev.KnowledgeHub.Security;
 using Microsoft.AspNetCore.Components;
 
-namespace MgSoftDev.KnowledgeHub.Blazor.Components.Pages;
+namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 
-public partial class Reader : ComponentBase
+/// <summary>
+/// Reads and renders the published version of a page (images resolved through the rewriter).
+/// Embeddable anywhere; supply the action callbacks to keep the user inside your own screen,
+/// or omit them to fall back to URL navigation over the built-in /kh routes.
+/// </summary>
+public partial class KnowledgeHubPageView : ComponentBase
 {
     [Parameter] public Guid PagePk { get; set; }
+
+    /// <summary>Show the meta/actions bar (version + Edit/Permissions/Manage/History). Default true.</summary>
+    [Parameter] public bool ShowActions { get; set; } = true;
+
+    /// <summary>Without a handler, navigates to /kh/edit/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnEditRequested { get; set; }
+
+    /// <summary>Without a handler, navigates to /kh/history/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnHistoryRequested { get; set; }
+
+    /// <summary>Without a handler, navigates to /kh/permissions/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnPermissionsRequested { get; set; }
+
+    /// <summary>Without a handler, navigates to /kh/manage/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnManageRequested { get; set; }
 
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IKnowledgeHubHtmlImageRewriter Rewriter { get; set; } = null!;
@@ -21,7 +41,7 @@ public partial class Reader : ComponentBase
     protected string? ErrorMessage { get; private set; }
     protected bool Loading { get; private set; } = true;
 
-    // Fires whenever the route parameter changes, i.e. when navigating between pages.
+    // Fires whenever PagePk changes, both as a route parameter and as a component parameter.
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
     private async Task LoadAsync()
@@ -77,8 +97,27 @@ public partial class Reader : ComponentBase
         Loading = false;
     }
 
-    private void GoEdit() => Nav.NavigateTo(KnowledgeHubRoutes.Edit(PagePk));
-    private void GoHistory() => Nav.NavigateTo(KnowledgeHubRoutes.History(PagePk));
-    private void GoPermissions() => Nav.NavigateTo(KnowledgeHubRoutes.Permissions(PagePk));
-    private void GoManage() => Nav.NavigateTo(KnowledgeHubRoutes.Manage(PagePk));
+    private async Task GoEdit()
+    {
+        if (OnEditRequested.HasDelegate) await OnEditRequested.InvokeAsync(PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.Edit(PagePk));
+    }
+
+    private async Task GoHistory()
+    {
+        if (OnHistoryRequested.HasDelegate) await OnHistoryRequested.InvokeAsync(PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.History(PagePk));
+    }
+
+    private async Task GoPermissions()
+    {
+        if (OnPermissionsRequested.HasDelegate) await OnPermissionsRequested.InvokeAsync(PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.Permissions(PagePk));
+    }
+
+    private async Task GoManage()
+    {
+        if (OnManageRequested.HasDelegate) await OnManageRequested.InvokeAsync(PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.Manage(PagePk));
+    }
 }

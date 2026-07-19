@@ -1,0 +1,21 @@
+@* Visualización de una versión histórica concreta. Embebible. *@
+
+@if (Loading)
+{
+    <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+}
+else if (ErrorMessage is not null)
+{
+    <div class="kh-doc-content"><h1>No disponible</h1><p style="color:#c62828;">@ErrorMessage</p></div>
+}
+else if (Page is not null)
+{
+    <div class="kh-doc-content">
+        <div class="kh-doc-meta" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Versión @Page.VersionNumber · @(Page.Status == DocPageStatus.Published ? "Publicada" : "Borrador")</span>
+            <RadzenButton Text="Volver al historial" Icon="arrow_back" Size="ButtonSize.ExtraSmall"
+                          ButtonStyle="ButtonStyle.Light" Click="@GoBack" />
+        </div>
+        @((MarkupString)RenderedHtml)
+    </div>
+}

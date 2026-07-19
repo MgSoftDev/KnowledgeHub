@@ -7,6 +7,78 @@ html, body {
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* ------------------------------------------------------------------
+   Layout SIMULADO de la app anfitriona (topbar + menú), para demostrar
+   el módulo KnowledgeHub embebido dentro de él.
+   ------------------------------------------------------------------ */
+.host-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.host-topbar {
+    height: 56px;
+    flex: 0 0 56px;
+    background: #1e293b;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 20px;
+}
+
+.host-brand { font-weight: 700; font-size: 1.05rem; }
+
+.host-topnav { display: flex; gap: 16px; flex: 1; }
+.host-topnav a { color: #cbd5e1; text-decoration: none; font-size: 0.9rem; }
+.host-topnav a:hover { color: #ffffff; }
+
+.host-user { color: #94a3b8; font-size: 0.8rem; }
+
+.host-body {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 0;
+}
+
+.host-menu {
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: auto;
+}
+
+.host-menu-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #94a3b8;
+    margin-bottom: 6px;
+}
+
+.host-menu a {
+    color: #334155;
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 7px 10px;
+    border-radius: 6px;
+}
+
+.host-menu a:hover { background: #e2e8f0; }
+
+/* El contenido del anfitrión: aquí vive el KnowledgeHubBrowser, que se ajusta al 100%. */
+.host-content {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
 /* Static login page. */
 .login-shell {
     display: flex;

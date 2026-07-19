@@ -1,0 +1,58 @@
+@* Árbol de navegación del portal, embebible: colócalo en tu propio sidebar/menú.
+   Sin callbacks navega por URL (rutas /kh/*); con callbacks te delega la acción. *@
+
+<div class="kh-navtree">
+    @if (ShowHeader)
+    {
+        <div class="kh-portal-sidebar-header">
+            <span>@(Title ?? Options.PortalTitle)</span>
+            <span style="display:flex;gap:4px;">
+                @if (AllowCreate && User.CanEdit())
+                {
+                    <RadzenButton Icon="add" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.ExtraSmall"
+                                  Click="@CreateRootPageAsync" Disabled="@Wait" title="Nueva página raíz" />
+                }
+                <RadzenButton Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.ExtraSmall"
+                              Click="@RefreshAsync" title="Recargar árbol" />
+            </span>
+        </div>
+    }
+
+    @if (ShowSearch)
+    {
+        <div class="kh-portal-search">
+            <RadzenTextBox @bind-Value="SearchTerm" Placeholder="Buscar en el portal…"
+                           class="rz-w-100" @onkeydown="@OnSearchKeyDown" />
+        </div>
+    }
+
+    <div class="kh-portal-tree">
+        @if (Loading)
+        {
+            <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+        }
+        else if (Roots.Count == 0)
+        {
+            <p style="color:#9ca3af;padding:8px;">No hay páginas visibles para tus permisos.</p>
+        }
+        else
+        {
+            <RadzenTree Data="@Roots" Change="@OnNodeSelect" Style="width:100%">
+                <RadzenTreeLevel TextProperty="@nameof(PageTreeNodeDto.Title)"
+                                 ChildrenProperty="@nameof(PageTreeNodeDto.Children)"
+                                 HasChildren="@(o => ((PageTreeNodeDto)o).Children.Count > 0)"
+                                 Expanded="@(_ => true)" />
+            </RadzenTree>
+        }
+    </div>
+
+    @if (ShowUser && User.IsAuthenticated)
+    {
+        <div class="kh-portal-user">👤 @User.DisplayName</div>
+    }
+
+    @if (FooterContent is not null)
+    {
+        <div class="kh-portal-links">@FooterContent</div>
+    }
+</div>

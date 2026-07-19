@@ -1,0 +1,79 @@
+@* Portal completo embebible: árbol + panel de contenido, con navegación INTERNA (no cambia
+   la URL ni saca al usuario de tu página). Colócalo en una página de tu app, con tu layout. *@
+
+<div class="kh-browser @(Embedded ? "kh-embedded" : null)">
+    @if (ShowTree)
+    {
+        <div class="kh-browser-sidebar">
+            <KnowledgeHubNavTree @ref="_navTree"
+                                 Title="@Title"
+                                 ShowHeader="@ShowTreeHeader"
+                                 ShowSearch="@ShowSearch"
+                                 ShowUser="@ShowUser"
+                                 AllowCreate="@AllowCreate"
+                                 OnPageSelected="@SelectPageAsync"
+                                 OnCreatePageRequested="@EditPageAsync"
+                                 OnSearchRequested="@SearchAsync" />
+        </div>
+    }
+
+    <div class="kh-browser-content">
+        @switch (View)
+        {
+            case BrowserView.Empty:
+                @if (EmptyContent is not null)
+                {
+                    @EmptyContent
+                }
+                else
+                {
+                    <div class="kh-doc-content">
+                        <h1>@Title</h1>
+                        <p>Selecciona una página del árbol para leer su contenido.</p>
+                    </div>
+                }
+                break;
+
+            case BrowserView.Page:
+                <KnowledgeHubPageView PagePk="@SelectedPagePk!.Value"
+                                      OnEditRequested="@EditPageAsync"
+                                      OnHistoryRequested="@ShowHistoryAsync"
+                                      OnPermissionsRequested="@ShowPermissionsAsync"
+                                      OnManageRequested="@ShowManageAsync" />
+                break;
+
+            case BrowserView.Edit:
+                <KnowledgeHubPageEditor PagePk="@SelectedPagePk!.Value"
+                                        OnPublished="@SelectPageAsync"
+                                        OnDiscarded="@SelectPageAsync" />
+                break;
+
+            case BrowserView.History:
+                <KnowledgeHubPageHistory PagePk="@SelectedPagePk!.Value"
+                                         OnVersionRequested="@ShowVersionAsync"
+                                         OnBackRequested="@SelectPageAsync" />
+                break;
+
+            case BrowserView.Version:
+                <KnowledgeHubVersionView VersionPk="@SelectedVersionPk!.Value"
+                                         OnBackRequested="@ShowHistoryAsync" />
+                break;
+
+            case BrowserView.Permissions:
+                <KnowledgeHubPagePermissions PagePk="@SelectedPagePk!.Value"
+                                             OnBackRequested="@SelectPageAsync" />
+                break;
+
+            case BrowserView.Manage:
+                <KnowledgeHubPageManage PagePk="@SelectedPagePk!.Value"
+                                        OnBackRequested="@SelectPageAsync"
+                                        OnChildCreated="@EditPageAsync"
+                                        OnDeleted="@ClearSelectionAsync" />
+                break;
+
+            case BrowserView.Search:
+                <KnowledgeHubSearchResults Term="@SearchTerm" OnPageSelected="@SelectPageAsync" />
+                break;
+        }
+    </div>
+</div>

@@ -6,11 +6,18 @@ using MgSoftDev.ReturningCore;
 using Microsoft.AspNetCore.Components;
 using Radzen;
 
-namespace MgSoftDev.KnowledgeHub.Blazor.Components.Pages;
+namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 
-public partial class Permissions : ComponentBase
+/// <summary>
+/// Per-page visibility editor (public flag + host permission names). Embeddable; supply the
+/// callback to handle "back" yourself, or omit it to fall back to /kh/page/{pk}.
+/// </summary>
+public partial class KnowledgeHubPagePermissions : ComponentBase
 {
     [Parameter] public Guid PagePk { get; set; }
+
+    /// <summary>Without a handler, navigates to /kh/page/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnBackRequested { get; set; }
 
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IKnowledgeHubUserContext User { get; set; } = null!;
@@ -65,4 +72,10 @@ public partial class Permissions : ComponentBase
             r.SendNotifyIfNotOk(Notify, "Error al guardar la visibilidad");
             StateHasChanged();
         });
+
+    private async Task GoBack()
+    {
+        if (OnBackRequested.HasDelegate) await OnBackRequested.InvokeAsync(PagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.Page(PagePk));
+    }
 }

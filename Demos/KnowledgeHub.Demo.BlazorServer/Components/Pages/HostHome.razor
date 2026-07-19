@@ -1,0 +1,18 @@
+@page "/mi-app/inicio"
+@layout HostShellLayout
+
+@* Página cualquiera del anfitrión, para comprobar que la documentación convive con el resto
+   de la app bajo el mismo layout. *@
+
+<div style="padding:8px;">
+    <h1>Tablero del anfitrión</h1>
+    <p style="color:#6b7280;">
+        Esta es una pantalla propia de la aplicación anfitriona. Usa el menú lateral para abrir
+        <a href="/mi-app/documentacion">Documentación</a>: el módulo KnowledgeHub se renderiza
+        dentro de este mismo layout (topbar + menú), no impone el suyo.
+    </p>
+    <p style="color:#6b7280;">
+        Los deep links del módulo siguen funcionando aparte, p. ej.
+        <a href="/kh">/kh</a> (portal completo con el layout del módulo).
+    </p>
+</div>

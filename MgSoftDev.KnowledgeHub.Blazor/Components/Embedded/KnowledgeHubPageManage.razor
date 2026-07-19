@@ -1,0 +1,51 @@
+@* Gestión estructural de una página (renombrar, mover, ordenar, subpáginas, eliminar). Embebible. *@
+
+@if (!User.CanEdit())
+{
+    <div class="kh-doc-content"><h1>Sin permiso</h1><p>No tienes permiso para gestionar páginas.</p></div>
+}
+else if (Loading)
+{
+    <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+}
+else if (Info is null)
+{
+    <div class="kh-doc-content"><h1>No disponible</h1><p>No se pudo cargar la página.</p></div>
+}
+else
+{
+    <div class="kh-doc-content" style="max-width:620px;">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Gestionar página</RadzenText>
+
+        <RadzenFormField Text="Título" class="rz-w-100 rz-mb-2">
+            <RadzenTextBox @bind-Value="Info.Title" />
+        </RadzenFormField>
+        <RadzenButton Text="Renombrar" Icon="edit" Size="ButtonSize.Small" Click="@RenameAsync" Disabled="@Wait" class="rz-mb-4" />
+
+        <RadzenFormField Text="Página padre" class="rz-w-100 rz-mb-2">
+            <RadzenDropDown @bind-Value="SelectedParent" Data="@ParentOptions" TextProperty="Title" ValueProperty="Pk"
+                            AllowClear="true" Placeholder="(raíz)" />
+        </RadzenFormField>
+        <RadzenButton Text="Mover" Icon="drive_file_move" Size="ButtonSize.Small" Click="@MoveAsync" Disabled="@Wait" class="rz-mb-4" />
+
+        <RadzenFormField Text="Orden entre hermanos" class="rz-w-100 rz-mb-2">
+            <RadzenNumeric @bind-Value="Info.SortOrder" />
+        </RadzenFormField>
+        <RadzenButton Text="Reordenar" Icon="sort" Size="ButtonSize.Small" Click="@ReorderAsync" Disabled="@Wait" class="rz-mb-4" />
+
+        <hr />
+        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Crear subpágina</RadzenText>
+        <div style="display:flex;gap:8px;align-items:center;" class="rz-mb-4">
+            <RadzenTextBox @bind-Value="NewChildTitle" Placeholder="Título de la subpágina" style="width:320px;" />
+            <RadzenButton Text="Crear" Icon="add" Size="ButtonSize.Small" Click="@CreateChildAsync" Disabled="@Wait" />
+        </div>
+
+        <hr />
+        <div style="display:flex;gap:8px;">
+            <RadzenButton Text="Eliminar página" Icon="delete" ButtonStyle="ButtonStyle.Danger"
+                          Click="@DeleteAsync" Disabled="@Wait" />
+            <RadzenButton Text="Volver" Icon="arrow_back" ButtonStyle="ButtonStyle.Light"
+                          Click="@GoBack" Disabled="@Wait" />
+        </div>
+    </div>
+}
