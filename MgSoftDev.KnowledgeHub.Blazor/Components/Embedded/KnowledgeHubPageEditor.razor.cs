@@ -97,8 +97,16 @@ public partial class KnowledgeHubPageEditor : ComponentBase
             if (!publish.Ok) return publish;
 
             Notify.ShowSuccess("Página publicada");
-            if (OnPublished.HasDelegate) await OnPublished.InvokeAsync(SelectItem.PagePk);
-            else Nav.NavigateTo(KnowledgeHubRoutes.Page(SelectItem.PagePk));
+
+            // El cuerpo async de AsyncReturningCommand NO resume en el Dispatcher de Blazor, y
+            // el callback provoca un render en el anfitrión (StateHasChanged) → hay que
+            // marshalarlo con InvokeAsync. Si ya estamos en el Dispatcher se ejecuta inline.
+            var publishedPk = SelectItem.PagePk;
+            await InvokeAsync(async () =>
+            {
+                if (OnPublished.HasDelegate) await OnPublished.InvokeAsync(publishedPk);
+                else Nav.NavigateTo(KnowledgeHubRoutes.Page(publishedPk));
+            });
             return Returning.Success();
         }, () => !Wait && SelectItem is not null)
         .StartAction(() => Wait = true)

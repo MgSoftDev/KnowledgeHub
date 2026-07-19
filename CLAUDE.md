@@ -122,6 +122,12 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 10. **`RadzenLink` no admite `@onclick` + `@onclick:preventDefault`** (RZ10010: el parámetro
     'onclick' quedaría duplicado). Para un link que a veces navega y a veces delega, renderiza
     condicionalmente `<a @onclick>` vs `<RadzenLink Path>` (ver `KnowledgeHubSearchResults`).
+11. **El cuerpo async de `AsyncReturningCommand` NO resume en el Dispatcher de Blazor.** Invocar
+    ahí un `EventCallback` del anfitrión (que provoca `StateHasChanged` en su componente) lanza
+    *"The current thread is not associated with the Dispatcher"*. Solución: envolver en
+    `await InvokeAsync(async () => { ... })` (inline si ya estás en el Dispatcher). Solo aplica
+    dentro de comandos; los callbacks disparados desde handlers `@onclick` ya van en el
+    Dispatcher. Caso real: `KnowledgeHubPageEditor.PublishCommand` → `OnPublished` (v0.2.0).
 
 ## Pendientes / siguientes pasos
 
