@@ -45,6 +45,11 @@ Blazor Server, Blazor WASM). Estado: **10 fases completas y verificadas**, v0.1.
     delega. Patrón: `if (OnX.HasDelegate) await OnX.InvokeAsync(pk); else Nav.NavigateTo(...)`.
   - CSS: alturas por variables `--kh-portal-height` / `--kh-editor-height` (default `100vh`);
     `KnowledgeHubBrowser` usa `.kh-embedded` (100% del contenedor).
+  - **`Options.HeaderActionsComponent` lo renderiza `KnowledgeHubNavTree`** (no el layout), que
+    es el único componente presente en los tres modos → el gancho funciona siempre. Compone con
+    el `FooterContent` del árbol (primero el del anfitrión, luego el gancho). `KnowledgeHubLayout`
+    NO debe renderizarlo (sería doble). `KnowledgeHubBrowser` expone `TreeFooterContent` como
+    passthrough al `FooterContent` del árbol.
 - **Editor tools**: `EditorToolDescriptor` en `KnowledgeHubBlazorOptions.EditorTools`; los 4
   callouts built-in se registran por el mismo mecanismo (removibles).
 

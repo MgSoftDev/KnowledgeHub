@@ -51,8 +51,17 @@
         <div class="kh-portal-user">👤 @User.DisplayName</div>
     }
 
-    @if (FooterContent is not null)
+    @* El pie del árbol es el gancho del anfitrión y el árbol está presente en los TRES modos
+       (portal, enrutado y embebido), así que aquí se renderiza Options.HeaderActionsComponent
+       —componiendo con el FooterContent que pase el anfitrión, no compitiendo con él—. *@
+    @if (FooterContent is not null || Options.HeaderActionsComponent is not null)
     {
-        <div class="kh-portal-links">@FooterContent</div>
+        <div class="kh-portal-links">
+            @FooterContent
+            @if (Options.HeaderActionsComponent is not null)
+            {
+                <DynamicComponent Type="@Options.HeaderActionsComponent" />
+            }
+        </div>
     }
 </div>

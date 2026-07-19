@@ -3,7 +3,13 @@
 
 @* ESCENARIO OBJETIVO: el módulo de documentación embebido DENTRO del layout del anfitrión
    (topbar + menú propios). Una sola línea: el KnowledgeHubBrowser trae árbol + contenido y
-   navega internamente, sin sacar al usuario de esta página. *@
+   navega internamente, sin sacar al usuario de esta página.
 
-<KnowledgeHubBrowser  Title="Documentación" />
+   TreeFooterContent demuestra el pie de árbol propio del anfitrión; junto a él, el árbol
+   pinta además Options.HeaderActionsComponent (ServerHostLinks, configurado en Program.cs). *@
 
+<KnowledgeHubBrowser Title="Documentación">
+    <TreeFooterContent>
+        <a href="/mi-app/inicio" style="color:#6b7280;font-size:0.9rem;">← Volver al tablero</a>
+    </TreeFooterContent>
+</KnowledgeHubBrowser>

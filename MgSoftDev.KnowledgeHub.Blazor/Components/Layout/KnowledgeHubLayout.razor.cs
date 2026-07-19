@@ -11,7 +11,6 @@ namespace MgSoftDev.KnowledgeHub.Blazor.Components.Layout;
 /// </summary>
 public partial class KnowledgeHubLayout : LayoutComponentBase
 {
-    [Inject] private KnowledgeHubBlazorOptions Options { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
 
     /// <summary>The sidebar tree, exposed so the layout can refresh it.</summary>

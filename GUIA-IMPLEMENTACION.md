@@ -97,7 +97,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.1.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.2.0-preview.2" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -252,6 +252,12 @@ services.AddKnowledgeHubBlazor(o =>
 `HeaderActionsComponent` es el gancho para inyectar acciones del anfitrión en el sidebar del
 módulo (link de administración, botón de cerrar sesión, etc.). Es un componente Blazor tuyo.
 
+Lo renderiza **`KnowledgeHubNavTree`**, al pie del árbol, así que **funciona en los tres modos**
+sin que hagas nada más: portal (`KnowledgeHubLayout`), enrutado con el layout de tu app, y
+embebido (`KnowledgeHubBrowser`). Si además pasas un pie de árbol propio (`FooterContent` del
+`NavTree`, o `TreeFooterContent` del `Browser`), se muestran **los dos**: primero tu contenido y
+después el componente configurado aquí.
+
 ### 3.5 Dos modos de integración: portal vs. embebido
 
 KnowledgeHub se puede usar de dos formas, y **puedes combinarlas en la misma app**:
@@ -266,6 +272,41 @@ KnowledgeHub se puede usar de dos formas, y **puedes combinarlas en la misma app
 > **Importante (v0.2.0):** las páginas del módulo **ya no imponen `KnowledgeHubLayout`**. Adoptan
 > el `DefaultLayout` de tu Router. Si quieres el shell del módulo (escenario portal dedicado),
 > ponlo tú: `<RouteView RouteData="@routeData" DefaultLayout="@typeof(KnowledgeHubLayout)" />`.
+
+> ⚠️ **Consecuencia que sorprende:** en modo portal las páginas son envoltorios de una línea que
+> renderizan **solo el panel de contenido**. El árbol, la búsqueda y el botón de crear vivían en
+> `KnowledgeHubLayout`; si simplemente adoptas el layout de tu app, tus usuarios se quedan **sin
+> navegación**. Usa el patrón de abajo (o el modo embebido).
+
+**Patrón recomendado para un anfitrión con shell propio: layout anidado.** Da lo mejor de los dos
+modos —tu shell, el árbol del módulo y deep links reales— sin código de sincronización. Crea un
+layout que **anide** el tuyo y solo aporte el árbol, y elige el layout en el Router según la página:
+
+```razor
+@* DocLayout.razor — vive en TU proyecto: necesita ver tu MainLayout *@
+@inherits LayoutComponentBase
+@layout MainLayout          @* anida: header, menú y tema vienen de tu layout, sin duplicar markup *@
+
+<div class="kh-portal mi-doc-portal">
+    <div class="kh-portal-sidebar"><KnowledgeHubNavTree /></div>
+    <div class="kh-portal-content">@Body</div>
+</div>
+```
+
+```csharp
+// En tu Router, DefaultLayout dinámico. Comparar por ASSEMBLY cubre todas las páginas del módulo,
+// presentes y futuras, sin depender de cómo esté escrita la URL ni del namespace.
+// <AuthorizeRouteView RouteData="routeData" DefaultLayout="@LayoutFor(routeData)" />
+private static Type LayoutFor(RouteData routeData) =>
+    routeData.PageType.Assembly == typeof(KnowledgeHubAssemblyMarker).Assembly
+        ? typeof(DocLayout) : typeof(MainLayout);
+```
+
+Funciona por dos razones: `DefaultLayout` solo aplica a páginas que **no** declaran `@layout` —justo
+lo que hacen las del módulo desde v0.2.0— y **`KnowledgeHubNavTree` sin callbacks navega por URL** a
+las rutas `/kh/*`, así que el árbol del layout y la página enrutada de `@Body` reconstruyen el portal
+completo. Ojo: estas páginas **no** llevan `.kh-embedded`, así que necesitas el override de alturas
+(ver más abajo). Verificado integrándolo en una app real con shell propio.
 
 **Embeber el portal completo en una página tuya (lo más común):**
 
@@ -299,7 +340,7 @@ ni sacar al usuario de tu pantalla).
 
 | Componente | Parámetros principales | Callbacks (opcionales) |
 |---|---|---|
-| `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `@bind-SelectedPagePk` | — (navega internamente) |
+| `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `TreeFooterContent`, `@bind-SelectedPagePk` | — (navega internamente) |
 | `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
 | `KnowledgeHubPageView` | `PagePk`, `ShowActions` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
 | `KnowledgeHubPageEditor` | `PagePk` | `OnPublished`, `OnDiscarded` |
@@ -441,9 +482,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.1.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.1.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.1.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.2.0-preview.2" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.2.0-preview.2" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.2.0-preview.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -907,11 +948,11 @@ Verificado end-to-end integrándolo en una app real (host + plugin):
    .AddAdditionalAssemblies(typeof(KnowledgeHubAssemblyMarker).Assembly)`. En el `.Client`: el mismo
    ensamblado en `Router AdditionalAssemblies`. Si falta en cualquiera de los dos, `/kh/*` da "not found".
 
-3. **`<RadzenComponents />` debe estar a nivel de ROUTER, no del layout del host.** Las páginas de
-   KnowledgeHub declaran `@layout KnowledgeHubLayout` y **reemplazan** el layout de tu app; si tu único
-   `<RadzenComponents />` vive en tu `MainLayout`, los diálogos/notificaciones de KnowledgeHub no tendrán
-   host y fallan silenciosamente. Móntalo junto al `<Router>`: una sola instancia global que cubre tanto
-   tus páginas como las de KnowledgeHub.
+3. **Cuida dónde vive `<RadzenComponents />`.** Desde v0.2.0 las páginas adoptan tu layout, así que
+   tenerlo en tu `MainLayout` suele bastar. Pero en cuanto le des a las páginas del módulo un layout
+   distinto del que lo contiene (el patrón de layout anidado del §3.5, o el `KnowledgeHubLayout` de la
+   librería), sus diálogos y notificaciones se quedan sin host y **fallan en silencio**. Lo más robusto
+   es montarlo junto al `<Router>`, fuera de los layouts: una sola instancia global que cubre todo.
 
 4. **Hidrata el contexto de usuario del cliente desde el `AuthenticationStateProvider` del host.** El
    demo (§7.2) puebla `ClientUserContext` llamando a `RefreshAsync` tras su propio login. En una app que
@@ -1044,7 +1085,9 @@ anchas se reducen al ingresarlas).
 | Los servicios "recuerdan" al usuario anterior (Server) | Contexto de usuario registrado singleton | En Blazor Server el user context va **Scoped** (§3.1) |
 | NU1605 (degradación de paquete) al compilar tras `ProjectReference` | Versiones pineadas de la librería (EF/Radzen/Extensions) llegan transitivas por encima de tus refs directas | Sube las `PackageReference` de los proyectos que referencian KnowledgeHub al piso de la librería (§7.3, punto 5) |
 | En Blazor Web App unificado, el servidor llama al API de KnowledgeHub "a sí mismo" | `AddKnowledgeHubHttpClient` se registró también en el servidor | Guarda el registro de cliente con `if (OperatingSystem.IsBrowser())` (§7.3, punto 1) |
-| Los diálogos de KnowledgeHub no abren aunque Radzen esté configurado | `<RadzenComponents />` solo está en el layout del host, que las páginas `/kh` reemplazan | Móntalo a nivel de router (§7.3, punto 3) |
+| Los diálogos de KnowledgeHub no abren aunque Radzen esté configurado | `<RadzenComponents />` vive en un layout que las páginas `/kh` no están usando | Móntalo a nivel de router, fuera de los layouts (§7.3, punto 3) |
+| Las páginas `/kh/*` se ven sin árbol, sin búsqueda y sin botón de crear | v0.2.0: las páginas ya no imponen `KnowledgeHubLayout`, y esa chrome vivía ahí | Layout anidado + `KnowledgeHubNavTree` (§3.5), o usa `KnowledgeHubBrowser` |
+| El portal se desborda / doble scrollbar bajo tu topbar | Las páginas `/kh/*` usan los defaults `100vh`; solo `KnowledgeHubBrowser` aplica `.kh-embedded` | Sobreescribe `--kh-portal-height` y `--kh-editor-height` en tu contenedor (§3.5) |
 
 ---
 
@@ -1071,5 +1114,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía generada para MgSoftDev.KnowledgeHub v0.1.0-preview.1 (.NET 10). Los demos de `Demos\`
-compilan con 0 warnings y están verificados end-to-end; úsalos como referencia canónica.*
+*Guía para MgSoftDev.KnowledgeHub v0.2.0-preview.2 (.NET 10). Los demos de `Demos\` compilan con 0
+warnings y están verificados end-to-end; úsalos como referencia canónica.*

@@ -59,6 +59,13 @@ public partial class KnowledgeHubBrowser : ComponentBase
     /// <summary>Content shown when no page is selected. Defaults to a short hint.</summary>
     [Parameter] public RenderFragment? EmptyContent { get; set; }
 
+    /// <summary>
+    /// Optional content rendered at the bottom of the navigation tree (your own links/actions).
+    /// It composes with <see cref="KnowledgeHubBlazorOptions.HeaderActionsComponent"/>, which the
+    /// tree renders right after this content.
+    /// </summary>
+    [Parameter] public RenderFragment? TreeFooterContent { get; set; }
+
     /// <summary>Currently selected page. Bindable, so the host can drive/observe the selection.</summary>
     [Parameter] public Guid? SelectedPagePk { get; set; }
 

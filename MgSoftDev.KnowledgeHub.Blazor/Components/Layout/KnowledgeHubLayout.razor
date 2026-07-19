@@ -6,14 +6,12 @@
 
 <div class="kh-portal">
     <div class="kh-portal-sidebar">
+        @* Options.HeaderActionsComponent lo renderiza KnowledgeHubNavTree (así funciona en los
+           tres modos); aquí solo van los links propios del portal. *@
         <KnowledgeHubNavTree @ref="NavTree">
             <FooterContent>
                 <RadzenLink Path="@KnowledgeHubRoutes.Home" Text="Inicio" />
                 <RadzenLink Path="@KnowledgeHubRoutes.Diagnostics" Text="Diagnóstico" />
-                @if (Options.HeaderActionsComponent is not null)
-                {
-                    <DynamicComponent Type="@Options.HeaderActionsComponent" />
-                }
             </FooterContent>
         </KnowledgeHubNavTree>
     </div>
