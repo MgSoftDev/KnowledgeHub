@@ -38,10 +38,15 @@
         else
         {
             <RadzenTree Data="@Roots" Change="@OnNodeSelect" Style="width:100%">
-                <RadzenTreeLevel TextProperty="@nameof(PageTreeNodeDto.Title)"
-                                 ChildrenProperty="@nameof(PageTreeNodeDto.Children)"
+                <RadzenTreeLevel ChildrenProperty="@nameof(PageTreeNodeDto.Children)"
                                  HasChildren="@(o => ((PageTreeNodeDto)o).Children.Count > 0)"
-                                 Expanded="@(_ => true)" />
+                                 Expanded="@(_ => true)">
+                    <Template Context="data">
+                        @{ var node = (PageTreeNodeDto)data.Value!; }
+                        <KnowledgeHubPageIcon Icon="@node.Icon" IconColor="@node.IconColor" ShowFallback="false" />
+                        <span class="kh-tree-label">@node.Title</span>
+                    </Template>
+                </RadzenTreeLevel>
             </RadzenTree>
         }
     </div>

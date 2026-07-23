@@ -16,6 +16,12 @@ public class DocPage : EntityBase
     public string Title { get; set; } = null!;
     public int SortOrder { get; set; }
 
+    /// <summary>Optional Material Symbols icon name shown next to the title (e.g. "menu_book").</summary>
+    public string? Icon { get; set; }
+
+    /// <summary>Optional CSS color for the icon (e.g. "#f59e0b"). Null inherits the theme color.</summary>
+    public string? IconColor { get; set; }
+
     /// <summary>When true, the page is visible to everyone and DocPages_Permissions is ignored.</summary>
     public bool IsPublic { get; set; }
 

@@ -40,6 +40,9 @@ appsettings.*.local.json
 .idea/
 *.sln.iml
 
+# JetBrains Junie (IDE AI assistant config)
+.junie/
+
 # Visual Studio Code
 .vscode/
 !.vscode/extensions.json

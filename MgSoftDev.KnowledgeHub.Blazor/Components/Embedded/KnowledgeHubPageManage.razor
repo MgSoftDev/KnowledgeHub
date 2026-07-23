@@ -34,6 +34,15 @@ else
         <RadzenButton Text="Reordenar" Icon="sort" Size="ButtonSize.Small" Click="@ReorderAsync" Disabled="@Wait" class="rz-mb-4" />
 
         <hr />
+        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Icono</RadzenText>
+        <div class="kh-manage-icon-preview rz-mb-2">
+            <KnowledgeHubPageIcon Icon="@Info.Icon" IconColor="@Info.IconColor" />
+            <span>@Info.Title</span>
+        </div>
+        <KnowledgeHubIconPicker @bind-Icon="Info.Icon" @bind-IconColor="Info.IconColor" Disabled="@Wait" />
+        <RadzenButton Text="Guardar icono" Icon="save" Size="ButtonSize.Small" Click="@SaveIconAsync" Disabled="@Wait" class="rz-mt-2 rz-mb-4" />
+
+        <hr />
         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Crear subpágina</RadzenText>
         <div style="display:flex;gap:8px;align-items:center;" class="rz-mb-4">
             <RadzenTextBox @bind-Value="NewChildTitle" Placeholder="Título de la subpágina" style="width:320px;" />

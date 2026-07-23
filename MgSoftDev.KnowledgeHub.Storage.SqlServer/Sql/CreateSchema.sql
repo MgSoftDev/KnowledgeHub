@@ -19,6 +19,8 @@ BEGIN
         Fk_DocPageVersionPublished  UNIQUEIDENTIFIER NULL,
         Slug                        NVARCHAR(200) NOT NULL,
         Title                       NVARCHAR(300) NOT NULL,
+        Icon                        NVARCHAR(64) NULL,
+        IconColor                   NVARCHAR(32) NULL,
         SortOrder                   INT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_SortOrder DEFAULT (0),
         IsPublic                    BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_IsPublic DEFAULT (0),
         RowIsActive                 BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_RowIsActive DEFAULT (1),
@@ -34,6 +36,14 @@ BEGIN
     CREATE UNIQUE INDEX UQ_{{PREFIX}}DocPages_Slug
         ON [{{SCHEMA}}].[{{PREFIX}}DocPages] (Slug);
 END;
+
+-- Migration: Icon/IconColor added in 0.3.0. ALTER ADD lives OUTSIDE the CREATE guard
+-- above (that block is skipped when the table already exists), so existing installs get
+-- the new columns on the next EnsureDatabaseObjectsAsync run.
+IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'Icon') IS NULL
+    ALTER TABLE [{{SCHEMA}}].[{{PREFIX}}DocPages] ADD Icon NVARCHAR(64) NULL;
+IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'IconColor') IS NULL
+    ALTER TABLE [{{SCHEMA}}].[{{PREFIX}}DocPages] ADD IconColor NVARCHAR(32) NULL;
 
 -- ---------------------------------------------------------------- DocPageVersions
 IF OBJECT_ID(N'[{{SCHEMA}}].[{{PREFIX}}DocPageVersions]', N'U') IS NULL

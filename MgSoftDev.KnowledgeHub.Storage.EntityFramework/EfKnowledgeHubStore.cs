@@ -42,6 +42,8 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
                     Slug = p.Slug,
                     SortOrder = p.SortOrder,
                     IsPublic = p.IsPublic,
+                    Icon = p.Icon,
+                    IconColor = p.IconColor,
                     HasPublishedVersion = p.Fk_DocPageVersionPublished != null
                 })
                 .ToListAsync();
@@ -54,10 +56,12 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
 
             var query = ApplyVisibility(db.Pages.AsNoTracking().Where(p => p.Pk == pagePk && p.RowIsActive), filter);
             var page = await query
-                .Select(p => new { p.Pk, p.Title, p.Fk_DocPageVersionPublished })
+                .Select(p => new { p.Pk, p.Title, p.Fk_DocPageVersionPublished, p.Icon, p.IconColor })
                 .FirstOrDefaultAsync();
 
-            return page is null ? null : new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished);
+            return page is null
+                ? null
+                : new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon, page.IconColor);
         });
 
     public Task<Returning<DocPage?>> GetPageAsync(Guid pagePk) =>
@@ -263,6 +267,20 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
             return true;
         });
 
+    public Task<Returning<bool>> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor, AuditStamp audit) =>
+        Returning<bool>.TryTask(async () =>
+        {
+            await using var db = await _factory.CreateDbContextAsync();
+            var page = await db.Pages.FirstOrDefaultAsync(p => p.Pk == pagePk && p.RowIsActive);
+            if (page is null) return false;
+
+            page.Icon = icon;
+            page.IconColor = iconColor;
+            Touch(page, audit);
+            await db.SaveChangesAsync();
+            return true;
+        });
+
     public Task<Returning<int>> SoftDeletePagesAsync(IReadOnlyCollection<Guid> pagePks, AuditStamp audit) =>
         Returning<int>.TryTask(async () =>
         {
@@ -350,6 +368,8 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
                     p.Pk,
                     p.Title,
                     p.Slug,
+                    p.Icon,
+                    p.IconColor,
                     Content = db.Versions
                         .Where(v => v.Pk == p.Fk_DocPageVersionPublished)
                         .Select(v => v.ContentHtml)
@@ -359,7 +379,7 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
                 .ToListAsync();
 
             return candidates
-                .Select(x => new SearchCandidateDto(x.Pk, x.Title, x.Slug, x.Content))
+                .Select(x => new SearchCandidateDto(x.Pk, x.Title, x.Slug, x.Content, x.Icon, x.IconColor))
                 .ToList();
         });
 

@@ -26,6 +26,13 @@ else if (ErrorMessage is not null)
 else if (Page is not null)
 {
     <div class="kh-doc-content">
+        @if (!string.IsNullOrWhiteSpace(Page.Icon))
+        {
+            <div class="kh-doc-title-row">
+                <KnowledgeHubPageIcon Icon="@Page.Icon" IconColor="@Page.IconColor" ShowFallback="false" />
+                <strong>@Page.Title</strong>
+            </div>
+        }
         @if (ShowActions)
         {
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;" class="kh-doc-meta">

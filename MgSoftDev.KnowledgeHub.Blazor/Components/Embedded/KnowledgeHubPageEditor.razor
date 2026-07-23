@@ -24,7 +24,10 @@ else
     <div class="kh-editor-fill">
         <RadzenText TextStyle="TextStyle.H5" class="rz-mb-2">Editar página</RadzenText>
 
-        <RadzenTextBox @bind-Value="SelectItem.Title" Placeholder="Título" class="rz-w-100 rz-mb-2" />
+        <div class="kh-editor-title-row rz-mb-2">
+            <KnowledgeHubPageIcon Icon="@SelectItem.Icon" IconColor="@SelectItem.IconColor" />
+            <RadzenTextBox @bind-Value="SelectItem.Title" Placeholder="Título" class="rz-w-100" />
+        </div>
 
         <div class="kh-editor-host">
             <RadzenHtmlEditor @bind-Value="SelectItem.ContentHtml" style="position:absolute; inset:0;"

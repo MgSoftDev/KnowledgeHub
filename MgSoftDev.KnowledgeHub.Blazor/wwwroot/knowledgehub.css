@@ -158,3 +158,69 @@
 .kh-diag-table { border-collapse: collapse; width: 100%; max-width: 560px; }
 .kh-diag-table th, .kh-diag-table td { border: 1px solid #e5e7eb; padding: 6px 12px; text-align: left; font-size: 0.9rem; }
 .kh-diag-table th { background: #f9fafb; color: #374151; font-weight: 600; width: 45%; }
+
+/* ---------------------------------------------------------------- Page icon
+   Shared presentational glyph (KnowledgeHubPageIcon) used wherever a page title shows:
+   tree, reader, editor, search results and the manage preview. */
+.kh-page-icon { vertical-align: middle; font-size: 1.15rem; line-height: 1; }
+.kh-page-icon-muted { color: #9ca3af; }
+
+/* Tree row: icon + label on one baseline. */
+.kh-tree-label { vertical-align: middle; margin-left: 4px; }
+.kh-portal-tree .kh-page-icon { margin-right: 2px; }
+
+/* Reader / editor / search compact title rows. */
+.kh-doc-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 1.05rem; }
+.kh-editor-title-row { display: flex; align-items: center; gap: 8px; }
+.kh-editor-title-row .kh-page-icon { font-size: 1.4rem; }
+.kh-search-title-row { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Manage: preview above the picker. */
+.kh-manage-icon-preview { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.kh-manage-icon-preview .kh-page-icon { font-size: 1.4rem; }
+
+/* ---------------------------------------------------------------- Icon picker */
+.kh-icon-picker { max-width: 460px; }
+
+.kh-icon-picker-preview {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; margin-bottom: 10px;
+    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
+}
+.kh-icon-picker-preview .kh-page-icon { font-size: 1.5rem; }
+.kh-icon-picker-preview-name { color: #6b7280; font-size: 0.85rem; }
+
+.kh-icon-picker-group-title {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #9ca3af; font-weight: 600; margin: 10px 0 4px;
+}
+
+.kh-icon-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.kh-icon-cell {
+    width: 36px; height: 36px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 6px;
+    color: #4b5563; cursor: pointer; padding: 0;
+    transition: border-color .12s, background .12s;
+}
+.kh-icon-cell:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
+.kh-icon-cell:disabled { opacity: .5; cursor: default; }
+.kh-icon-cell-selected { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+.kh-icon-cell .rz-icon, .kh-icon-cell .notranslate { font-size: 1.25rem; }
+
+.kh-icon-picker-custom { margin-top: 10px; }
+.kh-icon-picker-custom-field { width: 100%; }
+.kh-icon-picker-link { display: inline-block; margin-top: 4px; font-size: 0.8rem; color: #2563eb; }
+
+.kh-icon-color-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.kh-icon-color {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.15); cursor: pointer; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #9ca3af;
+}
+.kh-icon-color:disabled { opacity: .5; cursor: default; }
+.kh-icon-color-none { background: #fff; }
+.kh-icon-color-none .rz-icon, .kh-icon-color-none .notranslate { font-size: 1rem; }
+.kh-icon-color-selected { outline: 2px solid #2563eb; outline-offset: 2px; }

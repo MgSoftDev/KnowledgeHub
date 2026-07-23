@@ -97,7 +97,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.2.0-preview.2" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.3.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -350,6 +350,18 @@ ni sacar al usuario de tu pantalla).
 | `KnowledgeHubPageManage` | `PagePk` | `OnBackRequested`, `OnChildCreated`, `OnDeleted` |
 | `KnowledgeHubSearchResults` | `Term` | `OnPageSelected` |
 | `KnowledgeHubDiagnosticsPanel` | — | — |
+| `KnowledgeHubPageIcon` | `Icon`, `IconColor`, `ShowFallback`, `FallbackIcon` | — (presentacional) |
+| `KnowledgeHubIconPicker` | `@bind-Icon`, `@bind-IconColor`, `Disabled` | `IconChanged`, `IconColorChanged` |
+
+**Icono + color por página (v0.3.0).** Cada página tiene un icono opcional (Material Symbols) y un
+color; se muestran **en todo lugar donde aparece el título**: árbol, lector, editor y resultados de
+búsqueda. Se editan en **Gestionar** (`KnowledgeHubPageManage`) con `KnowledgeHubIconPicker` —una
+grilla temática (documentación/avisos/técnico/etiquetas/usuarios), un campo para escribir cualquier
+otro nombre de icono, y una fila de colores— y se guardan con su propio botón **"Guardar icono"**.
+Para pintar el icono de una página en tu propia UI usa el presentacional `KnowledgeHubPageIcon`
+(cae en `article` atenuado si la página no tiene icono; pásale `ShowFallback="false"` para no pintar
+nada). Es una columna estructural (`DocPage.Icon`/`IconColor`), no versionada: SQL Server migra solo
+con el script (`ALTER ADD` idempotente) y LiteDB no necesita migración.
 
 **Regla de los callbacks:** si **no** pasas el callback, el componente **navega por URL** a la
 ruta `/kh/*` correspondiente (comportamiento del modo portal). Si **sí** lo pasas, te delega la
@@ -482,9 +494,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.2.0-preview.2" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.2.0-preview.2" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.2.0-preview.2" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.3.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.3.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.3.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1114,5 +1126,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.2.0-preview.2 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.3.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

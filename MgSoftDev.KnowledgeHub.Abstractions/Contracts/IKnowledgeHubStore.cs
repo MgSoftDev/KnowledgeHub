@@ -98,6 +98,12 @@ public interface IKnowledgeHubStore
     Task<Returning<bool>> SetSortOrderAsync(Guid pagePk, int sortOrder, AuditStamp audit);
 
     /// <summary>
+    /// Sets the page's icon and icon color (both nullable to clear). False when the active page
+    /// does not exist.
+    /// </summary>
+    Task<Returning<bool>> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor, AuditStamp audit);
+
+    /// <summary>
     /// Soft-deletes (RowIsActive = false + audit) every page in <paramref name="pagePks"/>.
     /// The subtree is computed by the core. Returns the number of pages actually deactivated.
     /// </summary>

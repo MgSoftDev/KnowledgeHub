@@ -38,6 +38,8 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
                     Slug = p.Slug,
                     SortOrder = p.SortOrder,
                     IsPublic = p.IsPublic,
+                    Icon = p.Icon,
+                    IconColor = p.IconColor,
                     HasPublishedVersion = p.Fk_DocPageVersionPublished != null
                 })
                 .ToList()));
@@ -49,7 +51,7 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
             // The null must be TYPED: a bare "return null" in a Returning-targeted lambda yields
             // a null Returning reference instead of Ok-with-null-Value.
             if (page is null || !page.RowIsActive || !IsVisible(page, filter)) return (PageHeaderDto?)null;
-            return new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished);
+            return new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon, page.IconColor);
         }));
 
     public Task<Returning<DocPage?>> GetPageAsync(Guid pagePk) =>
@@ -224,6 +226,21 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
             }
         }));
 
+    public Task<Returning<bool>> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor, AuditStamp audit) =>
+        Task.FromResult(Returning<bool>.Try(() =>
+        {
+            lock (_ctx.WriteLock)
+            {
+                var page = _ctx.Pages.FindById(pagePk);
+                if (page is null || !page.RowIsActive) return false;
+                page.Icon = icon;
+                page.IconColor = iconColor;
+                Touch(page, audit);
+                _ctx.Pages.Update(page);
+                return true;
+            }
+        }));
+
     public Task<Returning<int>> SoftDeletePagesAsync(IReadOnlyCollection<Guid> pagePks, AuditStamp audit) =>
         Task.FromResult(Returning<int>.Try(() =>
         {
@@ -307,7 +324,7 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
                 })
                 .Where(x => x.Page.Title.Contains(term, StringComparison.OrdinalIgnoreCase) ||
                             (x.Content is not null && x.Content.Contains(term, StringComparison.OrdinalIgnoreCase)))
-                .Select(x => new SearchCandidateDto(x.Page.Pk, x.Page.Title, x.Page.Slug, x.Content))
+                .Select(x => new SearchCandidateDto(x.Page.Pk, x.Page.Title, x.Page.Slug, x.Content, x.Page.Icon, x.Page.IconColor))
                 .ToList()));
 
     // ---------------------------------------------------------------- Images

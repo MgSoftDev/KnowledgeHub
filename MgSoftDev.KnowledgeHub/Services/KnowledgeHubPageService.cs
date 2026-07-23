@@ -100,7 +100,11 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
 
             if (versionR.Value is not { } version)
                 return Returning.Unfinished("No se encontró la versión publicada", UnfinishedInfo.NotifyType.Warning);
-            return ToReadDto(version);
+
+            var read = ToReadDto(version);
+            read.Icon = header.Icon;
+            read.IconColor = header.IconColor;
+            return read;
         }, saveLog: true);
 
     public Task<Returning<PageReadDto>> GetVersionContentAsync(Guid versionPk) =>
@@ -134,6 +138,8 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 PagePk = page.Pk,
                 Slug = page.Slug,
                 IsPublic = page.IsPublic,
+                Icon = page.Icon,
+                IconColor = page.IconColor,
                 // Fall back to the page title for a brand-new page that has no versions yet.
                 Title = latest?.Title ?? page.Title,
                 ContentHtml = latest?.ContentHtml ?? string.Empty,
@@ -280,7 +286,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 Title = page.Title,
                 Slug = page.Slug,
                 Fk_DocPageParent = page.Fk_DocPageParent,
-                SortOrder = page.SortOrder
+                SortOrder = page.SortOrder,
+                Icon = page.Icon,
+                IconColor = page.IconColor
             };
         }, saveLog: true);
 
@@ -377,6 +385,21 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             return Returning.Success();
         }, saveLog: true);
 
+    public Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor) =>
+        Returning.TryTask(async () =>
+        {
+            if (!_user.CanEdit())
+                return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
+            var okR = await _store.SetPageIconAsync(pagePk, Normalize(icon), Normalize(iconColor), Stamp());
+            if (!okR.Ok) okR.Throw();
+            if (!okR.Value)
+                return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+            return Returning.Success();
+
+            static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }, saveLog: true);
+
     public Task<Returning> DeletePageAsync(Guid pagePk) =>
         Returning.TryTask(async () =>
         {
@@ -455,7 +478,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                     PagePk = x.PagePk,
                     Title = x.Title,
                     Slug = x.Slug,
-                    Snippet = BuildSnippet(x.ContentHtml, term)
+                    Snippet = BuildSnippet(x.ContentHtml, term),
+                    Icon = x.Icon,
+                    IconColor = x.IconColor
                 })
                 .ToList();
         }, saveLog: true);

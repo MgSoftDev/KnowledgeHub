@@ -16,4 +16,10 @@ public sealed class PageReadDto
     public int VersionNumber { get; set; }
     public DocPageStatus Status { get; set; }
     public DateTime? PublishedAt { get; set; }
+
+    /// <summary>Optional Material Symbols icon name of the page (null when viewing history).</summary>
+    public string? Icon { get; set; }
+
+    /// <summary>Optional CSS color for the icon.</summary>
+    public string? IconColor { get; set; }
 }

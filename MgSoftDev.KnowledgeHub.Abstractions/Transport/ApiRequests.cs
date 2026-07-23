@@ -12,6 +12,8 @@ public sealed record MovePageRequest(Guid? NewParentPk);
 
 public sealed record ReorderPageRequest(int SortOrder);
 
+public sealed record SetIconRequest(string? Icon, string? IconColor);
+
 public sealed record PublishPageRequest(int BaseVersionNumber);
 
 public sealed record SetPermissionsRequest(bool IsPublic, List<string> Permissions);

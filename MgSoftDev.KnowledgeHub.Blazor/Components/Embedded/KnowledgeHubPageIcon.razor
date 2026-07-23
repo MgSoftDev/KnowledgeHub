@@ -1,0 +1,28 @@
+@* Icono de una página, consistente en árbol, lector, editor, búsqueda y gestión.
+   Con icono → Material Symbol coloreado; sin icono → fallback atenuado (opcional). *@
+
+@if (!string.IsNullOrWhiteSpace(Icon))
+{
+    <RadzenIcon Icon="@Icon" class="kh-page-icon" Style="@IconStyle" />
+}
+else if (ShowFallback)
+{
+    <RadzenIcon Icon="@FallbackIcon" class="kh-page-icon kh-page-icon-muted" />
+}
+
+@code {
+    /// <summary>Material Symbols name; null/blank renders the fallback (or nothing).</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>CSS color applied to the icon; null inherits the surrounding text color.</summary>
+    [Parameter] public string? IconColor { get; set; }
+
+    /// <summary>When there is no icon, render a muted placeholder instead of nothing.</summary>
+    [Parameter] public bool ShowFallback { get; set; } = true;
+
+    /// <summary>Placeholder glyph used when the page has no icon.</summary>
+    [Parameter] public string FallbackIcon { get; set; } = "article";
+
+    private string? IconStyle =>
+        string.IsNullOrWhiteSpace(IconColor) ? null : $"color:{IconColor};";
+}

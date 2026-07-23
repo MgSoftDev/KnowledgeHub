@@ -54,6 +54,9 @@ public sealed class HttpKnowledgeHubPageService : IKnowledgeHubPageService
     public Task<Returning> ReorderAsync(Guid pagePk, int sortOrder) =>
         _api.PostPlainAsync($"/pages/{pagePk}/reorder", new ReorderPageRequest(sortOrder));
 
+    public Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor) =>
+        _api.PostPlainAsync($"/pages/{pagePk}/icon", new SetIconRequest(icon, iconColor));
+
     public Task<Returning> DeletePageAsync(Guid pagePk) =>
         _api.DeleteAsync($"/pages/{pagePk}");
 

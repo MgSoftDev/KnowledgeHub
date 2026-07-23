@@ -16,6 +16,8 @@ internal sealed class DocPageConfiguration : IEntityTypeConfiguration<DocPage>
 
         builder.Property(e => e.Slug).HasMaxLength(200).IsRequired();
         builder.Property(e => e.Title).HasMaxLength(300).IsRequired();
+        builder.Property(e => e.Icon).HasMaxLength(64);
+        builder.Property(e => e.IconColor).HasMaxLength(32);
 
         builder.HasIndex(e => e.Fk_DocPageParent).HasDatabaseName($"IX_{table}_Fk_DocPageParent");
         builder.HasIndex(e => e.Slug).IsUnique().HasDatabaseName($"UQ_{table}_Slug");

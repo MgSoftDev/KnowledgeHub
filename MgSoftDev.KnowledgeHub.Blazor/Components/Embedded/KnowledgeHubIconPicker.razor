@@ -1,0 +1,56 @@
+@* Selector de icono + color de una página. Two-way: @bind-Icon / @bind-IconColor. *@
+
+<div class="kh-icon-picker">
+
+    <div class="kh-icon-picker-preview">
+        <KnowledgeHubPageIcon Icon="@Icon" IconColor="@IconColor" />
+        <span class="kh-icon-picker-preview-name">@(string.IsNullOrWhiteSpace(Icon) ? "Sin icono" : Icon)</span>
+    </div>
+
+    @foreach (var group in Groups)
+    {
+        <div class="kh-icon-picker-group-title">@group.Title</div>
+        <div class="kh-icon-grid">
+            @foreach (var icon in group.Icons)
+            {
+                <button type="button"
+                        class="@($"kh-icon-cell{(IsIconSelected(icon) ? " kh-icon-cell-selected" : "")}")"
+                        title="@icon"
+                        disabled="@Disabled"
+                        @onclick="@(() => SelectIcon(icon))">
+                    <RadzenIcon Icon="@icon" />
+                </button>
+            }
+        </div>
+    }
+
+    <div class="kh-icon-picker-custom">
+        <RadzenFormField Text="Nombre de icono (Material Symbols)" Variant="Variant.Outlined" class="kh-icon-picker-custom-field">
+            <RadzenTextBox Value="@Icon" Disabled="@Disabled"
+                           ValueChanged="@(async (string v) => await OnCustomIconChanged(v))"
+                           Placeholder="p. ej. rocket_launch" />
+        </RadzenFormField>
+        <a href="https://fonts.google.com/icons" target="_blank" rel="noopener" class="kh-icon-picker-link">
+            Ver más iconos en fonts.google.com/icons
+        </a>
+    </div>
+
+    <div class="kh-icon-picker-group-title">Color</div>
+    <div class="kh-icon-color-row">
+        @foreach (var color in Colors)
+        {
+            <button type="button"
+                    class="@($"kh-icon-color{(IsColorSelected(color) ? " kh-icon-color-selected" : "")}{(color is null ? " kh-icon-color-none" : "")}")"
+                    style="@(color is null ? null : $"background:{color};")"
+                    title="@(color ?? "Sin color (hereda)")"
+                    disabled="@Disabled"
+                    @onclick="@(() => SelectColor(color))">
+                @if (color is null)
+                {
+                    <RadzenIcon Icon="format_color_reset" />
+                }
+            </button>
+        }
+    </div>
+
+</div>

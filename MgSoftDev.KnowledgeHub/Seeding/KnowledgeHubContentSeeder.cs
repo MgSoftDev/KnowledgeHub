@@ -47,11 +47,11 @@ public sealed class KnowledgeHubContentSeeder
             var audit = new AuditStamp(SeedUserName, now);
 
             // ---- Pages -------------------------------------------------------------
-            var manual = await InsertPageAsync(null, "manual-usuario", "Manual de Usuario", isPublic: true, sortOrder: 1, now);
-            var pasos = await InsertPageAsync(manual.Pk, "primeros-pasos", "Primeros Pasos", isPublic: true, sortOrder: 1, now);
-            var tecnica = await InsertPageAsync(null, "documentacion-tecnica", "Documentación Técnica", isPublic: false, sortOrder: 2, now);
-            var produccion = await InsertPageAsync(null, "produccion", "Producción", isPublic: false, sortOrder: 3, now);
-            var oficinas = await InsertPageAsync(null, "oficinas", "Oficinas", isPublic: false, sortOrder: 4, now);
+            var manual = await InsertPageAsync(null, "manual-usuario", "Manual de Usuario", isPublic: true, sortOrder: 1, now, icon: "menu_book", iconColor: "#2563eb");
+            var pasos = await InsertPageAsync(manual.Pk, "primeros-pasos", "Primeros Pasos", isPublic: true, sortOrder: 1, now, icon: "task", iconColor: "#059669");
+            var tecnica = await InsertPageAsync(null, "documentacion-tecnica", "Documentación Técnica", isPublic: false, sortOrder: 2, now, icon: "code", iconColor: "#7c3aed");
+            var produccion = await InsertPageAsync(null, "produccion", "Producción", isPublic: false, sortOrder: 3, now, icon: "build", iconColor: "#ea580c");
+            var oficinas = await InsertPageAsync(null, "oficinas", "Oficinas", isPublic: false, sortOrder: 4, now, icon: "badge");
 
             // ---- Demo images (same dedup path as real uploads) ----------------------
             var imgManual = await InsertGradientImageAsync("demo-manual.webp", (33, 150, 243), now);
@@ -96,7 +96,8 @@ public sealed class KnowledgeHubContentSeeder
             return true;
         }, saveLog: true);
 
-    private async Task<DocPage> InsertPageAsync(Guid? parentPk, string slug, string title, bool isPublic, int sortOrder, DateTime now)
+    private async Task<DocPage> InsertPageAsync(Guid? parentPk, string slug, string title, bool isPublic, int sortOrder, DateTime now,
+        string? icon = null, string? iconColor = null)
     {
         var page = new DocPage
         {
@@ -104,7 +105,9 @@ public sealed class KnowledgeHubContentSeeder
             Slug = slug,
             Title = title,
             SortOrder = sortOrder,
-            IsPublic = isPublic
+            IsPublic = isPublic,
+            Icon = icon,
+            IconColor = iconColor
         };
         EntityStamp.PrepareNew(page, SeedUserName, now);
 

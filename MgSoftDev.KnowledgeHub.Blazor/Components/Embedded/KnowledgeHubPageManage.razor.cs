@@ -84,6 +84,13 @@ public partial class KnowledgeHubPageManage : ComponentBase
         await Run(() => DocService.ReorderAsync(PagePk, Info.SortOrder), "Orden actualizado", "Error al reordenar");
     }
 
+    private async Task SaveIconAsync()
+    {
+        if (Info is null) return;
+        await Run(() => DocService.SetPageIconAsync(PagePk, Info.Icon, Info.IconColor),
+            "Icono actualizado", "Error al guardar el icono");
+    }
+
     private async Task CreateChildAsync()
     {
         if (string.IsNullOrWhiteSpace(NewChildTitle)) return;

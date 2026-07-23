@@ -15,6 +15,12 @@ public sealed class PageEditDto
     public string? ChangeNote { get; set; }
     public bool IsPublic { get; set; }
 
+    /// <summary>Optional Material Symbols icon name of the page (shown next to the title).</summary>
+    public string? Icon { get; set; }
+
+    /// <summary>Optional CSS color for the icon.</summary>
+    public string? IconColor { get; set; }
+
     /// <summary>Version number this draft was branched from (concurrency baseline).</summary>
     public int BaseVersionNumber { get; set; }
 }

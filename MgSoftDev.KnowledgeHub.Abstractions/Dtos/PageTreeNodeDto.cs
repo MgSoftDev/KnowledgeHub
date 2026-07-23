@@ -13,6 +13,12 @@ public sealed class PageTreeNodeDto
     public int SortOrder { get; set; }
     public bool IsPublic { get; set; }
 
+    /// <summary>Optional Material Symbols icon name shown next to the title.</summary>
+    public string? Icon { get; set; }
+
+    /// <summary>Optional CSS color for the icon.</summary>
+    public string? IconColor { get; set; }
+
     /// <summary>True when the page has a published version (readers can open it).</summary>
     public bool HasPublishedVersion { get; set; }
 

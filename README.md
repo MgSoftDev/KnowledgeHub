@@ -3,15 +3,15 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.1.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.3.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
 KnowledgeHub empaqueta un portal de documentación colaborativa —árbol jerárquico de páginas con
-visibilidad por permisos y herencia, editor HTML con herramientas personalizables, versionado
-insert-only con historial y publicación atómica (con detección de conflictos entre usuarios),
-búsqueda, e imágenes WebP deduplicadas por hash con caché— como una **familia de paquetes NuGet
-embebibles** en aplicaciones anfitrionas.
+visibilidad por permisos y herencia, icono + color por página (Material Symbols), editor HTML con
+herramientas personalizables, versionado insert-only con historial y publicación atómica (con
+detección de conflictos entre usuarios), búsqueda, e imágenes WebP deduplicadas por hash con
+caché— como una **familia de paquetes NuGet embebibles** en aplicaciones anfitrionas.
 
 Fue extraído del demo de referencia `DocsPortal` a una librería desacoplada que corre igual en
 **WPF (BlazorWebView)**, **Blazor Server** y **Blazor WebAssembly + Web API**, sobre **SQL

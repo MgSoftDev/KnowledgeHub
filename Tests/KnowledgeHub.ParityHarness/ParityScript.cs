@@ -220,6 +220,36 @@ public static class ParityScript
         var readFresh = await pages.GetPageForReadAsync(fresh.Value);
         Check("Leer página sin publicar → Unfinished", IsUnfinishedContaining(readFresh, "no ha sido publicada"));
 
+        // ---- 20. Icono + color por página --------------------------------------------------------------
+        var manualNode = FindBySlug(finalTree.Value!, "manual-usuario");
+        Check("Seed: icono llega al nodo del árbol (menu_book)",
+            manualNode is { Icon: "menu_book", IconColor: "#2563eb" });
+        var manualPk = manualNode!.Pk;
+
+        var setIcon = await pages.SetPageIconAsync(manualPk, "rocket_launch", "#db2777");
+        Check("SetPageIcon OK", setIcon.Ok);
+
+        var infoIcon = await pages.GetPageInfoAsync(manualPk);
+        Check("Icono se lee en GetPageInfo",
+            infoIcon.OkNotNull && infoIcon.Value!.Icon == "rocket_launch" && infoIcon.Value!.IconColor == "#db2777");
+
+        var treeIcon = await pages.GetTreeAsync();
+        Check("Icono se lee en el nodo del árbol",
+            treeIcon.Ok && FindBySlug(treeIcon.Value!, "manual-usuario") is { Icon: "rocket_launch", IconColor: "#db2777" });
+
+        var editIcon = await pages.GetPageForEditAsync(manualPk);
+        Check("Icono se lee en GetPageForEdit",
+            editIcon.OkNotNull && editIcon.Value!.Icon == "rocket_launch" && editIcon.Value!.IconColor == "#db2777");
+
+        var readIcon = await pages.GetPageForReadAsync(manualPk);
+        Check("Icono se lee en GetPageForRead",
+            readIcon.OkNotNull && readIcon.Value!.Icon == "rocket_launch" && readIcon.Value!.IconColor == "#db2777");
+
+        var clearIcon = await pages.SetPageIconAsync(manualPk, null, null);
+        var infoCleared = await pages.GetPageInfoAsync(manualPk);
+        Check("Limpiar icono (null) funciona",
+            clearIcon.Ok && infoCleared.OkNotNull && infoCleared.Value!.Icon is null && infoCleared.Value!.IconColor is null);
+
         Console.WriteLine();
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL =====");
         return _failed;

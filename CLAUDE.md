@@ -8,6 +8,8 @@ Contexto del proyecto para asistentes de código. Léelo al iniciar sesión.
 colaborativa validado en `../DocBookDemo` (DocsPortal, que queda INTACTO como referencia).
 Multi-motor de BD (SQL Server, LiteDB; PostgreSQL futuro) y multi-hosting (WPF BlazorWebView,
 Blazor Server, Blazor WASM). Estado: **10 fases completas y verificadas**, v0.1.0-preview.1.
+Iteraciones posteriores: RCL embebible (v0.2.0-preview.1) e **icono + color por página**
+(v0.3.0-preview.1, cambio de esquema).
 
 ## Arquitectura (decisiones clave)
 
@@ -52,6 +54,16 @@ Blazor Server, Blazor WASM). Estado: **10 fases completas y verificadas**, v0.1.
     passthrough al `FooterContent` del árbol.
 - **Editor tools**: `EditorToolDescriptor` en `KnowledgeHubBlazorOptions.EditorTools`; los 4
   callouts built-in se registran por el mismo mecanismo (removibles).
+- **Icono + color por página (v0.3.0)**: propiedad ESTRUCTURAL del nodo (`DocPage.Icon`,
+  `DocPage.IconColor`, NVARCHAR 64/32), no versionada. Se propaga por todos los DTOs donde
+  aparece el título (`PageTreeNodeDto`, `PageInfoDto`, `PageReadDto`, `PageEditDto`,
+  `SearchResultDto` + los de store `PageHeaderDto`/`SearchCandidateDto`). Se edita en
+  `KnowledgeHubPageManage` con `KnowledgeHubIconPicker` (grilla Material Symbols temática +
+  nombre manual + color) y su propio botón "Guardar icono" (`SetPageIconAsync`, molde
+  `SetSortOrder`/`Rename`: store→service→HTTP `POST /pages/{pk}/icon`). Se pinta con el
+  presentacional compartido `KnowledgeHubPageIcon` (`RadzenIcon` + color, fallback `article`)
+  en árbol, lector, editor, búsqueda y el preview de gestión. Nullable → páginas viejas sin
+  icono siguen igual; LiteDB sin migración (BSON), SQL con `ALTER ADD` idempotente (gotcha 12).
 
 ## Estructura
 
@@ -87,10 +99,12 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (46 checks): mismo guion contra InMemory, LiteDB, SQL Server
-  (`DEVSQL2022`, BD temporal `KnowledgeHubParity`) y a través de HTTP (Kestrel real).
-  `dotnet run --project Tests/KnowledgeHub.ParityHarness -- <modo>`; sqlserver necesita
-  `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en 127.0.0.1:5599.
+- **Guion de paridad** (53 checks; 7 nuevos de icono en v0.3.0): mismo guion contra InMemory,
+  LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
+  y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
+  <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
+  127.0.0.1:5599. El ALTER-ADD del icono se verificó además creando una tabla `DocPages` v0.2
+  vacía y confirmando la migración en caliente.
 - **Demos**: WPF verificado por logs/publish; Server y WASM verificados en navegador
   (login, árboles por rol, assets immutable, normalización docimg:// al guardar desde WASM).
 - **Humo NuGet**: app mínima en scratchpad restaurando SOLO desde `artifacts/` (9/9 PASS).
@@ -133,6 +147,18 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     `await InvokeAsync(async () => { ... })` (inline si ya estás en el Dispatcher). Solo aplica
     dentro de comandos; los callbacks disparados desde handlers `@onclick` ya van en el
     Dispatcher. Caso real: `KnowledgeHubPageEditor.PublishCommand` → `OnPublished` (v0.2.0).
+12. **Migración de columnas en SQL Server con DDL idempotente**: el `CREATE TABLE` va dentro de
+    `IF OBJECT_ID(...) IS NULL BEGIN … END`, así que en instalaciones existentes ese bloque se
+    SALTA y las columnas nuevas nunca se agregarían. La migración correcta es un `ALTER TABLE …
+    ADD` guardado por `IF COL_LENGTH(N'[schema].[tabla]', N'Col') IS NULL`, colocado FUERA del
+    `IF OBJECT_ID`. `EnsureDatabaseObjectsAsync` corre el script completo en cada arranque → migra
+    en caliente sin tocar instalaciones nuevas (donde el CREATE ya trae la columna). Caso real:
+    `Icon`/`IconColor` en `DocPages` (v0.3.0). Verificado creando una tabla v0.2 vacía y
+    confirmando que el arnés añade las columnas y pasa 53/53.
+13. **RadzenTreeLevel con icono por nodo**: para pintar algo antes del texto (icono + título) hay
+    que reemplazar `TextProperty` por un `<Template Context="data">`; el `data` es un
+    `RadzenTreeItem` y su `.Value` es `object?` → castear con `(PageTreeNodeDto)data.Value!`
+    (si no, CS8600/CS8602 con TreatWarningsAsErrors). Caso real: `KnowledgeHubNavTree` (v0.3.0).
 
 ## Pendientes / siguientes pasos
 

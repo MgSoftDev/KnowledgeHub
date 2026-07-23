@@ -4,4 +4,5 @@ namespace MgSoftDev.KnowledgeHub.Store;
 /// A search hit as produced by the store: full published HTML included so the core can
 /// build the snippet.
 /// </summary>
-public sealed record SearchCandidateDto(Guid PagePk, string Title, string Slug, string? ContentHtml);
+public sealed record SearchCandidateDto(Guid PagePk, string Title, string Slug, string? ContentHtml,
+    string? Icon = null, string? IconColor = null);

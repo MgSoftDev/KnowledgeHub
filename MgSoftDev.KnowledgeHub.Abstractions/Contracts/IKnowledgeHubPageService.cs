@@ -44,6 +44,9 @@ public interface IKnowledgeHubPageService
     Task<Returning> MovePageAsync(Guid pagePk, Guid? newParentPk);
     Task<Returning> ReorderAsync(Guid pagePk, int sortOrder);
 
+    /// <summary>Sets the page's icon (Material Symbols name) and icon color; both nullable to clear.</summary>
+    Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor);
+
     /// <summary>Soft delete of the page and its whole subtree.</summary>
     Task<Returning> DeletePageAsync(Guid pagePk);
 

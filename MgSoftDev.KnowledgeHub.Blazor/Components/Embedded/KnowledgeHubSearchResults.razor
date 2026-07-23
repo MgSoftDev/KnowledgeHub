@@ -17,17 +17,20 @@
         @foreach (var r in Results)
         {
             <div style="padding:12px 0;border-bottom:1px solid #eef0f2;">
-                @if (OnPageSelected.HasDelegate)
-                {
-                    @* Embebido: el anfitrión decide qué hacer, sin salir de su pantalla. *@
-                    <a href="javascript:void(0)" style="font-weight:600;font-size:1.05rem;"
-                       @onclick="@(() => GoPage(r.PagePk))">@r.Title</a>
-                }
-                else
-                {
-                    <RadzenLink Path="@KnowledgeHubRoutes.Page(r.PagePk)" Text="@r.Title"
-                                style="font-weight:600;font-size:1.05rem;" />
-                }
+                <span class="kh-search-title-row">
+                    <KnowledgeHubPageIcon Icon="@r.Icon" IconColor="@r.IconColor" ShowFallback="false" />
+                    @if (OnPageSelected.HasDelegate)
+                    {
+                        @* Embebido: el anfitrión decide qué hacer, sin salir de su pantalla. *@
+                        <a href="javascript:void(0)" style="font-weight:600;font-size:1.05rem;"
+                           @onclick="@(() => GoPage(r.PagePk))">@r.Title</a>
+                    }
+                    else
+                    {
+                        <RadzenLink Path="@KnowledgeHubRoutes.Page(r.PagePk)" Text="@r.Title"
+                                    style="font-weight:600;font-size:1.05rem;" />
+                    }
+                </span>
                 <div style="color:#6b7280;font-size:0.9rem;margin-top:4px;">@r.Snippet</div>
             </div>
         }
