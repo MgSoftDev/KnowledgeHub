@@ -28,23 +28,11 @@ public partial class KnowledgeHubIconPicker : ComponentBase
         new("Documentos", new[]
         {
             "article", "description", "menu_book", "book", "auto_stories", "topic",
-            "folder", "folder_open", "snippet_folder", "sticky_note_2", "checklist", "task", "rule"
+            "folder", "folder_open", "snippet_folder", "sticky_note_2", "checklist", "task", "rule","label", "sell", "bookmark", "category", "layers", "flag"
         }),
-        new("Avisos", new[]
+        new("Otros", new[]
         {
-            "policy", "gavel", "help", "info", "lightbulb", "warning", "priority_high"
-        }),
-        new("Técnico", new[]
-        {
-            "code", "terminal", "bug_report", "settings", "build", "database"
-        }),
-        new("Etiquetas", new[]
-        {
-            "label", "sell", "bookmark", "category", "layers", "flag"
-        }),
-        new("Usuarios", new[]
-        {
-            "person", "group", "badge", "verified"
+            "policy", "gavel", "help", "info", "lightbulb", "warning", "priority_high", "code", "terminal", "bug_report", "settings", "build", "database","person", "group", "badge", "verified"
         })
     };
 
