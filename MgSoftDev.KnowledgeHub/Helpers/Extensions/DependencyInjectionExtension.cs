@@ -30,7 +30,14 @@ public static class DependencyInjectionExtension
         services.AddSingleton(options);
 
         services.AddSingleton<IKnowledgeHubImageUrlResolver>(new DefaultImageUrlResolver(options.PublicAssetsBaseUrl));
-        services.AddScoped<IKnowledgeHubPageService, KnowledgeHubPageService>();
+        // Explicit factory (not reflection activation) because the sanitizer is OPTIONAL: it only
+        // exists when the host registers one. Same pattern as the image cache below.
+        services.AddScoped<IKnowledgeHubPageService>(sp => new KnowledgeHubPageService(
+            sp.GetRequiredService<IKnowledgeHubStore>(),
+            sp.GetRequiredService<IKnowledgeHubUserContext>(),
+            sp.GetRequiredService<IKnowledgeHubImageService>(),
+            sp.GetRequiredService<KnowledgeHubOptions>(),
+            sp.GetService<IKnowledgeHubHtmlSanitizer>()));
         services.AddScoped<IKnowledgeHubImageService, KnowledgeHubImageService>();
         services.AddScoped<IKnowledgeHubHtmlImageRewriter>(sp => new KnowledgeHubHtmlImageRewriter(
             sp.GetRequiredService<IKnowledgeHubStore>(),

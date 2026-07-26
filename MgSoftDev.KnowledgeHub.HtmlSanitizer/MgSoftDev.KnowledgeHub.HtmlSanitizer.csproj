@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.HtmlSanitizer</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>Default HTML sanitizer for MgSoftDev.KnowledgeHub, built on the HtmlSanitizer (Ganss.Xss) library. Cleans pasted Word/web markup and validates content before it is stored, while preserving KnowledgeHub's docimg:// and data: image references. Optional: register it to enable cleaning, or implement IKnowledgeHubHtmlSanitizer yourself.</Description>
+    <PackageTags>knowledgehub;html;sanitizer;xss;security;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HtmlSanitizer" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Server\MgSoftDev.KnowledgeHub.Http.Server.csproj" />
     <ProjectReference Include="..\KnowledgeHub.Demo.SharedAuth\KnowledgeHub.Demo.SharedAuth.csproj" />
     <ProjectReference Include="..\KnowledgeHub.Demo.Wasm\KnowledgeHub.Demo.Wasm.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.HtmlSanitizer\MgSoftDev.KnowledgeHub.HtmlSanitizer.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,57 @@
+@* Tamaño de la imagen seleccionada: muestra el tamaño REAL en píxeles (lo que la tool de Radzen
+   no dice) y escribe width/height como estilo, no como atributos. *@
+
+<div class="kh-imgsize">
+
+    <div class="kh-imgsize-preview">
+        <img src="@Spec.Src" alt="@Spec.Alt" style="@PreviewStyle" class="kh-imgsize-preview-img" />
+    </div>
+
+    <div class="kh-imgsize-natural">
+        @if (SizeLoading)
+        {
+            <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.ExtraSmall" />
+            <span>Midiendo la imagen…</span>
+        }
+        else if (NaturalWidth is not null)
+        {
+            <RadzenIcon Icon="straighten" />
+            <span>Tamaño real: <strong>@NaturalWidth × @NaturalHeight px</strong></span>
+            <RadzenButton Text="Usar" Icon="restart_alt" Size="ButtonSize.ExtraSmall"
+                          ButtonStyle="ButtonStyle.Light" Click="@UseNaturalSize" />
+        }
+        else
+        {
+            <RadzenIcon Icon="help" />
+            <span>No se pudo medir la imagen.</span>
+        }
+    </div>
+
+    <div class="kh-imgsize-fields">
+        <RadzenFormField Text="Ancho (px)">
+            <RadzenNumeric TValue="int?" Value="@Spec.Width" ValueChanged="@OnWidthChanged" Min="1" />
+        </RadzenFormField>
+        <RadzenFormField Text="Alto (px)">
+            <RadzenNumeric TValue="int?" Value="@Spec.Height" ValueChanged="@OnHeightChanged" Min="1" />
+        </RadzenFormField>
+    </div>
+
+    <RadzenCheckBox @bind-Value="KeepRatio" Name="keepRatio" Disabled="@(NaturalWidth is null)" />
+    <RadzenLabel Text="Mantener proporción" Component="keepRatio" class="rz-ml-2" />
+
+    <div class="kh-imgsize-fields rz-mt-3">
+        <RadzenFormField Text="Zoom (%)">
+            <RadzenNumeric @bind-Value="Spec.Zoom" Min="1" />
+        </RadzenFormField>
+        <RadzenFormField Text="Texto alternativo (alt)">
+            <RadzenTextBox @bind-Value="Spec.Alt" />
+        </RadzenFormField>
+    </div>
+
+    <div class="kh-imgsize-actions">
+        <RadzenButton Text="Aplicar" Icon="check" Click="@Apply" />
+        <RadzenButton Text="Quitar tamaño" Icon="crop_free" ButtonStyle="ButtonStyle.Light" Click="@ClearSize" />
+        <RadzenButton Text="Cancelar" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@Cancel" />
+    </div>
+
+</div>

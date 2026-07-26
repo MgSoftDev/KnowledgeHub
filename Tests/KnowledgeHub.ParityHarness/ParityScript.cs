@@ -265,6 +265,52 @@ public static class ParityScript
         Check("Limpiar icono (null) funciona",
             clearIcon.Ok && infoCleared.OkNotNull && infoCleared.Value!.Icon is null && infoCleared.Value!.IconColor is null);
 
+        // ---- 21. Saneado del HTML al guardar ------------------------------------------------------------
+        // El sanitizador se registra en el contenedor del arnés; en modo http vive en el SERVIDOR,
+        // así que esto también prueba que la limpieza ocurre server-side aunque el cliente no la haga.
+        var editSan = await pages.GetPageForEditAsync(pasos.Pk);
+        editSan.Value!.ContentHtml =
+            "<h1>Título<o:p></o:p></h1>" +
+            "<p class=\"MsoNormal\">Texto<o:p>&nbsp;</o:p></p>" +
+            "<!--[if gte vml 1]><v:shape id=\"x\" style='width:159pt'>" +
+            "<v:imagedata src=\"file:///C:/tmp/clip.png\"/></v:shape><![endif]-->" +
+            "<p onclick=\"evil()\">click</p><script>alert(1)</script>";
+        var saveSan = await pages.SaveDraftAsync(editSan.Value);
+        Check("Guardar con basura de Word", saveSan.Ok);
+
+        var editSan2 = await pages.GetPageForEditAsync(pasos.Pk);
+        var cleanHtml = editSan2.OkNotNull ? editSan2.Value!.ContentHtml : string.Empty;
+        Check("Saneado: se quitó la basura de Word y el script",
+            editSan2.OkNotNull &&
+            !cleanHtml.Contains("<o:p", StringComparison.OrdinalIgnoreCase) &&
+            !cleanHtml.Contains("MsoNormal", StringComparison.OrdinalIgnoreCase) &&
+            !cleanHtml.Contains("v:shape", StringComparison.OrdinalIgnoreCase) &&
+            !cleanHtml.Contains("<script", StringComparison.OrdinalIgnoreCase) &&
+            !cleanHtml.Contains("onclick", StringComparison.OrdinalIgnoreCase));
+        Check("Saneado: conserva el contenido legítimo",
+            cleanHtml.Contains("Título") && cleanHtml.Contains("Texto"));
+
+        // Regresión crítica: si el esquema docimg:// o el CSS zoom no estuvieran permitidos, el
+        // saneado destruiría las imágenes ya almacenadas y el tamaño que fija la tool de imagen.
+        var editImg = await pages.GetPageForEditAsync(manualPk);
+        var firstImg = System.Text.RegularExpressions.Regex.Match(
+            editImg.Value!.ContentHtml, "<img[^>]*>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        Check("La página tiene una imagen para la regresión", firstImg.Success);
+
+        editImg.Value!.ContentHtml += "<p><img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\" " +
+                                      "alt=\"Q\" style=\"zoom:900%;width:100px;height:50px;\"></p>";
+        var saveImg = await pages.SaveDraftAsync(editImg.Value);
+        Check("Guardar con docimg:// y estilo de tamaño", saveImg.Ok);
+
+        var editImg2 = await pages.GetPageForEditAsync(manualPk);
+        var imgHtml = editImg2.OkNotNull ? editImg2.Value!.ContentHtml : string.Empty;
+        Check("Saneado: conserva zoom/width/height en el style",
+            imgHtml.Contains("zoom", StringComparison.OrdinalIgnoreCase) &&
+            imgHtml.Contains("100px") && imgHtml.Contains("50px"));
+        Check("Saneado: no destruye las imágenes existentes",
+            System.Text.RegularExpressions.Regex.IsMatch(imgHtml, "<img[^>]+src=",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+
         Console.WriteLine();
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL =====");
         return _failed;

@@ -8,6 +8,7 @@ using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.Blazor;
 using MgSoftDev.KnowledgeHub.Blazor.EditorTools;
 using MgSoftDev.KnowledgeHub.Contracts;
+using MgSoftDev.KnowledgeHub.HtmlSanitizer;
 using MgSoftDev.KnowledgeHub.Seeding;
 using MgSoftDev.KnowledgeHub.Storage.LiteDb;
 using MgSoftDev.ReturningCore.Logger;
@@ -83,6 +84,10 @@ public partial class App : Application
             builder.Services.AddKnowledgeHubLiteDbStore(Path.Combine(dataFolder, "demo-knowledgehub.db"));
             builder.Services.AddKnowledgeHubCore(o => o.PublicAssetsBaseUrl = "https://docs-assets");
             builder.Services.AddKnowledgeHubFileImageCache(Path.Combine(dataFolder, "cache"));
+
+            // Cleans pasted Word/web markup and checks the html again right before it is stored.
+            builder.Services.AddKnowledgeHubHtmlSanitizer();
+
             builder.Services.AddKnowledgeHubBlazor(o =>
             {
                 o.PortalTitle = "📚 KnowledgeHub Demo";

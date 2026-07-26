@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Client\MgSoftDev.KnowledgeHub.Http.Client.csproj" />
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Blazor\MgSoftDev.KnowledgeHub.Blazor.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.HtmlSanitizer\MgSoftDev.KnowledgeHub.HtmlSanitizer.csproj" />
   </ItemGroup>
 
 </Project>

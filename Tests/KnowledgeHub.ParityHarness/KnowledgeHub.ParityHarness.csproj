@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Storage.SqlServer\MgSoftDev.KnowledgeHub.Storage.SqlServer.csproj" />
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Server\MgSoftDev.KnowledgeHub.Http.Server.csproj" />
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Client\MgSoftDev.KnowledgeHub.Http.Client.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.HtmlSanitizer\MgSoftDev.KnowledgeHub.HtmlSanitizer.csproj" />
   </ItemGroup>
 
 </Project>

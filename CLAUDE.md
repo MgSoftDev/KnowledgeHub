@@ -8,8 +8,9 @@ Contexto del proyecto para asistentes de código. Léelo al iniciar sesión.
 colaborativa validado en `../DocBookDemo` (DocsPortal, que queda INTACTO como referencia).
 Multi-motor de BD (SQL Server, LiteDB; PostgreSQL futuro) y multi-hosting (WPF BlazorWebView,
 Blazor Server, Blazor WASM). Estado: **10 fases completas y verificadas**, v0.1.0-preview.1.
-Iteraciones posteriores: RCL embebible (v0.2.0-preview.1) e **icono + color por página**
-(v0.3.0-preview.1, cambio de esquema).
+Iteraciones posteriores: RCL embebible (v0.2.0-preview.1), **icono + color por página**
+(v0.3.0-preview.1, cambio de esquema) y **saneado de HTML + tool de tamaño de imagen**
+(v0.4.0-preview.1, paquete nuevo → 10 paquetes).
 
 ## Arquitectura (decisiones clave)
 
@@ -58,8 +59,19 @@ Iteraciones posteriores: RCL embebible (v0.2.0-preview.1) e **icono + color por 
     el `FooterContent` del árbol (primero el del anfitrión, luego el gancho). `KnowledgeHubLayout`
     NO debe renderizarlo (sería doble). `KnowledgeHubBrowser` expone `TreeFooterContent` como
     passthrough al `FooterContent` del árbol.
-- **Editor tools**: `EditorToolDescriptor` en `KnowledgeHubBlazorOptions.EditorTools`; los 4
-  callouts built-in se registran por el mismo mecanismo (removibles).
+- **Editor tools**: `EditorToolDescriptor` en `KnowledgeHubBlazorOptions.EditorTools`; los
+  built-in (4 callouts + `ImageSize` + `SanitizeHtml`) se registran por el mismo mecanismo
+  (removibles). `EditorToolContext` da además `Editor` (para trabajar sobre la SELECCIÓN),
+  `GetHtml()` y `ReplaceAllAsync()` (para herramientas de documento completo).
+  **Primer JS de la RCL** (v0.4.0): `wwwroot/knowledgehub.js` con `imageNaturalSize`, cargado por
+  *import* dinámico → el anfitrión no añade ningún `<script>`.
+- **Saneado de HTML (v0.4.0)**: `IKnowledgeHubHtmlSanitizer` (Abstractions, SIN dependencias) +
+  impl por defecto en el paquete aparte `MgSoftDev.KnowledgeHub.HtmlSanitizer`. Es **opcional**:
+  se resuelve con `GetService<T>()` y si falta no se limpia nada (patrón de `IKnowledgeHubImageCache`).
+  Tres puntos de llamada: pegar (`Paste` del editor), guardar (`SaveDraftAsync`, tras los dos
+  rewrites de imagen y antes de `GetExistingImagePksAsync`) y el botón manual. Al guardar limpia y
+  **loguea** (Information) sin molestar al usuario; el pase es idempotente. La allow-list DEBE
+  incluir los esquemas `data` y `docimg` y el CSS `zoom` (gotcha 16).
 - **Icono + color por página (v0.3.0)**: propiedad ESTRUCTURAL del nodo (`DocPage.Icon`,
   `DocPage.IconColor`, NVARCHAR 64/32), no versionada. Se propaga por todos los DTOs donde
   aparece el título (`PageTreeNodeDto`, `PageInfoDto`, `PageReadDto`, `PageEditDto`,
@@ -84,6 +96,7 @@ Blazor/          RCL 11 componentes + editor tools + knowledgehub.css (dep: SOLO
 AspNetCore/      MapKnowledgeHubAssets (immutable + cache-aside)
 Http.Server/     MapKnowledgeHubApi (minimal API, auth del anfitrión vía configureGroup)
 Http.Client/     impls HttpClient de los contratos (WASM-safe)
+HtmlSanitizer/   impl por defecto de IKnowledgeHubHtmlSanitizer sobre Ganss.Xss (OPCIONAL, dep: +HtmlSanitizer 9.1.x-beta)
 Demos/SharedAuth/     auth de demo compartida (users/roles LiteDB propio + AdminUsers/HostLinks/RootRedirect + SerilogReturningLoggerService)
 Demos/Wpf/            anfitrión WPF+LiteDB (TFM net10.0-windows10.0.19041.0, virtual host docs-assets)
 Demos/BlazorServer/   anfitrión Server+LiteDB (cookie auth, patrón AcceptsInteractiveRouting, puerto 5210)
@@ -95,9 +108,10 @@ artifacts/       feed NuGet local, git-ignored (dotnet pack -c Release -o artifa
 
 ## Publicación (nuget.org)
 
-Los 9 paquetes están **publicados en nuget.org** (perfil `migeru_garcia`), primera versión
-`0.1.0-preview.1`. La publicación es automática: `.github/workflows/publish-nuget.yml` se dispara
-al pushear un tag `v*`, empaqueta los 9 proyectos de librería (glob `MgSoftDev.KnowledgeHub*/*.csproj`
+Los paquetes están **publicados en nuget.org** (perfil `migeru_garcia`), primera versión
+`0.1.0-preview.1`; desde v0.4.0 son **10** (se sumó `HtmlSanitizer`). La publicación es automática:
+`.github/workflows/publish-nuget.yml` se dispara
+al pushear un tag `v*`, empaqueta los proyectos de librería (glob `MgSoftDev.KnowledgeHub*/*.csproj`
 en ubuntu-latest — NO `dotnet pack` del `.slnx`, que arrastraría el demo WPF `net10.0-windows`
 que no compila en Linux), toma la versión del tag (`-p:Version=${GITHUB_REF_NAME#v}`), y sube con
 **Trusted Publishing (OIDC)** vía `NuGet/login@v1` (usuario `migeru_garcia`, sin API keys). Nueva
@@ -105,8 +119,8 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (56 checks; 7 de icono en v0.3.0 + 3 de data-URI rechazada en v0.3.1):
-  mismo guion contra InMemory,
+- **Guion de paridad** (63 checks; 7 de icono en v0.3.0, 3 de data-URI rechazada en v0.3.1 y
+  6 de saneado en v0.4.0): mismo guion contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
@@ -177,6 +191,28 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     es la base de `UnknownImageFormatException` e `InvalidImageContentException` (SVG = formato
     desconocido). El grupo `mime` de `DataUriRegex` existía sin usarse; ahora nombra el formato
     en el mensaje de rechazo.
+15. **`RadzenHtmlEditorCustomTool.OnClick` NO llama a `SaveSelectionAsync()`** (el
+    `RadzenHtmlEditorImage` de Radzen sí lo hace, por eso su diálogo funciona). Una tool custom que
+    abra un diálogo pierde la selección —el diálogo roba el foco— y no puede reemplazar lo
+    seleccionado. Solución: `await args.Editor.SaveSelectionAsync()` en `OnEditorExecute` **antes**
+    de invocar la tool, y `RestoreSelectionAsync()` en la tool antes de devolver el HTML. Radzen
+    marca la `<img>` clicada con `rz-state-selected` y la selecciona como rango, y
+    `GetSelectionAttributes<T>("img", …)` la trata como caso especial. Caso real: `ImageSizeTool`.
+16. **La allow-list de fábrica de HtmlSanitizer destruye contenido de KnowledgeHub** si no se
+    amplía (verificado empíricamente contra 9.1.968-beta): tira `src="docimg://…"` y
+    `src="data:…"` porque solo permite los esquemas `http`/`https`, y tira `zoom` porque no está
+    entre sus 239 propiedades CSS (`width`/`height` sí lo están). Es decir: sin los tres ajustes de
+    `KnowledgeHubSanitizerDefaults`, guardar **borraría todas las imágenes** de todas las páginas.
+    Lo bueno: la basura de Word (`o:p`, `MsoNormal`, `v:shape`, comentarios condicionales), los
+    `<script>` y los `on*` ya los quita de fábrica, y los callouts sobreviven (normaliza colores a
+    `rgba()`, cosmético). Verificado también: es thread-safe (singleton OK) e idempotente — de eso
+    depende que el log de "se saneó" no salte en cada guardado.
+17. **HtmlSanitizer estable arrastra un AngleSharp vulnerable.** La 9.0.967 fija AngleSharp en
+    `[0.17.1]` (rango EXACTO, no se puede subir), afectado por **CVE-2026-54570**: un fallo de
+    parseo de MathML `annotation-xml` que permite **evadir sanitizadores** — justo lo que el
+    paquete debe impedir. Además dispara NU1902 y, con `TreatWarningsAsErrors`, rompe el restore.
+    La línea `9.1.x-beta` usa AngleSharp 1.5.2 (parcheado) y restaura limpio: por eso el repo usa
+    una beta a propósito. Al actualizar, comprobar si ya hay estable con AngleSharp ≥ 1.5.0.
 
 ## Pendientes / siguientes pasos
 

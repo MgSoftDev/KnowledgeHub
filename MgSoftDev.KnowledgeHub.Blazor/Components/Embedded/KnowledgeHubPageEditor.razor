@@ -31,7 +31,7 @@ else
 
         <div class="kh-editor-host">
             <RadzenHtmlEditor @bind-Value="SelectItem.ContentHtml" style="position:absolute; inset:0;"
-                              Execute="@OnEditorExecute">
+                              Execute="@OnEditorExecute" Paste="@OnEditorPaste">
                 <RadzenHtmlEditorUndo /> <RadzenHtmlEditorRedo />
                 <RadzenHtmlEditorSeparator />
                 <RadzenHtmlEditorBold /> <RadzenHtmlEditorItalic /> <RadzenHtmlEditorUnderline /> <RadzenHtmlEditorStrikeThrough />

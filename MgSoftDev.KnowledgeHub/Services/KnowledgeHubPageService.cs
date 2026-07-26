@@ -8,6 +8,7 @@ using MgSoftDev.KnowledgeHub.Store;
 using MgSoftDev.ReturningCore;
 using MgSoftDev.ReturningCore.Exceptions;
 using MgSoftDev.ReturningCore.Helper;
+using MgSoftDev.ReturningCore.Logger;
 
 namespace MgSoftDev.KnowledgeHub.Services;
 
@@ -26,14 +27,20 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     private readonly IKnowledgeHubUserContext _user;
     private readonly IKnowledgeHubImageService _imageService;
     private readonly KnowledgeHubOptions _options;
+    private readonly IKnowledgeHubHtmlSanitizer? _sanitizer;
 
+    // sanitizer is OPTIONAL: absent unless the host registers one (see the
+    // MgSoftDev.KnowledgeHub.HtmlSanitizer package). When null nothing is cleaned and saving
+    // behaves exactly as before.
     public KnowledgeHubPageService(IKnowledgeHubStore store, IKnowledgeHubUserContext user,
-        IKnowledgeHubImageService imageService, KnowledgeHubOptions options)
+        IKnowledgeHubImageService imageService, KnowledgeHubOptions options,
+        IKnowledgeHubHtmlSanitizer? sanitizer = null)
     {
         _store = store;
         _user = user;
         _imageService = imageService;
         _options = options;
+        _sanitizer = sanitizer;
     }
 
     #region Tree & reading
@@ -184,6 +191,13 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             // Existing images are shown in the editor as display URLs; turn them back into the
             // stable docimg:// references (matched by hash → same DocImage id, no duplication).
             html = await RewriteDisplayUrlsToDocImgAsync(html);
+
+            // Last checkpoint before persisting, so markup typed by hand in the Source view is
+            // checked too. It runs HERE —after both image rewrites— because only now is the html
+            // in its canonical stored form (every image is docimg://, no host-specific URLs), and
+            // still before GetExistingImagePksAsync below, so removing an <img> keeps the
+            // page↔image links consistent with what actually gets stored.
+            html = SanitizeForSave(html, draft.PagePk);
 
             var maxR = await _store.GetMaxVersionNumberAsync(draft.PagePk);
             if (!maxR.Ok) maxR.Throw();
@@ -498,6 +512,30 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     #region Helpers
 
     private AuditStamp Stamp() => new(_user.UserName, DateTime.Now);
+
+    /// <summary>
+    /// Cleans the html right before it is stored, when a sanitizer is registered. Removing content
+    /// silently would be rude, but interrupting the save would be worse, so a change is recorded in
+    /// the log instead of surfacing to the user. The sanitizer pass is idempotent, so a document
+    /// that is already clean logs nothing on later saves.
+    /// </summary>
+    private string SanitizeForSave(string html, Guid pagePk)
+    {
+        if (_sanitizer is null || string.IsNullOrEmpty(html)) return html;
+
+        var clean = _sanitizer.Sanitize(html, HtmlSanitizeContext.Save);
+        if (clean == html) return html;
+
+        if (ReturningLogger.LoggerService is not null)
+            new UnfinishedInfo(
+                "HTML saneado al guardar",
+                $"Se limpió el contenido de la página {pagePk} antes de almacenarlo " +
+                $"({html.Length} → {clean.Length} caracteres). Usuario: {_user.UserName}.",
+                UnfinishedInfo.NotifyType.Information)
+                .SaveLog(this, nameof(KnowledgeHubPageService));
+
+        return clean;
+    }
 
     /// <summary>
     /// Uploads every pasted data-URI image and rewrites its src to a stable docimg:// reference.

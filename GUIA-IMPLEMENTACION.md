@@ -22,6 +22,7 @@ la librería.
    - 3.2 Permisos reservados y visibilidad por página
    - 3.3 El pipeline de imágenes y `PublicAssetsBaseUrl`
    - 3.4 Requisitos de la UI (RCL)
+   - 3.5 Dos modos de integración: portal vs. embebido
 4. [Storage: elegir y configurar el proveedor](#4-storage-elegir-y-configurar-el-proveedor)
    - 4.1 LiteDB
    - 4.2 SQL Server
@@ -31,6 +32,7 @@ la librería.
 7. [Implementación en Blazor WebAssembly + Web API](#7-implementación-en-blazor-webassembly--web-api)
    - 7.3 Caso especial: Blazor Web App unificado (.NET 10, Interactive WebAssembly)
 8. [Herramientas personalizadas del editor HTML](#8-herramientas-personalizadas-del-editor-html)
+   - 8.1 Limpieza del HTML (pegar, guardar y botón manual)
 9. [Seeding de contenido de ejemplo](#9-seeding-de-contenido-de-ejemplo)
 10. [Permisos finos (opt-in)](#10-permisos-finos-opt-in)
 11. [Solución de problemas (gotchas)](#11-solución-de-problemas-gotchas)
@@ -75,6 +77,7 @@ Requisitos: **.NET 10**, y para la UI **Radzen.Blazor** (lo trae el paquete Blaz
 | `MgSoftDev.KnowledgeHub.AspNetCore` | Endpoint de imágenes `/kh/assets` | Blazor Server y servers de API |
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos | El server que atiende clientes WASM |
 | `MgSoftDev.KnowledgeHub.Http.Client` | Contratos sobre HttpClient | El cliente WASM |
+| `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (§8.1) | Opcional, pero **recomendado**: sin él no se limpia nada |
 
 **Matriz por hosting:**
 
@@ -84,6 +87,9 @@ Requisitos: **.NET 10**, y para la UI **Radzen.Blazor** (lo trae el paquete Blaz
 | Blazor Server | `KnowledgeHub` + `Storage.*` + `Blazor` + `AspNetCore` |
 | WASM (cliente) | `Http.Client` + `Blazor` |
 | WASM (server API) | `KnowledgeHub` + `Storage.*` + `AspNetCore` + `Http.Server` |
+
+En los cuatro casos añade `HtmlSanitizer` si quieres limpieza de HTML; en WASM va en **ambos**
+lados (cliente para el pegado, servidor para el guardado).
 
 **Instalar desde nuget.org.** Los paquetes están publicados (perfil `migeru_garcia`), así que se
 instalan como cualquier otro:
@@ -97,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.3.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.4.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -494,9 +500,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.3.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.3.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.3.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.4.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.4.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.4.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1025,14 +1031,166 @@ services.AddKnowledgeHubBlazor(o =>
 });
 ```
 
-`EditorToolContext` te da: `Dialog` (DialogService de Radzen), `Services` (service provider del
-scope) y `User` (el contexto de usuario — puedes adaptar la herramienta a permisos).
+`EditorToolContext` te da:
+
+| Miembro | Para qué |
+|---|---|
+| `Dialog` | `DialogService` de Radzen (abrir diálogos de configuración). |
+| `Services` | Service provider del scope (resolver servicios; usa `GetService<T>()` para los opcionales). |
+| `User` | El contexto de usuario, por si la herramienta se adapta a permisos. |
+| `Editor` | El `RadzenHtmlEditor` vivo, para herramientas que trabajan sobre la **selección**. |
+| `GetHtml()` | HTML actual del documento completo. |
+| `ReplaceAllAsync(html)` | Reemplaza **todo** el documento (para herramientas que reformatean). |
 
 Consejos para el HTML insertado:
 - Usa **estilos inline** (el HTML viaja dentro del contenido y se ve igual en cualquier host).
 - Si insertas un `<div>` estilizado, pon el texto en un `<p>` interno y agrega `<p><br></p>`
   al final — así Enter no clona la caja. `CalloutHtml.Build(bg, border, accent, icon, title,
   text)` es público y ya lo hace, por si quieres reusar el estilo de los callouts.
+
+### Herramientas que operan sobre la selección
+
+Si tu herramienta modifica lo que el usuario tiene seleccionado (no inserta en el cursor), usa
+`ctx.Editor`. El editor ya llama a `SaveSelectionAsync()` **antes** de invocarte; tú debes llamar a
+`RestoreSelectionAsync()` **antes** de devolver el HTML, porque abrir un diálogo mueve el foco y se
+perdería la selección:
+
+```csharp
+ExecuteAsync = async ctx =>
+{
+    var img = await ctx.Editor.GetSelectionAttributes<MisAtributos>("img", ["src", "alt", "style"]);
+    if (string.IsNullOrWhiteSpace(img?.Src)) return null;   // no había imagen seleccionada
+
+    var result = await ctx.Dialog.OpenAsync<MiDialogo>("…", parameters: null);
+    if (result is not MiSpec spec) return null;
+
+    await ctx.Editor.RestoreSelectionAsync();               // ← imprescindible
+    return $"<img src=\"{spec.Src}\" style=\"width:{spec.Width}px;\">";
+}
+```
+
+`ImageSizeTool.ExecuteAsync` (público) es exactamente este patrón, por si quieres partir de él.
+
+### Las dos herramientas integradas nuevas (v0.4.0)
+
+| Herramienta | `CommandName` | Qué hace |
+|---|---|---|
+| Tamaño de imagen | `ImageSize` | Sobre la imagen **seleccionada**: muestra su tamaño **real en píxeles**, permite fijar ancho/alto (con *mantener proporción*), `zoom` y `alt`. Escribe `width`/`height`/`zoom` **como CSS en `style`** y **no** como atributos HTML. |
+| Limpiar HTML | `SanitizeHtml` | Limpia **todo el documento** con el sanitizador registrado (§8.1). Avisa si no hay ninguno o si no había nada que limpiar. |
+
+Se quitan como cualquier otra: `o.EditorTools.RemoveAll(t => t.CommandName == "ImageSize");`
+
+La de tamaño de imagen convive con `RadzenHtmlEditorImage`, que sigue siendo la que **inserta**
+imágenes. Para medir la imagen, la RCL carga un módulo JS propio por *import* dinámico
+(`_content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.js`): **no tienes que añadir ningún
+`<script>`**.
+
+---
+
+## 8.1 Limpieza del HTML (pegar, guardar y botón manual)
+
+Al pegar desde Word el editor se ve bien, pero el HTML se llena de basura (`<o:p>`,
+`class="MsoNormal"`, `<v:shape>`, comentarios condicionales `<!--[if …]>`). KnowledgeHub puede
+limpiar el HTML en **tres momentos**, siempre a través de una interfaz que puedes implementar:
+
+1. **Al pegar** contenido en el editor.
+2. **Antes de guardar** en la base de datos — también atrapa etiquetas escritas a mano en la vista
+   *Source*. Es el checkpoint que de verdad protege la BD.
+3. **Al pulsar el botón** de limpieza de la barra de herramientas.
+
+### Paso 1 — Instalar el paquete
+
+```bash
+dotnet add package MgSoftDev.KnowledgeHub.HtmlSanitizer
+```
+
+### Paso 2 — Registrarlo
+
+```csharp
+services.AddKnowledgeHubHtmlSanitizer();
+```
+
+Regístralo en **cada contenedor** que lo necesite: el de la UI limpia al pegar, el que ejecuta el
+core limpia al guardar. En WPF y Blazor Server es el mismo contenedor, así que **basta una línea**;
+en WASM hacen falta **las dos**: cliente (pegar) y servidor de la API (guardar).
+
+Es **opcional**: si no lo registras, la librería se comporta exactamente como antes y no se limpia
+nada. El botón de limpieza avisa de que no hay sanitizador.
+
+### Paso 3 (opcional) — Ampliar las reglas
+
+Parte de los valores por defecto y añade lo tuyo:
+
+```csharp
+services.AddKnowledgeHubHtmlSanitizer(o =>
+{
+    o.AllowedTags.Add("iframe");            // por ejemplo, vídeo incrustado
+    o.AllowedAttributes.Add("class");       // NO permitido de fábrica
+    o.AllowedAttributes.Add("allowfullscreen");
+    o.AllowedCssProperties.Add("filter");
+    o.AllowedSchemes.Add("mailto");
+});
+```
+
+**Tres ajustes ya vienen puestos y no debes quitarlos:**
+
+| Ajuste | Por qué |
+|---|---|
+| `AllowedSchemes.Add("data")` | Las imágenes pegadas viajan como `data:` hasta que se guardan; sin esto se borrarían antes de poder subirse. |
+| `AllowedSchemes.Add("docimg")` | `docimg://{pk}` es la referencia almacenada; sin esto, limpiar al guardar borraría **todas** las imágenes existentes. |
+| `AllowedCssProperties.Add("zoom")` | `zoom` no es estándar y no está en la lista de fábrica, pero es lo que escribe la herramienta de tamaño de imagen. |
+
+### Paso 4 (opcional) — Implementación propia
+
+Implementa `IKnowledgeHubHtmlSanitizer` (en `MgSoftDev.KnowledgeHub.Abstractions`). El ejemplo usa
+la misma librería, así que puedes tomarlo como base y endurecer o relajar a tu gusto — por ejemplo,
+ser más agresivo al pegar que al guardar:
+
+```csharp
+using Ganss.Xss;
+using MgSoftDev.KnowledgeHub.Contracts;
+using MgSoftDev.KnowledgeHub.HtmlSanitizer;   // KnowledgeHubSanitizerDefaults
+
+public sealed class MiSanitizador : IKnowledgeHubHtmlSanitizer
+{
+    private readonly HtmlSanitizer _pegado;
+    private readonly HtmlSanitizer _guardado;
+
+    public MiSanitizador()
+    {
+        // Al pegar: sólo lo mínimo (lo que llega de Word suele ser lo más sucio).
+        _pegado = KnowledgeHubSanitizerDefaults.CreateSanitizer();
+        _pegado.AllowedTags.Remove("font");
+        _pegado.AllowedAttributes.Remove("style");
+
+        // Al guardar: más permisivo, porque el contenido ya pasó por el editor.
+        _guardado = KnowledgeHubSanitizerDefaults.CreateSanitizer();
+        _guardado.AllowedTags.Add("iframe");
+        _guardado.AllowedAttributes.Add("class");
+    }
+
+    public string Sanitize(string html, HtmlSanitizeContext context) =>
+        string.IsNullOrEmpty(html)
+            ? html
+            : (context == HtmlSanitizeContext.Paste ? _pegado : _guardado).Sanitize(html);
+}
+```
+
+Y regístralo **antes** de `AddKnowledgeHubHtmlSanitizer()` (que usa `TryAddSingleton`, así que la
+tuya gana), o simplemente en lugar de esa llamada:
+
+```csharp
+services.AddSingleton<IKnowledgeHubHtmlSanitizer, MiSanitizador>();
+```
+
+> **Qué pasa cuando se limpia al guardar.** El contenido limpio se guarda sin interrumpir al
+> usuario y **se registra en el log** (nivel Information, vía el logger de `Returning`) con la
+> página, el usuario y cuántos caracteres se quitaron. El pase es idempotente: un documento ya
+> limpio no vuelve a registrar nada en guardados posteriores.
+
+> **Nota de versión.** El paquete usa la línea `9.1.x-beta` de HtmlSanitizer a propósito: es la
+> primera que depende de **AngleSharp ≥ 1.5.0**. Las estables anteriores fijan AngleSharp `0.17.1`,
+> afectado por **CVE-2026-54570**, un fallo de parseo que permite **evadir sanitizadores**.
 
 ---
 
@@ -1100,6 +1258,12 @@ anchas se reducen al ingresarlas).
 | Los diálogos de KnowledgeHub no abren aunque Radzen esté configurado | `<RadzenComponents />` vive en un layout que las páginas `/kh` no están usando | Móntalo a nivel de router, fuera de los layouts (§7.3, punto 3) |
 | Las páginas `/kh/*` se ven sin árbol, sin búsqueda y sin botón de crear | v0.2.0: las páginas ya no imponen `KnowledgeHubLayout`, y esa chrome vivía ahí | Layout anidado + `KnowledgeHubNavTree` (§3.5), o usa `KnowledgeHubBrowser` |
 | El portal se desborda / doble scrollbar bajo tu topbar | Las páginas `/kh/*` usan los defaults `100vh`; solo `KnowledgeHubBrowser` aplica `.kh-embedded` | Sobreescribe `--kh-portal-height` y `--kh-editor-height` en tu contenedor (§3.5) |
+| Pegas desde Word y el HTML sigue lleno de `<o:p>` / `MsoNormal` | No hay sanitizador registrado en el contenedor de la **UI** | `AddKnowledgeHubHtmlSanitizer()` donde registras la UI; en WASM, en el cliente (§8.1) |
+| En WASM se limpia al guardar pero no al pegar (o al revés) | Solo registraste el sanitizador en uno de los dos lados | Hace falta en cliente **y** en el server de la API (§8.1 paso 2) |
+| Al guardar desaparecen todas las imágenes | Sanitizador propio que no permite el esquema `docimg` | Parte de `KnowledgeHubSanitizerDefaults.CreateSanitizer()` (§8.1 paso 3) |
+| El `zoom` de una imagen se pierde al guardar | `zoom` no está en la allow-list de fábrica de HtmlSanitizer | `AllowedCssProperties.Add("zoom")` — ya incluido en los defaults del paquete (§8.1) |
+| El botón de tamaño de imagen dice «Selecciona una imagen» | No hay ninguna `<img>` seleccionada en el editor | Haz clic sobre la imagen (queda marcada) y vuelve a pulsar el botón (§8) |
+| Tu herramienta con diálogo inserta al final en vez de reemplazar la selección | Falta `RestoreSelectionAsync()` tras cerrar el diálogo | Llámalo antes de devolver el HTML (§8, «herramientas sobre la selección») |
 
 ---
 
@@ -1121,10 +1285,16 @@ Al terminar la integración, verifica en la app corriendo:
       restaurar crea una versión nueva sin borrar historial.
 - [ ] **Herramientas del editor**: los callouts (y las tuyas) insertan HTML y Enter no clona
       la caja.
+- [ ] **Tamaño de imagen**: selecciona una imagen → el diálogo muestra su tamaño real en px;
+      cambiar el ancho con «mantener proporción» recalcula el alto; al guardar, el HTML lleva
+      `style="…width:…px"` y **no** atributos `width`/`height`.
+- [ ] **Limpieza de HTML** (si registraste el sanitizador): pega contenido de Word → el HTML
+      queda limpio; el botón de limpieza actúa sobre todo el documento; guardar una página con
+      imágenes **no** las destruye.
 - [ ] **Diagnóstico** (`/kh/diagnostics`): muestra métricas tras navegar; hits de caché
       crecen en visitas repetidas.
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.3.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.4.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

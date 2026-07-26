@@ -3,6 +3,7 @@ using KnowledgeHub.Demo.Wasm.Auth;
 using MgSoftDev.KnowledgeHub.Blazor;
 using MgSoftDev.KnowledgeHub.Blazor.EditorTools;
 using MgSoftDev.KnowledgeHub.Contracts;
+using MgSoftDev.KnowledgeHub.HtmlSanitizer;
 using MgSoftDev.KnowledgeHub.Http.Client;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -26,6 +27,11 @@ builder.Services.AddSingleton<IKnowledgeHubUserContext>(sp => sp.GetRequiredServ
 
 // ---- KnowledgeHub module: HTTP contracts + Blazor UI. -------------------------------------
 builder.Services.AddKnowledgeHubHttpClient();
+
+// WASM needs it on BOTH sides: here it cleans what the user pastes into the editor, and the API
+// server registers it too so the html is checked again before it is stored.
+builder.Services.AddKnowledgeHubHtmlSanitizer();
+
 builder.Services.AddKnowledgeHubBlazor(o =>
 {
     o.PortalTitle = "📚 KnowledgeHub WASM";

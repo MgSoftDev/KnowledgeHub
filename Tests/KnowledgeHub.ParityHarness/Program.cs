@@ -1,6 +1,7 @@
 using KnowledgeHub.ParityHarness;
 using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.Contracts;
+using MgSoftDev.KnowledgeHub.HtmlSanitizer;
 using MgSoftDev.KnowledgeHub.Http.Client;
 using MgSoftDev.KnowledgeHub.Http.Server;
 using MgSoftDev.KnowledgeHub.Storage.LiteDb;
@@ -39,6 +40,7 @@ if (mode == "http")
     serverBuilder.Services.AddKnowledgeHubLiteDbStore(liteDbPath);
     serverBuilder.Services.AddKnowledgeHubCore(o => o.PublicAssetsBaseUrl = "/kh/assets");
     serverBuilder.Services.AddKnowledgeHubFileImageCache(cacheFolder);
+    serverBuilder.Services.AddKnowledgeHubHtmlSanitizer();
 
     var server = serverBuilder.Build();
     server.MapKnowledgeHubApi();
@@ -122,6 +124,7 @@ else
 
     services.AddKnowledgeHubCore(o => o.PublicAssetsBaseUrl = "/kh/assets");
     services.AddKnowledgeHubFileImageCache(cacheFolder);
+    services.AddKnowledgeHubHtmlSanitizer();
 
     var provider = services.BuildServiceProvider();
     try

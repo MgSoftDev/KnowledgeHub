@@ -224,3 +224,24 @@
 .kh-icon-color-none { background: #fff; }
 .kh-icon-color-none .rz-icon, .kh-icon-color-none .notranslate { font-size: 1rem; }
 .kh-icon-color-selected { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- Image size dialog */
+.kh-imgsize { display: flex; flex-direction: column; gap: 10px; min-width: 480px; }
+
+.kh-imgsize-preview {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 140px; max-height: 240px; overflow: auto;
+    background: repeating-conic-gradient(#f3f4f6 0% 25%, #fff 0% 50%) 50% / 16px 16px;
+    border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px;
+}
+.kh-imgsize-preview-img { max-width: 100%; max-height: 224px; }
+
+.kh-imgsize-natural {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85rem; color: #4b5563;
+}
+
+.kh-imgsize-fields { display: flex; gap: 12px; }
+.kh-imgsize-fields > * { flex: 1; }
+
+.kh-imgsize-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }

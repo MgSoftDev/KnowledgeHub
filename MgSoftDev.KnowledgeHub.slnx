@@ -8,6 +8,7 @@
   <Project Path="MgSoftDev.KnowledgeHub.AspNetCore/MgSoftDev.KnowledgeHub.AspNetCore.csproj" />
   <Project Path="MgSoftDev.KnowledgeHub.Http.Server/MgSoftDev.KnowledgeHub.Http.Server.csproj" />
   <Project Path="MgSoftDev.KnowledgeHub.Http.Client/MgSoftDev.KnowledgeHub.Http.Client.csproj" />
+  <Project Path="MgSoftDev.KnowledgeHub.HtmlSanitizer/MgSoftDev.KnowledgeHub.HtmlSanitizer.csproj" />
   <Folder Name="/Demos/">
     <Project Path="Demos/KnowledgeHub.Demo.SharedAuth/KnowledgeHub.Demo.SharedAuth.csproj" />
     <Project Path="Demos/KnowledgeHub.Demo.Wpf/KnowledgeHub.Demo.Wpf.csproj" />

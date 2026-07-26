@@ -6,6 +6,7 @@ using MgSoftDev.KnowledgeHub.Security;
 using MgSoftDev.PrismPlus.Returning.Commands;
 using MgSoftDev.ReturningCore;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using Radzen;
 
 namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
@@ -132,10 +133,47 @@ public partial class KnowledgeHubPageEditor : ComponentBase
         var tool = Options.EditorTools.FirstOrDefault(t => t.CommandName == args.CommandName);
         if (tool is null) return;
 
-        var context = new EditorToolContext { Dialog = Dialog, Services = Services, User = User };
+        // RadzenHtmlEditorCustomTool does NOT save the selection before raising Execute (the
+        // built-in image tool does it itself). Without this, any tool that opens a dialog loses
+        // the selection — the dialog takes the focus — and cannot replace what the user picked.
+        await args.Editor.SaveSelectionAsync();
+
+        var context = new EditorToolContext
+        {
+            Dialog = Dialog,
+            Services = Services,
+            User = User,
+            Editor = args.Editor,
+            GetHtml = () => SelectItem?.ContentHtml ?? string.Empty,
+            ReplaceAllAsync = ReplaceEditorHtmlAsync
+        };
         var html = await tool.ExecuteAsync(context);
 
         if (html is not null)
             await args.Editor.ExecuteCommandAsync(HtmlEditorCommands.InsertHtml, html);
+    }
+
+    /// <summary>
+    /// Swaps the whole document (used by document-wide tools such as the HTML cleanup button).
+    /// Goes through the bound property so the change survives and re-renders the editor.
+    /// </summary>
+    private Task ReplaceEditorHtmlAsync(string html)
+    {
+        if (SelectItem is null) return Task.CompletedTask;
+        SelectItem.ContentHtml = html;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Cleans content pasted into the editor (Word markup, scripts…) when the host registered a
+    /// sanitizer. Radzen only raises this event when the Paste callback has a delegate, so binding
+    /// it also switches pasting to Radzen's own insert path.
+    /// </summary>
+    private void OnEditorPaste(HtmlEditorPasteEventArgs args)
+    {
+        var sanitizer = Services.GetService<IKnowledgeHubHtmlSanitizer>();
+        if (sanitizer is null || string.IsNullOrEmpty(args.Html)) return;
+
+        args.Html = sanitizer.Sanitize(args.Html, HtmlSanitizeContext.Paste);
     }
 }
