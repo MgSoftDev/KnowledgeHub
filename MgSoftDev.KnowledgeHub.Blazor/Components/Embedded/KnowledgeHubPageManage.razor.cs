@@ -33,6 +33,7 @@ public partial class KnowledgeHubPageManage : ComponentBase
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
     [Inject] private DialogService Dialog { get; set; } = null!;
+    [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
 
     protected PageInfoDto? Info { get; private set; }
     protected List<PageInfoDto> ParentOptions { get; private set; } = new();
@@ -104,6 +105,7 @@ public partial class KnowledgeHubPageManage : ComponentBase
         if (result.OkNotNull)
         {
             Notify.ShowSuccess("Subpágina creada");
+            UiState.NotifyPageTreeChanged();
             if (OnChildCreated.HasDelegate) await OnChildCreated.InvokeAsync(result.Value);
             else Nav.NavigateTo(KnowledgeHubRoutes.Edit(result.Value));
         }
@@ -128,6 +130,7 @@ public partial class KnowledgeHubPageManage : ComponentBase
         if (result.Ok)
         {
             Notify.ShowSuccess("Página eliminada");
+            UiState.NotifyPageTreeChanged();
             if (OnDeleted.HasDelegate) await OnDeleted.InvokeAsync();
             else Nav.NavigateTo(KnowledgeHubRoutes.Home);
         }
@@ -144,7 +147,12 @@ public partial class KnowledgeHubPageManage : ComponentBase
         StateHasChanged();
         var result = await action();
         Wait = false;
-        if (result.Ok) Notify.ShowSuccess(success);
+        if (result.Ok)
+        {
+            Notify.ShowSuccess(success);
+            // Title, parent, order and icon are all shown by the tree: tell it to reload.
+            UiState.NotifyPageTreeChanged();
+        }
         else result.SendNotifyIfNotOk(Notify, errorTitle);
         StateHasChanged();
     }

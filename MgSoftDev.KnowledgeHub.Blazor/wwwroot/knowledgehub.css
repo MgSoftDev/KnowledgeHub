@@ -113,6 +113,29 @@
     min-width: 0;
 }
 
+/* ---------------------------------------------------------------- Text selection
+   Radzen's themes override the browser's native selection globally with
+   `::selection { background-color: var(--rz-text-selection-background-color) }`, which in the
+   material theme resolves to --rz-primary-lighter = rgba(67,64,210,.12): a 12%-opacity tint that
+   is practically invisible on white. Selecting and copying works, it just does not LOOK selected.
+   Restore a readable highlight, but ONLY inside the module's own surfaces — an embedded RCL has no
+   business restyling the host's whole page. Hosts that want it everywhere can copy this rule
+   without the .kh-* prefix into their own stylesheet, or set --kh-selection-* on :root. */
+:root {
+    --kh-selection-background: rgba(37, 99, 235, 0.28);
+    --kh-selection-color: inherit;
+}
+
+.kh-doc-content ::selection,
+.kh-doc-content::selection,
+.kh-editor-host ::selection,
+.kh-navtree ::selection,
+.kh-imgsize ::selection,
+.kh-icon-picker ::selection {
+    background-color: var(--kh-selection-background);
+    color: var(--kh-selection-color);
+}
+
 /* Rendered documentation HTML. */
 .kh-doc-content {
     max-width: 900px;

@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using MgSoftDev.KnowledgeHub.Contracts;
+using MgSoftDev.KnowledgeHub.Dtos;
 using MgSoftDev.KnowledgeHub.Entities;
 using MgSoftDev.KnowledgeHub.Security;
+using MgSoftDev.KnowledgeHub.Store;
 using MgSoftDev.ReturningCore;
 using MgSoftDev.ReturningCore.Exceptions;
 using MgSoftDev.ReturningCore.Helper;
@@ -17,6 +19,8 @@ namespace MgSoftDev.KnowledgeHub.Services;
 /// </summary>
 public sealed class KnowledgeHubImageService : IKnowledgeHubImageService
 {
+    private const string AdminOnlyMessage = "Solo un administrador puede hacer mantenimiento de imágenes";
+
     private readonly IKnowledgeHubStore _store;
     private readonly IKnowledgeHubUserContext _user;
     private readonly KnowledgeHubOptions _options;
@@ -86,4 +90,58 @@ public sealed class KnowledgeHubImageService : IKnowledgeHubImageService
 
             return docImage.Pk;
         }, saveLog: true);
+
+    public Task<Returning<OrphanImageReportDto>> AnalyzeOrphanImagesAsync() =>
+        Returning<OrphanImageReportDto>.TryTask(async () =>
+        {
+            if (!_user.IsAdmin())
+                return Returning.Unfinished(AdminOnlyMessage, UnfinishedInfo.NotifyType.Warning);
+
+            var (all, orphans) = await FindOrphansAsync();
+
+            return new OrphanImageReportDto
+            {
+                TotalImages = all.Count,
+                ReferencedImages = all.Count - orphans.Count,
+                OrphanImages = orphans.Count,
+                OrphanBytes = orphans.Sum(i => i.SizeBytes),
+                SampleFileNames = orphans.Take(10).Select(i => i.FileName).ToList()
+            };
+        }, saveLog: true);
+
+    public Task<Returning<int>> DeleteOrphanImagesAsync() =>
+        Returning<int>.TryTask(async () =>
+        {
+            if (!_user.IsAdmin())
+                return Returning.Unfinished(AdminOnlyMessage, UnfinishedInfo.NotifyType.Warning);
+
+            // Recomputed here on purpose: deleting off a report the caller obtained earlier would
+            // remove images a page saved in the meantime is already using.
+            var (_, orphans) = await FindOrphansAsync();
+            if (orphans.Count == 0) return 0;
+
+            var deletedR = await _store.DeleteImagesAsync(
+                orphans.Select(i => i.Pk).ToList(),
+                new AuditStamp(_user.UserName, DateTime.Now));
+            if (!deletedR.Ok) deletedR.Throw();
+
+            return deletedR.Value;
+        }, saveLog: true);
+
+    /// <summary>
+    /// Every stored image minus the ones any version still references. The reference set covers
+    /// the FULL history, so restoring an old version never finds a missing image.
+    /// </summary>
+    private async Task<(List<ImageSummaryDto> All, List<ImageSummaryDto> Orphans)> FindOrphansAsync()
+    {
+        var allR = await _store.GetAllImageSummariesAsync();
+        if (!allR.Ok) allR.Throw();
+
+        var referencedR = await _store.GetReferencedImagePksAsync();
+        if (!referencedR.Ok) referencedR.Throw();
+
+        var referenced = referencedR.Value!.ToHashSet();
+        var all = allR.Value!;
+        return (all, all.Where(i => !referenced.Contains(i.Pk)).ToList());
+    }
 }

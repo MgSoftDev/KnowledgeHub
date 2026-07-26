@@ -34,6 +34,7 @@ public partial class KnowledgeHubPageEditor : ComponentBase
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
     [Inject] private DialogService Dialog { get; set; } = null!;
+    [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
 
     protected PageEditDto? SelectItem { get; private set; }
     protected bool Loading { get; private set; } = true;
@@ -98,6 +99,10 @@ public partial class KnowledgeHubPageEditor : ComponentBase
             if (!publish.Ok) return publish;
 
             Notify.ShowSuccess("Página publicada");
+
+            // Publicar mueve el título de la página al de la versión publicada, así que el árbol
+            // puede haber quedado desactualizado.
+            UiState.NotifyPageTreeChanged();
 
             // El cuerpo async de AsyncReturningCommand NO resume en el Dispatcher de Blazor, y
             // el callback provoca un render en el anfitrión (StateHasChanged) → hay que

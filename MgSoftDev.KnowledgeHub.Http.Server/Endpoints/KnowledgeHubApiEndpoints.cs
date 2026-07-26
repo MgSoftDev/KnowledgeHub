@@ -105,6 +105,13 @@ public static class KnowledgeHubApiEndpoints
             return Results.Ok((await svc.UploadOrReplaceAsync(bytes, request.FileName)).ToApi());
         });
 
+        group.MapGet("/images/orphans", async (IKnowledgeHubImageService svc) =>
+            Results.Ok((await svc.AnalyzeOrphanImagesAsync()).ToApi()));
+
+        // POST, not DELETE: it is a bulk maintenance action that returns how many were removed.
+        group.MapPost("/images/orphans/purge", async (IKnowledgeHubImageService svc) =>
+            Results.Ok((await svc.DeleteOrphanImagesAsync()).ToApi()));
+
         // ---- HTML rewriter (server resolves display URLs and warms its cache) --------------------------
         group.MapPost("/html/prepare", async (PrepareHtmlRequest request, IKnowledgeHubHtmlImageRewriter rewriter) =>
             Results.Ok((await rewriter.PrepareForDisplayAsync(request.StoredHtml)).ToApi()));

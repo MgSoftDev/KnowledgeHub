@@ -18,9 +18,15 @@ public partial class KnowledgeHubDiagnosticsPanel : ComponentBase
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IServiceProvider Services { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
+    [Inject] private IKnowledgeHubImageService ImageService { get; set; } = null!;
+    [Inject] private IKnowledgeHubUserContext User { get; set; } = null!;
+    [Inject] private DialogService Dialog { get; set; } = null!;
 
     /// <summary>Optional: absent in hosts without a local disk cache (e.g. WASM clients).</summary>
     protected IKnowledgeHubImageCache? Cache { get; private set; }
+
+    /// <summary>Last orphan-image analysis; null until the admin runs it.</summary>
+    protected OrphanImageReportDto? Orphans { get; private set; }
 
     protected DiagnosticsSnapshot? Last => DiagnosticsService.Last;
     protected long CumulativeHits => DiagnosticsService.CumulativeHits;
@@ -102,6 +108,59 @@ public partial class KnowledgeHubDiagnosticsPanel : ComponentBase
         {
             Wait = false;
             r.SendNotifyIfNotOk(Notify, "Error durante la simulación");
+            StateHasChanged();
+        });
+
+    /// <summary>Read-only scan: reports how many images no version references any more.</summary>
+    public AsyncReturningCommand AnalyzeOrphansCommand =>
+        field ??= new AsyncReturningCommand(async () =>
+        {
+            var report = await ImageService.AnalyzeOrphanImagesAsync();
+            if (!report.OkNotNull) return report;
+
+            Orphans = report.Value;
+            return Returning.Success();
+        }, () => !Wait)
+        .StartAction(() => Wait = true)
+        .EndAction(r =>
+        {
+            Wait = false;
+            r.SendNotifyIfNotOk(Notify, "Error al analizar las imágenes");
+            StateHasChanged();
+        });
+
+    /// <summary>Permanent deletion, so it asks first and re-analyzes afterwards.</summary>
+    public AsyncReturningCommand DeleteOrphansCommand =>
+        field ??= new AsyncReturningCommand(async () =>
+        {
+            // The command body does NOT resume on the Blazor Dispatcher (gotcha 11) and opening a
+            // dialog renders, so the confirmation is marshalled. ComponentBase.InvokeAsync has no
+            // generic overload, hence the captured local.
+            bool? confirmed = null;
+            await InvokeAsync(async () => confirmed = await Dialog.Confirm(
+                $"Se eliminarán {Orphans?.OrphanImages ?? 0} imagen(es) de forma permanente. " +
+                "Esta acción no se puede deshacer.",
+                "Eliminar imágenes huérfanas",
+                new ConfirmOptions { OkButtonText = "Eliminar", CancelButtonText = "Cancelar" }));
+
+            if (confirmed != true) return Returning.Success();
+
+            var deleted = await ImageService.DeleteOrphanImagesAsync();
+            if (!deleted.Ok) return deleted;
+
+            Notify.ShowSuccess($"Se eliminaron {deleted.Value} imagen(es)");
+
+            // Refresh the report so the numbers reflect what is left.
+            var report = await ImageService.AnalyzeOrphanImagesAsync();
+            if (report.OkNotNull) Orphans = report.Value;
+
+            return Returning.Success();
+        }, () => !Wait)
+        .StartAction(() => Wait = true)
+        .EndAction(r =>
+        {
+            Wait = false;
+            r.SendNotifyIfNotOk(Notify, "Error al eliminar las imágenes");
             StateHasChanged();
         });
 

@@ -59,6 +59,17 @@ Iteraciones posteriores: RCL embebible (v0.2.0-preview.1), **icono + color por p
     el `FooterContent` del árbol (primero el del anfitrión, luego el gancho). `KnowledgeHubLayout`
     NO debe renderizarlo (sería doble). `KnowledgeHubBrowser` expone `TreeFooterContent` como
     passthrough al `FooterContent` del árbol.
+- **Mantenimiento de imágenes (v0.5.0)**: `AnalyzeOrphanImagesAsync`/`DeleteOrphanImagesAsync` en
+  `IKnowledgeHubImageService` (solo Admin), con UI en `KnowledgeHubDiagnosticsPanel` (analizar →
+  confirmar → borrar). Huérfana = **no referenciada por ninguna versión** (gotcha 20). El borrado
+  es FÍSICO (metadatos + binario + enlaces), no baja lógica: el objetivo es liberar espacio.
+- **Sincronía de UI**: `KnowledgeHubUiState` (Scoped, en la RCL) es un bus mínimo de eventos;
+  `PageManage` y `PageEditor` disparan `NotifyPageTreeChanged()` tras renombrar/mover/reordenar/
+  icono/crear/eliminar/publicar y `KnowledgeHubNavTree` recarga. El anfitrión también puede
+  dispararlo tras cambios hechos desde sus propias pantallas.
+- **Selección de texto**: los temas de Radzen pisan `::selection` global con
+  `--rz-primary-lighter` (12% de opacidad → casi invisible). `knowledgehub.css` la restaura **solo
+  dentro de las superficies del módulo**, con las variables `--kh-selection-*`.
 - **Editor tools**: `EditorToolDescriptor` en `KnowledgeHubBlazorOptions.EditorTools`; los
   built-in (4 callouts + `ImageSize` + `SanitizeHtml`) se registran por el mismo mecanismo
   (removibles). `EditorToolContext` da además `Editor` (para trabajar sobre la SELECCIÓN),
@@ -119,8 +130,8 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (63 checks; 7 de icono en v0.3.0, 3 de data-URI rechazada en v0.3.1 y
-  6 de saneado en v0.4.0): mismo guion contra InMemory,
+- **Guion de paridad** (73 checks; 7 de icono en v0.3.0, 3 de data-URI rechazada en v0.3.1,
+  6 de saneado en v0.4.0 y 10 de limpieza de huérfanas en v0.5.0): mismo guion contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
@@ -227,6 +238,21 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     JS→.NET. Por eso `KnowledgeHubPageEditor` lo engancha **solo si hay un `IKnowledgeHubHtmlSanitizer`
     registrado** (`OnInitialized` → `EventCallback.Factory.Create`); si no, deja el pegado nativo
     intacto y los hosts sin sanitizador no pagan nada.
+19. **Las proyecciones `Query().Select(...)` de LiteDB PIERDEN el Pk en silencio.** LiteDB guarda
+    el id mapeado como `_id`, así que `Select(i => new { i.Pk, ... })` deserializa `Pk` como
+    `Guid.Empty` (y `Select(v => v.ContentHtml)` a un string pelado no devuelve nada), **sin lanzar
+    ninguna excepción**: el `Returning` viene Ok y los datos silenciosamente mal. Detectado porque
+    la limpieza de huérfanas daba `Ref=0/Orphan=6` en LiteDB y `Ref=5/Orphan=1` en InMemory con los
+    mismos datos, y borraba 0. Regla: en LiteDB usar `FindAll()`/`Find(...)` y proyectar en memoria
+    con LINQ-to-objects. `FindAll()` va documento a documento, así que no hay que temer a la
+    memoria. Esta clase de bug NO lo detecta el compilador — solo el arnés en varios proveedores.
+20. **El vínculo página↔imagen NO sirve para saber si una imagen se usa.** `ReplacePageImageLinks`
+    deja en `DocPages_DocImages` únicamente las imágenes de la **última versión guardada** de cada
+    página, así que una imagen usada solo en una versión antigua ya aparece sin enlaces. Calcular
+    "huérfanas" desde esa tabla borraría imágenes del historial y rompería `RestoreVersionAsync`.
+    Lo correcto es `GetReferencedImagePksAsync`, que escanea el `ContentHtml` de TODAS las versiones
+    con `KnowledgeHubHtml.ExtractDocImagePks`. Cubierto por el check "Imagen usada solo en el
+    historial NO se borró".
 
 ## Pendientes / siguientes pasos
 

@@ -61,4 +61,56 @@
             </tbody>
         </table>
     }
+
+    @if (User.IsAdmin())
+    {
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mt-4 rz-mb-2">Mantenimiento de imágenes</RadzenText>
+        <p style="color:#6b7280;">
+            Busca imágenes que ya no aparecen en <strong>ninguna</strong> versión de ninguna página —
+            historial incluido— para poder liberar su espacio. Analizar no borra nada.
+        </p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <RadzenButton Text="Analizar imágenes huérfanas" Icon="search" ButtonStyle="ButtonStyle.Light"
+                          Click="@(() => AnalyzeOrphansCommand.CanAndExecute())"
+                          Disabled="@(!AnalyzeOrphansCommand.CanExecute())" IsBusy="@Wait" BusyText="Analizando..." />
+            @if (Orphans is { OrphanImages: > 0 })
+            {
+                <RadzenButton Text="@($"Eliminar {Orphans.OrphanImages} imagen(es)")" Icon="delete_forever"
+                              ButtonStyle="ButtonStyle.Danger"
+                              Click="@(() => DeleteOrphansCommand.CanAndExecute())"
+                              Disabled="@(!DeleteOrphansCommand.CanExecute())" IsBusy="@Wait" BusyText="Eliminando..." />
+            }
+        </div>
+
+        @if (Orphans is not null)
+        {
+            <table class="kh-diag-table rz-mt-3">
+                <tbody>
+                    <tr><th>Imágenes almacenadas</th><td>@Orphans.TotalImages</td></tr>
+                    <tr><th>En uso (alguna versión)</th><td>@Orphans.ReferencedImages</td></tr>
+                    <tr><th>Huérfanas</th><td><strong>@Orphans.OrphanImages</strong></td></tr>
+                    <tr><th>Espacio recuperable</th><td>@((Orphans.OrphanBytes / 1024d).ToString("N1")) KB</td></tr>
+                    @if (Orphans.SampleFileNames.Count > 0)
+                    {
+                        <tr>
+                            <th>Ejemplos</th>
+                            <td>@string.Join(", ", Orphans.SampleFileNames)@(Orphans.OrphanImages > Orphans.SampleFileNames.Count ? "…" : "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Orphans.OrphanImages > 0)
+            {
+                <p style="color:#b45309;margin-top:8px;">
+                    ⚠️ El borrado es <strong>permanente</strong>: elimina el binario, no es una baja lógica.
+                </p>
+            }
+            else
+            {
+                <p style="color:#059669;margin-top:8px;">✔️ No hay imágenes huérfanas: nada que limpiar.</p>
+            }
+        }
+    }
 </div>

@@ -15,13 +15,14 @@ namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 /// Navigation model: when a callback is supplied the component delegates the action to the
 /// host; otherwise it falls back to URL navigation over the built-in /kh routes.
 /// </summary>
-public partial class KnowledgeHubNavTree : ComponentBase
+public partial class KnowledgeHubNavTree : ComponentBase, IDisposable
 {
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IKnowledgeHubUserContext User { get; set; } = null!;
     [Inject] private KnowledgeHubBlazorOptions Options { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
+    [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
 
     /// <summary>Header title. Defaults to KnowledgeHubBlazorOptions.PortalTitle.</summary>
     [Parameter] public string? Title { get; set; }
@@ -55,7 +56,21 @@ public partial class KnowledgeHubNavTree : ComponentBase
     public bool Wait { get; private set; }
     protected string SearchTerm { get; set; } = string.Empty;
 
-    protected override async Task OnInitializedAsync() => await LoadTreeAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        // Keeps the tree in sync when a page is renamed, moved, reordered, re-iconed, created,
+        // deleted or published from any other screen of the module.
+        UiState.PageTreeChanged += OnPageTreeChanged;
+        await LoadTreeAsync();
+    }
+
+    /// <summary>
+    /// The notification may come from an AsyncReturningCommand body, which does NOT resume on the
+    /// Blazor Dispatcher, so the reload is marshalled with InvokeAsync (see gotcha 11).
+    /// </summary>
+    private void OnPageTreeChanged() => _ = InvokeAsync(RefreshAsync);
+
+    public void Dispose() => UiState.PageTreeChanged -= OnPageTreeChanged;
 
     /// <summary>Reloads the tree. Public so hosts can refresh after their own changes.</summary>
     public async Task RefreshAsync()

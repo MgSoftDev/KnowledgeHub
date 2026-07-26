@@ -23,6 +23,9 @@ public static class DependencyInjectionExtension
         // Fallback UI options for hosts that do not register the core (e.g. WASM clients).
         services.TryAddSingleton(new KnowledgeHubOptions());
 
+        // In-UI notification bus (keeps the navigation tree in sync with page changes).
+        services.TryAddScoped<KnowledgeHubUiState>();
+
         services.AddRadzenComponents();
         return services;
     }

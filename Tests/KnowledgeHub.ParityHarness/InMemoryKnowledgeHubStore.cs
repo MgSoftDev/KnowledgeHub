@@ -1,3 +1,4 @@
+using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
 using MgSoftDev.KnowledgeHub.Entities;
@@ -395,6 +396,49 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
         {
             lock (_gate)
                 return imagePks.Where(_images.ContainsKey).ToList();
+        }));
+
+    // ---------------------------------------------------------------- Images: maintenance
+
+    public Task<ReturningList<ImageSummaryDto>> GetAllImageSummariesAsync() =>
+        Task.FromResult(ReturningList<ImageSummaryDto>.Try(() =>
+        {
+            lock (_gate)
+                return _images.Values
+                    .Select(i => new ImageSummaryDto(i.Pk, i.FileName, i.SizeBytes))
+                    .ToList();
+        }));
+
+    public Task<ReturningList<Guid>> GetReferencedImagePksAsync() =>
+        Task.FromResult(ReturningList<Guid>.Try(() =>
+        {
+            lock (_gate)
+            {
+                var referenced = new HashSet<Guid>();
+                foreach (var version in _versions.Values)
+                {
+                    if (string.IsNullOrEmpty(version.ContentHtml)) continue;
+                    foreach (var pk in KnowledgeHubHtml.ExtractDocImagePks(version.ContentHtml))
+                        referenced.Add(pk);
+                }
+                return referenced.ToList();
+            }
+        }));
+
+    public Task<Returning<int>> DeleteImagesAsync(IReadOnlyCollection<Guid> imagePks, AuditStamp audit) =>
+        Task.FromResult(Returning<int>.Try(() =>
+        {
+            lock (_gate)
+            {
+                var deleted = 0;
+                foreach (var pk in imagePks)
+                {
+                    _pageImages.RemoveAll(l => l.Fk_DocImage == pk);
+                    _contents.Remove(pk);
+                    if (_images.Remove(pk)) deleted++;
+                }
+                return deleted;
+            }
         }));
 
     // ---------------------------------------------------------------- Helpers

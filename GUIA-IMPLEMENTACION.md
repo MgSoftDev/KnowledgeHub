@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.4.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.5.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -369,6 +369,31 @@ Para pintar el icono de una página en tu propia UI usa el presentacional `Knowl
 nada). Es una columna estructural (`DocPage.Icon`/`IconColor`), no versionada: SQL Server migra solo
 con el script (`ALTER ADD` idempotente) y LiteDB no necesita migración.
 
+**Mantenimiento de imágenes (v0.5.0).** `KnowledgeHubDiagnosticsPanel` incluye, **solo para
+administradores**, una sección para localizar y borrar imágenes que ya no usa ninguna página:
+primero *Analizar* (no borra nada; informa cuántas hay y cuánto espacio ocupan) y después
+*Eliminar* con confirmación. El borrado es **permanente** (metadatos + binario + enlaces), porque el
+objetivo es liberar espacio.
+
+Una imagen se considera huérfana solo si **ninguna versión la referencia**, historial incluido, así
+que restaurar una versión antigua nunca se queda sin imágenes. Por API:
+`IKnowledgeHubImageService.AnalyzeOrphanImagesAsync()` y `DeleteOrphanImagesAsync()`; por HTTP,
+`GET /images/orphans` y `POST /images/orphans/purge`.
+
+> No calcules tú las huérfanas mirando la tabla `DocPages_DocImages`: solo guarda las imágenes de la
+> **última** versión de cada página, así que lo usado únicamente en el historial parecería sin uso.
+
+**Mantener el árbol sincronizado.** Los componentes del módulo avisan entre sí con
+`KnowledgeHubUiState` (registrado Scoped por `AddKnowledgeHubBlazor`): al renombrar, mover,
+reordenar, cambiar el icono, crear, eliminar o publicar, el árbol se recarga solo. Si cambias
+páginas desde **tus propias pantallas**, dispáralo tú para que el árbol se entere:
+
+```csharp
+@inject KnowledgeHubUiState KhUiState
+...
+KhUiState.NotifyPageTreeChanged();
+```
+
 **Regla de los callbacks:** si **no** pasas el callback, el componente **navega por URL** a la
 ruta `/kh/*` correspondiente (comportamiento del modo portal). Si **sí** lo pasas, te delega la
 acción y no navega. Así el mismo componente sirve en ambos modos.
@@ -500,9 +525,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.4.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.4.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.4.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.5.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.5.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.5.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1328,5 +1353,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.4.1-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.5.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

@@ -475,6 +475,53 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
                 .ToListAsync();
         });
 
+    // ---------------------------------------------------------------- Images: maintenance
+
+    public Task<ReturningList<ImageSummaryDto>> GetAllImageSummariesAsync() =>
+        ReturningList<ImageSummaryDto>.TryTask(async () =>
+        {
+            await using var db = await _factory.CreateDbContextAsync();
+            // Projection without Content: the binary column is never read.
+            return await db.Images.AsNoTracking()
+                .Select(i => new ImageSummaryDto(i.Pk, i.FileName, i.SizeBytes))
+                .ToListAsync();
+        });
+
+    public Task<ReturningList<Guid>> GetReferencedImagePksAsync() =>
+        ReturningList<Guid>.TryTask(async () =>
+        {
+            await using var db = await _factory.CreateDbContextAsync();
+
+            // Streamed: the regex cannot run in SQL, but only one ContentHtml is in memory at a
+            // time instead of the whole corpus.
+            var referenced = new HashSet<Guid>();
+            var query = db.Versions.AsNoTracking().Select(v => v.ContentHtml).AsAsyncEnumerable();
+            await foreach (var html in query)
+            {
+                if (string.IsNullOrEmpty(html)) continue;
+                foreach (var pk in KnowledgeHubHtml.ExtractDocImagePks(html)) referenced.Add(pk);
+            }
+            return referenced.ToList();
+        });
+
+    public Task<Returning<int>> DeleteImagesAsync(IReadOnlyCollection<Guid> imagePks, AuditStamp audit) =>
+        Returning<int>.TryTask(async () =>
+        {
+            if (imagePks.Count == 0) return 0;
+            var pks = imagePks.ToList();
+
+            await using var db = await _factory.CreateDbContextAsync();
+            await using var tx = await db.Database.BeginTransactionAsync();
+
+            // Links and binaries first: both have FKs pointing at DocImages.
+            await db.PageImages.Where(l => pks.Contains(l.Fk_DocImage)).ExecuteDeleteAsync();
+            await db.ImageContents.Where(c => pks.Contains(c.Fk_DocImage)).ExecuteDeleteAsync();
+            var deleted = await db.Images.Where(i => pks.Contains(i.Pk)).ExecuteDeleteAsync();
+
+            await tx.CommitAsync();
+            return deleted;
+        });
+
     // ---------------------------------------------------------------- Helpers
 
     /// <summary>

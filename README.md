@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.4.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.5.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -69,13 +69,13 @@ en tu contenido, el editor en una pestaña…). Ver la
 
 ```
 MgSoftDev.KnowledgeHub.slnx        Solución (.NET 10, Central Package Management)
-MgSoftDev.KnowledgeHub.*/          Los 9 proyectos de librería
+MgSoftDev.KnowledgeHub.*/          Los 10 proyectos de librería
 Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.Wpf                WPF + LiteDB
   KnowledgeHub.Demo.BlazorServer       Blazor Server + LiteDB
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
-Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (46 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (73 checks) sobre 4 modos de store
 ```
 
 ## Compilar y probar
@@ -120,7 +120,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 
 La publicación a nuget.org es automática vía GitHub Actions con **Trusted Publishing (OIDC)** —
 sin API keys. Se dispara al pushear un tag `v*`, y la versión sale del tag (`v1.2.3` → `1.2.3`,
-misma versión para los 9 paquetes):
+misma versión para los 10 paquetes):
 
 ```bash
 git tag v1.2.3
@@ -131,9 +131,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.1.0-preview.1** (primera publicación en nuget.org). Las 9 librerías + 3 demos compilan sin
-warnings; el arnés de paridad pasa 46/46 en los 4 modos de store; los demos están verificados
-end-to-end.
+**v0.5.0-preview.1**. Las 10 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+73/73 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia
 

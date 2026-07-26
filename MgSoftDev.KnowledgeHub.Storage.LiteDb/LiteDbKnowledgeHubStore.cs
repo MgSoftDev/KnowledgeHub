@@ -403,6 +403,59 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
         Task.FromResult(ReturningList<Guid>.Try(() =>
             imagePks.Where(pk => _ctx.Images.FindById(pk) is not null).ToList()));
 
+    // ---------------------------------------------------------------- Images: maintenance
+
+    // NOTE: these deliberately avoid LiteDB's Query().Select(...) projections. LiteDB stores the
+    // mapped id as "_id", so a projection that includes Pk silently deserializes it back as
+    // Guid.Empty (and a projection to a bare string yields nothing). FindAll() streams whole
+    // documents one at a time, which is both correct and still memory-bounded. DocImage does not
+    // carry the binary (it lives in DocImageContent), so materializing it is cheap.
+
+    public Task<ReturningList<ImageSummaryDto>> GetAllImageSummariesAsync() =>
+        Task.FromResult(ReturningList<ImageSummaryDto>.Try(() =>
+            _ctx.Images.FindAll()
+                .Select(i => new ImageSummaryDto(i.Pk, i.FileName, i.SizeBytes))
+                .ToList()));
+
+    public Task<ReturningList<Guid>> GetReferencedImagePksAsync() =>
+        Task.FromResult(ReturningList<Guid>.Try(() =>
+        {
+            var referenced = new HashSet<Guid>();
+            foreach (var version in _ctx.Versions.FindAll())
+            {
+                if (string.IsNullOrEmpty(version.ContentHtml)) continue;
+                foreach (var pk in KnowledgeHubHtml.ExtractDocImagePks(version.ContentHtml))
+                    referenced.Add(pk);
+            }
+            return referenced.ToList();
+        }));
+
+    public Task<Returning<int>> DeleteImagesAsync(IReadOnlyCollection<Guid> imagePks, AuditStamp audit) =>
+        Task.FromResult(Returning<int>.Try(() =>
+        {
+            if (imagePks.Count == 0) return 0;
+
+            lock (_ctx.WriteLock)
+            {
+                return InTransaction(() =>
+                {
+                    var deleted = 0;
+                    foreach (var pk in imagePks)
+                    {
+                        // Links first, then the binary, then the metadata row.
+                        foreach (var link in _ctx.PageImages.Find(l => l.Fk_DocImage == pk).ToList())
+                            _ctx.PageImages.Delete(link.Pk);
+
+                        foreach (var content in _ctx.ImageContents.Find(c => c.Fk_DocImage == pk).ToList())
+                            _ctx.ImageContents.Delete(content.Pk);
+
+                        if (_ctx.Images.Delete(pk)) deleted++;
+                    }
+                    return deleted;
+                });
+            }
+        }));
+
     // ---------------------------------------------------------------- Helpers
 
     /// <summary>

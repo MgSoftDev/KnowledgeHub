@@ -311,6 +311,70 @@ public static class ParityScript
             System.Text.RegularExpressions.Regex.IsMatch(imgHtml, "<img[^>]+src=",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase));
 
+        // ---- 22. Limpieza de imágenes huérfanas ---------------------------------------------------------
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+
+        // Imagen A: se sube y se deja SIN usar en ninguna página → huérfana.
+        var orphanBytes = MakeTestPng(30, 30);
+        var orphanUp = await images.UploadOrReplaceAsync(orphanBytes, "huerfana.png");
+        Check("Subir imagen que quedará huérfana", orphanUp.Ok);
+
+        // Imagen B: se usa y DESPUÉS se quita del contenido, quedando solo en una versión ANTIGUA.
+        // Es la regresión importante: la tabla de enlaces solo guarda la última versión, así que
+        // basarse en ella la daría por huérfana y romperíamos el historial.
+        var histBytes = MakeTestPng(40, 24);
+        var histUp = await images.UploadOrReplaceAsync(histBytes, "solo-en-historial.png");
+        var editHist = await pages.GetPageForEditAsync(produccion.Pk);
+        editHist.Value!.ContentHtml = $"<p>Con imagen</p><p><img src=\"docimg://{histUp.Value}\"></p>";
+        var saveHist1 = await pages.SaveDraftAsync(editHist.Value);
+        var editHist2 = await pages.GetPageForEditAsync(produccion.Pk);
+        editHist2.Value!.ContentHtml = "<p>Ya sin imagen</p>";
+        var saveHist2 = await pages.SaveDraftAsync(editHist2.Value);
+        Check("Imagen queda solo en una versión antigua", saveHist1.Ok && saveHist2.Ok);
+
+        var analysis = await images.AnalyzeOrphanImagesAsync();
+        Check("Analizar huérfanas devuelve reporte", analysis.OkNotNull);
+        Check("La imagen sin usar se detecta como huérfana",
+            analysis.OkNotNull && analysis.Value!.OrphanImages >= 1 &&
+            analysis.Value!.OrphanBytes > 0);
+        Check("Analizar no borra nada (total sin cambios)",
+            analysis.OkNotNull &&
+            analysis.Value!.TotalImages == analysis.Value!.OrphanImages + analysis.Value!.ReferencedImages);
+
+        var deletedCount = await images.DeleteOrphanImagesAsync();
+        Check("Eliminar huérfanas", deletedCount.Ok && deletedCount.Value >= 1);
+
+        // La imagen que solo vive en el historial debe SEGUIR existiendo: se comprueba leyendo la
+        // versión antigua y viendo que el rewriter aún resuelve su docimg:// a una URL de display
+        // (si el binario se hubiera borrado, no habría hash que resolver y quedaría sin traducir).
+        var histVersions = await pages.GetVersionsAsync(produccion.Pk);
+        var oldVersionPk = histVersions.OkNotNull
+            ? histVersions.Value!.OrderBy(v => v.VersionNumber)
+                .LastOrDefault(v => v.VersionNumber == saveHist1.Value)?.Pk
+            : null;
+        var oldContent = oldVersionPk is { } vpk
+            ? await pages.GetVersionContentAsync(vpk)
+            : null;
+        var oldRewritten = oldContent is { OkNotNull: true }
+            ? await rewriter.PrepareForDisplayAsync(oldContent.Value!.ContentHtml)
+            : null;
+        Check("Imagen usada solo en el historial NO se borró",
+            oldRewritten is { OkNotNull: true } &&
+            oldRewritten.Value!.Html.Contains(".webp") &&
+            !oldRewritten.Value!.Html.Contains("docimg://"));
+
+        var afterDelete = await images.AnalyzeOrphanImagesAsync();
+        Check("Tras limpiar no quedan huérfanas",
+            afterDelete.OkNotNull && afterDelete.Value!.OrphanImages == 0);
+
+        // Sin permiso de Admin no se puede hacer mantenimiento.
+        user.SetUser("editor1", "Editor", KnowledgeHubPermissions.Edit);
+        var deniedAnalyze = await images.AnalyzeOrphanImagesAsync();
+        Check("Sin Admin no se puede analizar", IsUnfinishedContaining(deniedAnalyze, "administrador"));
+        var deniedDelete = await images.DeleteOrphanImagesAsync();
+        Check("Sin Admin no se puede eliminar", IsUnfinishedContaining(deniedDelete, "administrador"));
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+
         Console.WriteLine();
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL =====");
         return _failed;

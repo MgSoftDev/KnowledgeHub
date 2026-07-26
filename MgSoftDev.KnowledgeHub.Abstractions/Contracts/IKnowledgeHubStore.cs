@@ -152,4 +152,29 @@ public interface IKnowledgeHubStore
 
     /// <summary>Subset of <paramref name="imagePks"/> that actually exists in DocImages (FK safety on link sync).</summary>
     Task<ReturningList<Guid>> FilterExistingImagePksAsync(IReadOnlyCollection<Guid> imagePks);
+
+    // ---------------------------------------------------------------- Images: maintenance
+
+    /// <summary>
+    /// Pk + FileName + SizeBytes of every stored image. MUST NOT materialize the binary column.
+    /// </summary>
+    Task<ReturningList<ImageSummaryDto>> GetAllImageSummariesAsync();
+
+    /// <summary>
+    /// Distinct DocImage pks referenced by the ContentHtml of ANY version — the whole history
+    /// included, not just the latest one. Implementations extract them with
+    /// <see cref="KnowledgeHubHtml.ExtractDocImagePks"/> and should iterate versions rather than
+    /// loading every ContentHtml into memory at once.
+    ///
+    /// Do NOT answer this from the page↔image link table: those links only hold the images of each
+    /// page's latest saved version, so anything used solely by an older version would look unused.
+    /// </summary>
+    Task<ReturningList<Guid>> GetReferencedImagePksAsync();
+
+    /// <summary>
+    /// PERMANENTLY deletes the given images: metadata, binary and any page link rows pointing at
+    /// them. Not a soft delete — the whole point is to free space. Returns how many were deleted.
+    /// The core decides WHICH ones; the store just removes them.
+    /// </summary>
+    Task<Returning<int>> DeleteImagesAsync(IReadOnlyCollection<Guid> imagePks, AuditStamp audit);
 }
