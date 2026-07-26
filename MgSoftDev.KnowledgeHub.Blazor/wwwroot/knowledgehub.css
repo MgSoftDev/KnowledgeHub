@@ -248,6 +248,10 @@
 .kh-icon-color-none .rz-icon, .kh-icon-color-none .notranslate { font-size: 1rem; }
 .kh-icon-color-selected { outline: 2px solid #2563eb; outline-offset: 2px; }
 
+/* Reorder controls in the manage screen: two buttons plus the "Posición N de M" hint. */
+.kh-order-row { display: flex; align-items: center; gap: 6px; }
+.kh-order-position { color: #4b5563; font-size: 0.9rem; margin-left: 6px; }
+
 /* ---------------------------------------------------------------- Image size dialog */
 .kh-imgsize { display: flex; flex-direction: column; gap: 10px; min-width: 480px; }
 

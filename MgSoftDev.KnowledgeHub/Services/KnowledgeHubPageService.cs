@@ -345,6 +345,10 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             var insertR = await _store.InsertPageAsync(page);
             if (!insertR.Ok) insertR.Throw();
 
+            // MAX+1 can leave a gap (deleted siblings still count towards the max), so collapse
+            // the group to 1..N; the new page keeps the last position.
+            await NormalizeSiblingsAsync(await LoadLinksAsync(), parentPk, pinLastPk: page.Pk);
+
             return page.Pk;
         }, saveLog: true);
 
@@ -371,19 +375,24 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (newParentPk == pagePk)
                 return Returning.Unfinished("Una página no puede ser su propio padre", UnfinishedInfo.NotifyType.Warning);
 
+            var linksBefore = await LoadLinksAsync();
+            var current = linksBefore.FirstOrDefault(l => l.Pk == pagePk);
+            if (current is null)
+                return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+
+            var oldParentPk = current.ParentPk;
+
             // Reject moving a page under one of its own descendants (would create a cycle).
             if (newParentPk is Guid target)
             {
-                var linksR = await _store.GetActivePageLinksAsync();
-                if (!linksR.Ok) linksR.Throw();
-                var parents = linksR.Value!.ToDictionary(l => l.Pk, l => l.ParentPk);
+                var parents = linksBefore.ToDictionary(l => l.Pk, l => l.ParentPk);
 
                 var cursor = (Guid?)target;
-                while (cursor is Guid current)
+                while (cursor is Guid node)
                 {
-                    if (current == pagePk)
+                    if (node == pagePk)
                         return Returning.Unfinished("No puedes mover una página dentro de uno de sus descendientes", UnfinishedInfo.NotifyType.Warning);
-                    cursor = parents.TryGetValue(current, out var parentPk) ? parentPk : null;
+                    cursor = parents.TryGetValue(node, out var parentPk) ? parentPk : null;
                 }
             }
 
@@ -391,6 +400,16 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (!okR.Ok) okR.Throw();
             if (!okR.Value)
                 return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+
+            // The page kept the SortOrder it had under its previous parent, which is meaningless
+            // here: land it LAST among its new siblings and close the gap it left behind.
+            if (oldParentPk != newParentPk)
+            {
+                var linksAfter = await LoadLinksAsync();
+                await NormalizeSiblingsAsync(linksAfter, newParentPk, pinLastPk: pagePk);
+                await NormalizeSiblingsAsync(linksAfter, oldParentPk);
+            }
+
             return Returning.Success();
         }, saveLog: true);
 
@@ -404,7 +423,67 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (!okR.Ok) okR.Throw();
             if (!okR.Value)
                 return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+
+            // Collapse whatever number the caller picked back into a clean 1..N group.
+            var links = await LoadLinksAsync();
+            if (links.FirstOrDefault(l => l.Pk == pagePk) is { } page)
+                await NormalizeSiblingsAsync(links, page.ParentPk);
+
             return Returning.Success();
+        }, saveLog: true);
+
+    public Task<Returning> MovePageOrderAsync(Guid pagePk, PageMoveDirection direction) =>
+        Returning.TryTask(async () =>
+        {
+            if (!_user.CanEdit())
+                return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
+            var linksR = await _store.GetActivePageLinksAsync();
+            if (!linksR.Ok) linksR.Throw();
+            var links = linksR.Value!;
+
+            var page = links.FirstOrDefault(l => l.Pk == pagePk);
+            if (page is null)
+                return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+
+            var siblings = SiblingsInDisplayOrder(links, page.ParentPk);
+            var index = siblings.FindIndex(l => l.Pk == pagePk);
+            var targetIndex = direction == PageMoveDirection.Up ? index - 1 : index + 1;
+
+            // Already at the top/bottom: nothing to do, and it is not an error — the UI disables
+            // the button there anyway.
+            if (targetIndex < 0 || targetIndex >= siblings.Count) return Returning.Success();
+
+            (siblings[index], siblings[targetIndex]) = (siblings[targetIndex], siblings[index]);
+
+            var orders = siblings.Select((l, i) => new PageSortOrderDto(l.Pk, i + 1)).ToList();
+            var writeR = await _store.SetSortOrdersAsync(orders, Stamp());
+            if (!writeR.Ok) writeR.Throw();
+
+            return Returning.Success();
+        }, saveLog: true);
+
+    public Task<Returning<int>> NormalizeAllPageOrdersAsync() =>
+        Returning<int>.TryTask(async () =>
+        {
+            if (!_user.IsAdmin())
+                return Returning.Unfinished("Solo un administrador puede normalizar el orden",
+                    UnfinishedInfo.NotifyType.Warning);
+
+            var linksR = await _store.GetActivePageLinksAsync();
+            if (!linksR.Ok) linksR.Throw();
+            var links = linksR.Value!;
+
+            // Every sibling group of the tree, roots included, in one batch write.
+            var orders = new List<PageSortOrderDto>();
+            foreach (var group in links.GroupBy(l => l.ParentPk))
+                orders.AddRange(SiblingsInDisplayOrder(links, group.Key)
+                    .Select((l, i) => new PageSortOrderDto(l.Pk, i + 1)));
+
+            var writeR = await _store.SetSortOrdersAsync(orders, Stamp());
+            if (!writeR.Ok) writeR.Throw();
+
+            return writeR.Value;
         }, saveLog: true);
 
     public Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor) =>
@@ -443,10 +522,18 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                         added = true;
             } while (added);
 
+            // Remember the parent BEFORE deleting: afterwards the row is no longer active and
+            // would not come back in the links.
+            var parentPk = links.FirstOrDefault(l => l.Pk == pagePk)?.ParentPk;
+
             var countR = await _store.SoftDeletePagesAsync(toDelete, Stamp());
             if (!countR.Ok) countR.Throw();
             if (countR.Value == 0)
                 return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+
+            // Close the gap the deleted page left among its siblings.
+            await NormalizeSiblingsAsync(await LoadLinksAsync(), parentPk);
+
             return Returning.Success();
         }, saveLog: true);
 
@@ -512,6 +599,49 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     #region Helpers
 
     private AuditStamp Stamp() => new(_user.UserName, DateTime.Now);
+
+    /// <summary>
+    /// Children of <paramref name="parentPk"/> in the SAME order the tree shows them
+    /// (see BuildTree), so renumbering never reshuffles what the user is looking at.
+    /// </summary>
+    private static List<PageLinkDto> SiblingsInDisplayOrder(IReadOnlyList<PageLinkDto> links, Guid? parentPk) =>
+        links.Where(l => l.ParentPk == parentPk)
+             .OrderBy(l => l.SortOrder)
+             .ThenBy(l => l.Title)
+             .ToList();
+
+    /// <summary>
+    /// Renumbers one sibling group to 1..N. This is what keeps positions meaningful: deleting or
+    /// moving pages away used to leave gaps (a 5th child holding SortOrder 15), which made the
+    /// numbers useless to reason about.
+    /// </summary>
+    /// <param name="links">Already-loaded structural rows, to avoid re-reading them.</param>
+    /// <param name="parentPk">Group to renumber; null means the root level.</param>
+    /// <param name="pinLastPk">Optional page forced to the end (a page that just arrived here).</param>
+    private async Task NormalizeSiblingsAsync(IReadOnlyList<PageLinkDto> links, Guid? parentPk,
+        Guid? pinLastPk = null)
+    {
+        var siblings = SiblingsInDisplayOrder(links, parentPk);
+        if (siblings.Count == 0) return;
+
+        if (pinLastPk is Guid pinned && siblings.FirstOrDefault(l => l.Pk == pinned) is { } moved)
+        {
+            siblings.Remove(moved);
+            siblings.Add(moved);
+        }
+
+        var orders = siblings.Select((l, i) => new PageSortOrderDto(l.Pk, i + 1)).ToList();
+        var writeR = await _store.SetSortOrdersAsync(orders, Stamp());
+        if (!writeR.Ok) writeR.Throw();
+    }
+
+    /// <summary>Reloads the structural rows, for callers that need them after a write.</summary>
+    private async Task<IReadOnlyList<PageLinkDto>> LoadLinksAsync()
+    {
+        var linksR = await _store.GetActivePageLinksAsync();
+        if (!linksR.Ok) linksR.Throw();
+        return linksR.Value!;
+    }
 
     /// <summary>
     /// Cleans the html right before it is stored, when a sanitizer is registered. Removing content

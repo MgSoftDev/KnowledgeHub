@@ -59,6 +59,12 @@ Iteraciones posteriores: RCL embebible (v0.2.0-preview.1), **icono + color por p
     el `FooterContent` del árbol (primero el del anfitrión, luego el gancho). `KnowledgeHubLayout`
     NO debe renderizarlo (sería doble). `KnowledgeHubBrowser` expone `TreeFooterContent` como
     passthrough al `FooterContent` del árbol.
+- **Orden de páginas (v0.6.0)**: invariante **1..N por grupo de hermanos**, mantenida por el core
+  (`NormalizeSiblingsAsync`) tras crear, mover, borrar y reordenar. La UI de Gestionar usa
+  `MovePageOrderAsync(pk, Up|Down)` con botones y muestra «Posición N de M» — ya no se teclean
+  índices. `NormalizeAllPageOrdersAsync` (solo Admin, botón en Diagnóstico) arregla bases antiguas.
+  El store expone `SetSortOrdersAsync` (escritura en lote **atómica**) y `PageLinkDto` lleva
+  `SortOrder` + `Title` para poder renumerar sin consultas extra. Ver gotcha 20.
 - **Mantenimiento de imágenes (v0.5.0)**: `AnalyzeOrphanImagesAsync`/`DeleteOrphanImagesAsync` en
   `IKnowledgeHubImageService` (solo Admin), con UI en `KnowledgeHubDiagnosticsPanel` (analizar →
   confirmar → borrar). Huérfana = **no referenciada por ninguna versión** (gotcha 20). El borrado
@@ -130,8 +136,8 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (73 checks; 7 de icono en v0.3.0, 3 de data-URI rechazada en v0.3.1,
-  6 de saneado en v0.4.0 y 10 de limpieza de huérfanas en v0.5.0): mismo guion contra InMemory,
+- **Guion de paridad** (84 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+  v0.4.0, 10 de huérfanas en v0.5.0 y 11 de orden en v0.6.0): mismo guion contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
@@ -246,7 +252,16 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     mismos datos, y borraba 0. Regla: en LiteDB usar `FindAll()`/`Find(...)` y proyectar en memoria
     con LINQ-to-objects. `FindAll()` va documento a documento, así que no hay que temer a la
     memoria. Esta clase de bug NO lo detecta el compilador — solo el arnés en varios proveedores.
-20. **El vínculo página↔imagen NO sirve para saber si una imagen se usa.** `ReplacePageImageLinks`
+20. **El orden de páginas se mantenía a mano y se degradaba solo** (arreglado en v0.6.0). Tres
+    fallos sumados: `MovePageAsync` **no reasignaba** `SortOrder` (la página aterrizaba en el padre
+    nuevo con el orden del anterior), `DeletePageAsync` **no renumeraba** a los hermanos restantes,
+    y `GetMaxSortOrderAsync` **no filtraba `RowIsActive`** en los 3 proveedores, así que el `MAX+1`
+    de `CreatePageAsync` contaba páginas borradas. Resultado real: la 5ª hermana con `SortOrder` 15
+    y una UI que te pedía teclear el índice a mano. Ahora hay una **invariante**: cada grupo de
+    hermanos está siempre en 1..N, garantizada por `NormalizeSiblingsAsync` tras crear/mover/
+    borrar/reordenar. El renumerado usa el mismo criterio que `BuildTree`
+    (`OrderBy(SortOrder).ThenBy(Title)`) para no reordenar lo que el usuario está viendo.
+21. **El vínculo página↔imagen NO sirve para saber si una imagen se usa.** `ReplacePageImageLinks`
     deja en `DocPages_DocImages` únicamente las imágenes de la **última versión guardada** de cada
     página, así que una imagen usada solo en una versión antigua ya aparece sin enlaces. Calcular
     "huérfanas" desde esa tabla borraría imágenes del historial y rompería `RestoreVersionAsync`.

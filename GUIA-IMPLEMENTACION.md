@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.5.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.6.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -369,6 +369,23 @@ Para pintar el icono de una página en tu propia UI usa el presentacional `Knowl
 nada). Es una columna estructural (`DocPage.Icon`/`IconColor`), no versionada: SQL Server migra solo
 con el script (`ALTER ADD` idempotente) y LiteDB no necesita migración.
 
+**Orden de las páginas (v0.6.0).** Cada grupo de hermanos está **siempre numerado 1..N**, sin
+huecos: la librería renumera sola al crear, mover, borrar y reordenar. En *Gestionar* el orden se
+cambia con botones **subir/bajar** (guardan al momento y refrescan el árbol) y se muestra la
+posición actual; ya no hay que teclear índices ni adivinar los de los hermanos. Al mover una página
+a otro padre **queda la última** de sus nuevos hermanos.
+
+Por API: `MovePageOrderAsync(pagePk, PageMoveDirection.Up | .Down)` —en los extremos es un no-op
+que devuelve éxito—, y `NormalizeAllPageOrdersAsync()` (**solo Admin**), que renumera todo el árbol
+respetando el orden visible. Esta última tiene botón en **Diagnóstico** y es la que arregla de una
+vez una base creada antes de la v0.6.0, donde borrar o mover dejaba huecos (una 5ª hermana podía
+tener el índice 15). Por HTTP: `POST /pages/{pk}/order` y `POST /pages/normalize-order`.
+
+> **⚠️ Si implementaste tu propio store** (§4.3), la v0.6.0 **cambia el contrato**: `PageLinkDto`
+> pasa de `(Pk, ParentPk)` a `(Pk, ParentPk, SortOrder, Title)` y hay que implementar
+> `SetSortOrdersAsync(orders, audit)`, una escritura en lote que debe ser **atómica** (renumerar a
+> medias dejaría el orden roto). Aprovecha para filtrar `RowIsActive` en `GetMaxSortOrderAsync`.
+
 **Mantenimiento de imágenes (v0.5.0).** `KnowledgeHubDiagnosticsPanel` incluye, **solo para
 administradores**, una sección para localizar y borrar imágenes que ya no usa ninguna página:
 primero *Analizar* (no borra nada; informa cuántas hay y cuánto espacio ocupan) y después
@@ -525,9 +542,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.5.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.5.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.5.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.6.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.6.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.6.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1353,5 +1370,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.5.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.6.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

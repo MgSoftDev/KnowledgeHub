@@ -1,4 +1,5 @@
 using MgSoftDev.KnowledgeHub.Dtos;
+using MgSoftDev.KnowledgeHub.Enums;
 using MgSoftDev.ReturningCore;
 
 namespace MgSoftDev.KnowledgeHub.Contracts;
@@ -42,7 +43,25 @@ public interface IKnowledgeHubPageService
     Task<Returning<Guid>> CreatePageAsync(Guid? parentPk, string title, string slug);
     Task<Returning> RenamePageAsync(Guid pagePk, string title);
     Task<Returning> MovePageAsync(Guid pagePk, Guid? newParentPk);
+    /// <summary>
+    /// Sets an explicit position. Kept for compatibility; prefer <see cref="MovePageOrderAsync"/>,
+    /// which does not require the caller to know its siblings' numbers. Siblings are renumbered
+    /// 1..N afterwards either way.
+    /// </summary>
     Task<Returning> ReorderAsync(Guid pagePk, int sortOrder);
+
+    /// <summary>
+    /// Moves the page one position up or down among its siblings and renumbers the group 1..N.
+    /// At either end it is a no-op and still returns success.
+    /// </summary>
+    Task<Returning> MovePageOrderAsync(Guid pagePk, PageMoveDirection direction);
+
+    /// <summary>
+    /// Renumbers EVERY sibling group in the tree to 1..N, preserving the order currently shown.
+    /// Maintenance action for databases whose numbering drifted before renumbering was automatic;
+    /// returns how many pages changed. Admin only.
+    /// </summary>
+    Task<Returning<int>> NormalizeAllPageOrdersAsync();
 
     /// <summary>Sets the page's icon (Material Symbols name) and icon color; both nullable to clear.</summary>
     Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor);

@@ -64,7 +64,7 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
     public Task<ReturningList<PageLinkDto>> GetActivePageLinksAsync() =>
         Task.FromResult(ReturningList<PageLinkDto>.Try(() =>
             _ctx.Pages.Query().Where(p => p.RowIsActive).ToList()
-                .Select(p => new PageLinkDto(p.Pk, p.Fk_DocPageParent))
+                .Select(p => new PageLinkDto(p.Pk, p.Fk_DocPageParent, p.SortOrder, p.Title))
                 .ToList()));
 
     // ---------------------------------------------------------------- Versions
@@ -171,7 +171,7 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
     public Task<Returning<int>> GetMaxSortOrderAsync(Guid? parentPk) =>
         Task.FromResult(Returning<int>.Try(() =>
             _ctx.Pages.Query().ToList()
-                .Where(p => p.Fk_DocPageParent == parentPk)
+                .Where(p => p.RowIsActive && p.Fk_DocPageParent == parentPk)
                 .Select(p => p.SortOrder).DefaultIfEmpty(0).Max()));
 
     public Task<Returning> InsertPageAsync(DocPage page) =>
@@ -223,6 +223,30 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
                 Touch(page, audit);
                 _ctx.Pages.Update(page);
                 return true;
+            }
+        }));
+
+    public Task<Returning<int>> SetSortOrdersAsync(IReadOnlyList<PageSortOrderDto> orders, AuditStamp audit) =>
+        Task.FromResult(Returning<int>.Try(() =>
+        {
+            if (orders.Count == 0) return 0;
+
+            lock (_ctx.WriteLock)
+            {
+                return InTransaction(() =>
+                {
+                    var changed = 0;
+                    foreach (var order in orders)
+                    {
+                        var page = _ctx.Pages.FindById(order.Pk);
+                        if (page is null || !page.RowIsActive || page.SortOrder == order.SortOrder) continue;
+                        page.SortOrder = order.SortOrder;
+                        Touch(page, audit);
+                        _ctx.Pages.Update(page);
+                        changed++;
+                    }
+                    return changed;
+                });
             }
         }));
 

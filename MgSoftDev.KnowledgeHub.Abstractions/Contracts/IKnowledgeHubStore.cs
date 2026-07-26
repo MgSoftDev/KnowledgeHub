@@ -98,6 +98,13 @@ public interface IKnowledgeHubStore
     Task<Returning<bool>> SetSortOrderAsync(Guid pagePk, int sortOrder, AuditStamp audit);
 
     /// <summary>
+    /// Sets the SortOrder of several pages in ONE atomic unit; returns how many rows changed.
+    /// The core keeps every sibling group numbered 1..N, and doing that with one call per page
+    /// would leave the group half-renumbered if something failed midway.
+    /// </summary>
+    Task<Returning<int>> SetSortOrdersAsync(IReadOnlyList<PageSortOrderDto> orders, AuditStamp audit);
+
+    /// <summary>
     /// Sets the page's icon and icon color (both nullable to clear). False when the active page
     /// does not exist.
     /// </summary>

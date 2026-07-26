@@ -21,12 +21,16 @@ public partial class KnowledgeHubDiagnosticsPanel : ComponentBase
     [Inject] private IKnowledgeHubImageService ImageService { get; set; } = null!;
     [Inject] private IKnowledgeHubUserContext User { get; set; } = null!;
     [Inject] private DialogService Dialog { get; set; } = null!;
+    [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
 
     /// <summary>Optional: absent in hosts without a local disk cache (e.g. WASM clients).</summary>
     protected IKnowledgeHubImageCache? Cache { get; private set; }
 
     /// <summary>Last orphan-image analysis; null until the admin runs it.</summary>
     protected OrphanImageReportDto? Orphans { get; private set; }
+
+    /// <summary>Pages renumbered by the last normalization; null until the admin runs it.</summary>
+    protected int? NormalizedCount { get; private set; }
 
     protected DiagnosticsSnapshot? Last => DiagnosticsService.Last;
     protected long CumulativeHits => DiagnosticsService.CumulativeHits;
@@ -108,6 +112,25 @@ public partial class KnowledgeHubDiagnosticsPanel : ComponentBase
         {
             Wait = false;
             r.SendNotifyIfNotOk(Notify, "Error durante la simulación");
+            StateHasChanged();
+        });
+
+    /// <summary>Renumbers every sibling group to 1..N and refreshes the tree.</summary>
+    public AsyncReturningCommand NormalizeOrderCommand =>
+        field ??= new AsyncReturningCommand(async () =>
+        {
+            var result = await DocService.NormalizeAllPageOrdersAsync();
+            if (!result.Ok) return result;
+
+            NormalizedCount = result.Value;
+            UiState.NotifyPageTreeChanged();
+            return Returning.Success();
+        }, () => !Wait)
+        .StartAction(() => Wait = true)
+        .EndAction(r =>
+        {
+            Wait = false;
+            r.SendNotifyIfNotOk(Notify, "Error al normalizar el orden");
             StateHasChanged();
         });
 

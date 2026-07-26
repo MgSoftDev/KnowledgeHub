@@ -28,10 +28,25 @@ else
         </RadzenFormField>
         <RadzenButton Text="Mover" Icon="drive_file_move" Size="ButtonSize.Small" Click="@MoveAsync" Disabled="@Wait" class="rz-mb-4" />
 
-        <RadzenFormField Text="Orden entre hermanos" class="rz-w-100 rz-mb-2">
-            <RadzenNumeric @bind-Value="Info.SortOrder" />
-        </RadzenFormField>
-        <RadzenButton Text="Reordenar" Icon="sort" Size="ButtonSize.Small" Click="@ReorderAsync" Disabled="@Wait" class="rz-mb-4" />
+        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Orden entre hermanos</RadzenText>
+        <div class="kh-order-row rz-mb-4">
+            <RadzenButton Icon="arrow_upward" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                          Click="@(() => MoveOrderAsync(PageMoveDirection.Up))"
+                          Disabled="@(Wait || IsFirstSibling)" title="Subir" />
+            <RadzenButton Icon="arrow_downward" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light"
+                          Click="@(() => MoveOrderAsync(PageMoveDirection.Down))"
+                          Disabled="@(Wait || IsLastSibling)" title="Bajar" />
+            <span class="kh-order-position">
+                @if (SiblingCount > 0)
+                {
+                    <text>Posición <strong>@SiblingPosition</strong> de @SiblingCount</text>
+                }
+                else
+                {
+                    <text>Sin hermanos</text>
+                }
+            </span>
+        </div>
 
         <hr />
         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Icono</RadzenText>

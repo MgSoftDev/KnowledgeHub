@@ -1,6 +1,7 @@
 using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
+using MgSoftDev.KnowledgeHub.Enums;
 using MgSoftDev.KnowledgeHub.Security;
 using MgSoftDev.KnowledgeHub.Seeding;
 using MgSoftDev.ReturningCore;
@@ -375,6 +376,69 @@ public static class ParityScript
         Check("Sin Admin no se puede eliminar", IsUnfinishedContaining(deniedDelete, "administrador"));
         user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
 
+        // ---- 23. Orden de hermanos: siempre 1..N ---------------------------------------------------------
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+
+        var ordRoot = await pages.CreatePageAsync(null, "Orden Raíz", "orden-raiz");
+        var ordA = await pages.CreatePageAsync(ordRoot.Value, "Orden A", "orden-a");
+        var ordB = await pages.CreatePageAsync(ordRoot.Value, "Orden B", "orden-b");
+        var ordC = await pages.CreatePageAsync(ordRoot.Value, "Orden C", "orden-c");
+        var ordD = await pages.CreatePageAsync(ordRoot.Value, "Orden D", "orden-d");
+        Check("Crear 4 hermanas", ordA.Ok && ordB.Ok && ordC.Ok && ordD.Ok);
+
+        Check("Al crear, los hermanos quedan 1..N en orden de creación",
+            await SiblingOrderAsync(pages, "orden-raiz") is ["Orden A", "Orden B", "Orden C", "Orden D"] &&
+            await SiblingsAreContiguousAsync(pages, "orden-raiz"));
+
+        // Subir C: A, C, B, D
+        var upC = await pages.MovePageOrderAsync(ordC.Value, PageMoveDirection.Up);
+        Check("Subir una página la intercambia con la anterior",
+            upC.Ok && await SiblingOrderAsync(pages, "orden-raiz") is ["Orden A", "Orden C", "Orden B", "Orden D"]);
+
+        // Bajar A: C, A, B, D
+        var downA = await pages.MovePageOrderAsync(ordA.Value, PageMoveDirection.Down);
+        Check("Bajar una página la intercambia con la siguiente",
+            downA.Ok && await SiblingOrderAsync(pages, "orden-raiz") is ["Orden C", "Orden A", "Orden B", "Orden D"]);
+
+        // Extremos: no-op y Ok (los botones de la UI van deshabilitados ahí).
+        var upFirst = await pages.MovePageOrderAsync(ordC.Value, PageMoveDirection.Up);
+        var downLast = await pages.MovePageOrderAsync(ordD.Value, PageMoveDirection.Down);
+        Check("En los extremos subir/bajar es no-op y devuelve Ok",
+            upFirst.Ok && downLast.Ok &&
+            await SiblingOrderAsync(pages, "orden-raiz") is ["Orden C", "Orden A", "Orden B", "Orden D"]);
+
+        // Borrar del medio → el grupo se cierra sin huecos.
+        var delA = await pages.DeletePageAsync(ordA.Value);
+        Check("Tras borrar, los hermanos quedan 1..N sin huecos",
+            delA.Ok && await SiblingsAreContiguousAsync(pages, "orden-raiz") &&
+            await SiblingOrderAsync(pages, "orden-raiz") is ["Orden C", "Orden B", "Orden D"]);
+
+        // Mover a otro padre → llega la ÚLTIMA y el origen se cierra.
+        var ordOther = await pages.CreatePageAsync(null, "Orden Otro", "orden-otro");
+        var ordX = await pages.CreatePageAsync(ordOther.Value, "Orden X", "orden-x");
+        var moveB = await pages.MovePageAsync(ordB.Value, ordOther.Value);
+        Check("Al mover a otro padre queda el ÚLTIMO del destino",
+            moveB.Ok && ordX.Ok &&
+            await SiblingOrderAsync(pages, "orden-otro") is ["Orden X", "Orden B"]);
+        Check("El grupo de origen queda 1..N tras mover",
+            await SiblingsAreContiguousAsync(pages, "orden-raiz") &&
+            await SiblingOrderAsync(pages, "orden-raiz") is ["Orden C", "Orden D"]);
+
+        // Normalización global: ensuciar a propósito y comprobar que respeta el orden visible.
+        await pages.ReorderAsync(ordC.Value, 40);
+        await pages.ReorderAsync(ordD.Value, 90);
+        var visibleBefore = await SiblingOrderAsync(pages, "orden-raiz");
+        var normalized = await pages.NormalizeAllPageOrdersAsync();
+        Check("Normalización global ejecuta", normalized.Ok);
+        Check("Normalización respeta el orden visible y deja 1..N",
+            await SiblingsAreContiguousAsync(pages, "orden-raiz") &&
+            (await SiblingOrderAsync(pages, "orden-raiz")).SequenceEqual(visibleBefore));
+
+        user.SetUser("editor1", "Editor", KnowledgeHubPermissions.Edit);
+        var normDenied = await pages.NormalizeAllPageOrdersAsync();
+        Check("Sin Admin no se puede normalizar", IsUnfinishedContaining(normDenied, "administrador"));
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+
         Console.WriteLine();
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL =====");
         return _failed;
@@ -399,6 +463,27 @@ public static class ParityScript
     private static bool IsUnfinishedContaining(ReturningBase result, string text) =>
         !result.Ok && result.UnfinishedInfo is { } unfinished &&
         $"{unfinished.Title} {unfinished.Mensaje}".Contains(text, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Titles of the children of the page with that slug, in the order the tree shows them.</summary>
+    private static async Task<List<string>> SiblingOrderAsync(IKnowledgeHubPageService pages, string parentSlug)
+    {
+        var tree = await pages.GetTreeAsync();
+        if (!tree.OkNotNull) return new List<string>();
+        var parent = FindBySlug(tree.Value!, parentSlug);
+        return parent?.Children.Select(c => c.Title).ToList() ?? new List<string>();
+    }
+
+    /// <summary>True when the children's SortOrder is exactly 1..N with no gaps and no repeats.</summary>
+    private static async Task<bool> SiblingsAreContiguousAsync(IKnowledgeHubPageService pages, string parentSlug)
+    {
+        var tree = await pages.GetTreeAsync();
+        if (!tree.OkNotNull) return false;
+        var parent = FindBySlug(tree.Value!, parentSlug);
+        if (parent is null) return false;
+
+        var orders = parent.Children.Select(c => c.SortOrder).ToList();
+        return orders.SequenceEqual(Enumerable.Range(1, orders.Count));
+    }
 
     private static PageTreeNodeDto? FindBySlug(IEnumerable<PageTreeNodeDto> nodes, string slug)
     {

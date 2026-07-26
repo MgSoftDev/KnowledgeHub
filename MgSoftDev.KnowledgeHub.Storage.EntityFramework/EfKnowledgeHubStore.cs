@@ -77,7 +77,7 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
             await using var db = await _factory.CreateDbContextAsync();
             return await db.Pages.AsNoTracking()
                 .Where(p => p.RowIsActive)
-                .Select(p => new PageLinkDto(p.Pk, p.Fk_DocPageParent))
+                .Select(p => new PageLinkDto(p.Pk, p.Fk_DocPageParent, p.SortOrder, p.Title))
                 .ToListAsync();
         });
 
@@ -215,7 +215,7 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
         {
             await using var db = await _factory.CreateDbContextAsync();
             return await db.Pages.AsNoTracking()
-                .Where(p => p.Fk_DocPageParent == parentPk)
+                .Where(p => p.RowIsActive && p.Fk_DocPageParent == parentPk)
                 .MaxAsync(p => (int?)p.SortOrder) ?? 0;
         });
 
@@ -265,6 +265,34 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
             Touch(page, audit);
             await db.SaveChangesAsync();
             return true;
+        });
+
+    public Task<Returning<int>> SetSortOrdersAsync(IReadOnlyList<PageSortOrderDto> orders, AuditStamp audit) =>
+        Returning<int>.TryTask(async () =>
+        {
+            if (orders.Count == 0) return 0;
+            var byPk = orders.ToDictionary(o => o.Pk, o => o.SortOrder);
+            var pks = byPk.Keys.ToList();
+
+            // One context and one transaction: renumbering a sibling group half-way would leave
+            // the order broken, and every other store method here opens its own context.
+            await using var db = await _factory.CreateDbContextAsync();
+            await using var tx = await db.Database.BeginTransactionAsync();
+
+            var pages = await db.Pages.Where(p => pks.Contains(p.Pk) && p.RowIsActive).ToListAsync();
+            var changed = 0;
+            foreach (var page in pages)
+            {
+                var target = byPk[page.Pk];
+                if (page.SortOrder == target) continue;
+                page.SortOrder = target;
+                Touch(page, audit);
+                changed++;
+            }
+
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return changed;
         });
 
     public Task<Returning<bool>> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor, AuditStamp audit) =>

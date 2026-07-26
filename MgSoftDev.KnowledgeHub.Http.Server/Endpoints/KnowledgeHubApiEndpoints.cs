@@ -79,6 +79,12 @@ public static class KnowledgeHubApiEndpoints
         group.MapPost("/pages/{pagePk:guid}/reorder", async (Guid pagePk, ReorderPageRequest request, IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.ReorderAsync(pagePk, request.SortOrder)).ToApi()));
 
+        group.MapPost("/pages/{pagePk:guid}/order", async (Guid pagePk, MovePageOrderRequest request, IKnowledgeHubPageService svc) =>
+            Results.Ok((await svc.MovePageOrderAsync(pagePk, request.Direction)).ToApi()));
+
+        group.MapPost("/pages/normalize-order", async (IKnowledgeHubPageService svc) =>
+            Results.Ok((await svc.NormalizeAllPageOrdersAsync()).ToApi()));
+
         group.MapPost("/pages/{pagePk:guid}/icon", async (Guid pagePk, SetIconRequest request, IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.SetPageIconAsync(pagePk, request.Icon, request.IconColor)).ToApi()));
 

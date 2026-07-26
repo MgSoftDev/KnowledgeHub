@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using MgSoftDev.KnowledgeHub.Blazor.Helpers;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
+using MgSoftDev.KnowledgeHub.Enums;
 using MgSoftDev.KnowledgeHub.Security;
 using MgSoftDev.ReturningCore;
 using Microsoft.AspNetCore.Components;
@@ -42,6 +43,12 @@ public partial class KnowledgeHubPageManage : ComponentBase
     protected bool Loading { get; private set; } = true;
     public bool Wait { get; private set; }
 
+    /// <summary>1-based position among siblings, and how many there are. 0 when unknown.</summary>
+    protected int SiblingPosition { get; private set; }
+    protected int SiblingCount { get; private set; }
+    protected bool IsFirstSibling => SiblingCount == 0 || SiblingPosition <= 1;
+    protected bool IsLastSibling => SiblingCount == 0 || SiblingPosition >= SiblingCount;
+
     protected override async Task OnParametersSetAsync()
     {
         if (!User.CanEdit()) { Loading = false; return; }
@@ -57,7 +64,34 @@ public partial class KnowledgeHubPageManage : ComponentBase
             ? Flatten(tree.Value).Where(p => p.Pk != PagePk).ToList()
             : new List<PageInfoDto>();
 
+        if (tree.OkNotNull) ComputePosition(tree.Value);
+
         Loading = false;
+    }
+
+    /// <summary>
+    /// Position within the sibling list AS THE TREE SHOWS IT, which is what the up/down buttons
+    /// act on. Note the tree is permission-filtered: an editor who cannot see every sibling would
+    /// see a partial position.
+    /// </summary>
+    private void ComputePosition(IEnumerable<PageTreeNodeDto> roots)
+    {
+        var siblings = FindSiblings(roots, PagePk);
+        SiblingCount = siblings.Count;
+        SiblingPosition = siblings.FindIndex(n => n.Pk == PagePk) + 1;
+    }
+
+    private static List<PageTreeNodeDto> FindSiblings(IEnumerable<PageTreeNodeDto> nodes, Guid pagePk)
+    {
+        var list = nodes.ToList();
+        if (list.Any(n => n.Pk == pagePk)) return list;
+
+        foreach (var node in list)
+        {
+            var found = FindSiblings(node.Children, pagePk);
+            if (found.Count > 0) return found;
+        }
+        return new List<PageTreeNodeDto>();
     }
 
     private static IEnumerable<PageInfoDto> Flatten(IEnumerable<PageTreeNodeDto> nodes)
@@ -79,10 +113,18 @@ public partial class KnowledgeHubPageManage : ComponentBase
     private async Task MoveAsync() =>
         await Run(() => DocService.MovePageAsync(PagePk, SelectedParent), "Página movida", "Error al mover");
 
-    private async Task ReorderAsync()
+    /// <summary>
+    /// One step up/down. Saves immediately and reloads the position, so the buttons disable
+    /// themselves at the ends; the tree refresh comes from <see cref="Run"/>.
+    /// </summary>
+    private async Task MoveOrderAsync(PageMoveDirection direction)
     {
-        if (Info is null) return;
-        await Run(() => DocService.ReorderAsync(PagePk, Info.SortOrder), "Orden actualizado", "Error al reordenar");
+        await Run(() => DocService.MovePageOrderAsync(PagePk, direction),
+            direction == PageMoveDirection.Up ? "Página subida" : "Página bajada",
+            "Error al reordenar");
+
+        var tree = await DocService.GetTreeAsync();
+        if (tree.OkNotNull) ComputePosition(tree.Value);
     }
 
     private async Task SaveIconAsync()

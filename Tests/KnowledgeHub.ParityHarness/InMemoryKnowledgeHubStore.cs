@@ -69,7 +69,7 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
         {
             lock (_gate)
                 return _pages.Values.Where(p => p.RowIsActive)
-                    .Select(p => new PageLinkDto(p.Pk, p.Fk_DocPageParent))
+                    .Select(p => new PageLinkDto(p.Pk, p.Fk_DocPageParent, p.SortOrder, p.Title))
                     .ToList();
         }));
 
@@ -180,7 +180,7 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
         Task.FromResult(Returning<int>.Try(() =>
         {
             lock (_gate)
-                return _pages.Values.Where(p => p.Fk_DocPageParent == parentPk)
+                return _pages.Values.Where(p => p.RowIsActive && p.Fk_DocPageParent == parentPk)
                     .Select(p => p.SortOrder).DefaultIfEmpty(0).Max();
         }));
 
@@ -230,6 +230,24 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
                 page.SortOrder = sortOrder;
                 Touch(page, audit);
                 return true;
+            }
+        }));
+
+    public Task<Returning<int>> SetSortOrdersAsync(IReadOnlyList<PageSortOrderDto> orders, AuditStamp audit) =>
+        Task.FromResult(Returning<int>.Try(() =>
+        {
+            lock (_gate)
+            {
+                var changed = 0;
+                foreach (var order in orders)
+                {
+                    if (!_pages.TryGetValue(order.Pk, out var page) || !page.RowIsActive) continue;
+                    if (page.SortOrder == order.SortOrder) continue;
+                    page.SortOrder = order.SortOrder;
+                    Touch(page, audit);
+                    changed++;
+                }
+                return changed;
             }
         }));
 

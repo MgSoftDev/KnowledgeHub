@@ -1,5 +1,6 @@
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
+using MgSoftDev.KnowledgeHub.Enums;
 using MgSoftDev.KnowledgeHub.Transport;
 using MgSoftDev.ReturningCore;
 
@@ -53,6 +54,12 @@ public sealed class HttpKnowledgeHubPageService : IKnowledgeHubPageService
 
     public Task<Returning> ReorderAsync(Guid pagePk, int sortOrder) =>
         _api.PostPlainAsync($"/pages/{pagePk}/reorder", new ReorderPageRequest(sortOrder));
+
+    public Task<Returning> MovePageOrderAsync(Guid pagePk, PageMoveDirection direction) =>
+        _api.PostPlainAsync($"/pages/{pagePk}/order", new MovePageOrderRequest(direction));
+
+    public Task<Returning<int>> NormalizeAllPageOrdersAsync() =>
+        _api.PostAsync<int>("/pages/normalize-order", body: null);
 
     public Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor) =>
         _api.PostPlainAsync($"/pages/{pagePk}/icon", new SetIconRequest(icon, iconColor));

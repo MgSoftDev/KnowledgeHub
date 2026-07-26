@@ -64,6 +64,24 @@
 
     @if (User.IsAdmin())
     {
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mt-4 rz-mb-2">Orden de las páginas</RadzenText>
+        <p style="color:#6b7280;">
+            Renumera los hermanos de cada página a 1, 2, 3… respetando el orden que ves ahora.
+            Útil para bases creadas antes de que el renumerado fuese automático, donde borrar o
+            mover páginas dejaba huecos en los índices.
+        </p>
+        <RadzenButton Text="Normalizar el orden de todas las páginas" Icon="low_priority"
+                      ButtonStyle="ButtonStyle.Light"
+                      Click="@(() => NormalizeOrderCommand.CanAndExecute())"
+                      Disabled="@(!NormalizeOrderCommand.CanExecute())" IsBusy="@Wait" BusyText="Normalizando..." />
+        @if (NormalizedCount is int normalized)
+        {
+            <p style="color:#059669;margin-top:8px;">
+                @(normalized == 0 ? "El orden ya era correcto: no hizo falta cambiar nada."
+                                  : $"Se renumeraron {normalized} página(s).")
+            </p>
+        }
+
         <RadzenText TextStyle="TextStyle.H6" class="rz-mt-4 rz-mb-2">Mantenimiento de imágenes</RadzenText>
         <p style="color:#6b7280;">
             Busca imágenes que ya no aparecen en <strong>ninguna</strong> versión de ninguna página —

@@ -1,3 +1,4 @@
+using MgSoftDev.KnowledgeHub.Enums;
 using MgSoftDev.KnowledgeHub.Security;
 
 namespace MgSoftDev.KnowledgeHub.Transport;
@@ -11,6 +12,8 @@ public sealed record RenamePageRequest(string Title);
 public sealed record MovePageRequest(Guid? NewParentPk);
 
 public sealed record ReorderPageRequest(int SortOrder);
+
+public sealed record MovePageOrderRequest(PageMoveDirection Direction);
 
 public sealed record SetIconRequest(string? Icon, string? IconColor);
 
