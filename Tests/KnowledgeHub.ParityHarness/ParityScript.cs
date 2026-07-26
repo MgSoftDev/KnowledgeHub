@@ -142,6 +142,21 @@ public static class ParityScript
             editPasos2.Value!.ContentHtml.Contains("docimg://") &&
             !editPasos2.Value!.ContentHtml.Contains("data:image"));
 
+        // Formato no decodificable (SVG): debe RECHAZAR el guardado. Si se aceptara, el blob
+        // base64 quedaría inline en ContentHtml y se duplicaría en cada versión posterior.
+        var versionBeforeSvg = editPasos2.Value!.BaseVersionNumber;
+        var svgBytes = System.Text.Encoding.UTF8.GetBytes(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>");
+        editPasos2.Value!.ContentHtml += $"<p><img src=\"data:image/svg+xml;base64,{Convert.ToBase64String(svgBytes)}\"></p>";
+        var saveSvg = await pages.SaveDraftAsync(editPasos2.Value);
+        Check("Data-URI no soportada (SVG) rechaza el guardado", IsUnfinishedContaining(saveSvg, "image/svg+xml"));
+
+        var editPasos3 = await pages.GetPageForEditAsync(pasos.Pk);
+        Check("SVG rechazado: no se creó versión nueva",
+            editPasos3.OkNotNull && editPasos3.Value!.BaseVersionNumber == versionBeforeSvg);
+        Check("SVG rechazado: no quedó base64 en el HTML almacenado",
+            editPasos3.OkNotNull && !editPasos3.Value!.ContentHtml.Contains(";base64,"));
+
         // ---- 12. Rewriter + caché por hash --------------------------------------------------
         var read2 = await pages.GetPageForReadAsync(manual.Pk);
         var rewrite1 = await rewriter.PrepareForDisplayAsync(read2.Value!.ContentHtml);

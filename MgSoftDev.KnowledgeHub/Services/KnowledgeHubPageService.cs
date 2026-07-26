@@ -171,7 +171,15 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
 
             // Replace any pasted data-URI images with uploaded docimg:// references before storing.
-            var html = await InterceptDataUrisAsync(draft.ContentHtml ?? string.Empty);
+            // Refuse the save when one could not be processed: storing it would leave the base64
+            // blob inline (and duplicated in every later version) without the user noticing.
+            var (html, imageFailures) = await InterceptDataUrisAsync(draft.ContentHtml ?? string.Empty);
+            if (imageFailures.Count > 0)
+                return Returning.Unfinished(
+                    $"No se pudieron procesar {imageFailures.Count} imagen(es) pegada(s): " +
+                    $"{string.Join(", ", imageFailures.Distinct())}. " +
+                    "Quítalas o conviértelas a PNG/JPG antes de guardar.",
+                    UnfinishedInfo.NotifyType.Warning);
 
             // Existing images are shown in the editor as display URLs; turn them back into the
             // stable docimg:// references (matched by hash → same DocImage id, no duplication).
@@ -491,27 +499,43 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
 
     private AuditStamp Stamp() => new(_user.UserName, DateTime.Now);
 
-    /// <summary>Uploads every pasted data-URI image and rewrites its src to a stable docimg:// reference.</summary>
-    private async Task<string> InterceptDataUrisAsync(string html)
+    /// <summary>
+    /// Uploads every pasted data-URI image and rewrites its src to a stable docimg:// reference.
+    /// Returns the rewritten html plus the mime types that could NOT be processed: leaving a failed
+    /// data-URI inline would persist the base64 blob inside ContentHtml —and, versioning being
+    /// insert-only, duplicate it in every later version— so the caller must refuse the save
+    /// instead of storing it silently.
+    /// </summary>
+    private async Task<(string Html, List<string> Failures)> InterceptDataUrisAsync(string html)
     {
+        var failures = new List<string>();
         var matches = KnowledgeHubHtml.DataUriRegex().Matches(html);
-        if (matches.Count == 0) return html;
+        if (matches.Count == 0) return (html, failures);
 
         var sb = new StringBuilder(html);
         // Replace from last to first so earlier match indices stay valid.
         foreach (var match in matches.OrderByDescending(m => m.Index))
         {
+            var mime = match.Groups["mime"].Value;
+
             byte[] bytes;
             try { bytes = Convert.FromBase64String(match.Groups["data"].Value); }
-            catch { continue; }
+            catch { failures.Add(mime); continue; }
 
             var uploaded = await _imageService.UploadOrReplaceAsync(bytes, "pasted.webp");
-            if (!uploaded.OkNotNull) continue;
+            if (!uploaded.Ok)
+            {
+                // Business rejection (unsupported format…) is reported to the caller; a genuine
+                // infrastructure failure (store/db) must propagate instead of being swallowed.
+                if (uploaded.UnfinishedInfo is null) uploaded.Throw();
+                failures.Add(mime);
+                continue;
+            }
 
             sb.Remove(match.Index, match.Length);
             sb.Insert(match.Index, KnowledgeHubHtml.DocImgUrl(uploaded.Value));
         }
-        return sb.ToString();
+        return (sb.ToString(), failures);
     }
 
     /// <summary>

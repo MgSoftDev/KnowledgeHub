@@ -36,8 +36,21 @@ public sealed class KnowledgeHubImageService : IKnowledgeHubImageService
             if (originalBytes is null || originalBytes.Length == 0)
                 return Returning.Unfinished("La imagen está vacía", UnfinishedInfo.NotifyType.Warning);
 
-            // Decode, cap the width, re-encode as WebP.
-            using var image = Image.Load(originalBytes);
+            // Decode, cap the width, re-encode as WebP. An unsupported format (SVG…) or corrupt
+            // content is a BUSINESS rejection, not an infrastructure error: callers must be able
+            // to tell it apart from a store failure, so it must not surface as an Error.
+            Image loaded;
+            try
+            {
+                loaded = Image.Load(originalBytes);
+            }
+            catch (ImageFormatException)
+            {
+                return Returning.Unfinished("Formato de imagen no soportado o archivo dañado",
+                    UnfinishedInfo.NotifyType.Warning);
+            }
+
+            using var image = loaded;
             var maxWidth = _options.MaxImageWidth;
             if (image.Width > maxWidth)
             {

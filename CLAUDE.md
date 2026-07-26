@@ -29,6 +29,12 @@ Iteraciones posteriores: RCL embebible (v0.2.0-preview.1) e **icono + color por 
 - **Imágenes**: HTML almacenado usa `docimg://{pk}`; display = `{base}/{hash}.webp`. La regex
   de reversión al guardar es genérica por sufijo `{sha256hex}.webp` (funciona con virtual host
   WPF, endpoint relativo Server y URL absoluta WASM). Regex centralizadas en `KnowledgeHubHtml`.
+  **Pipeline de ESCRITURA** (`KnowledgeHubImageService.UploadOrReplaceAsync`, único camino para
+  editor/HTTP): reduce el ancho si supera `MaxImageWidth` (default 1600; **no hay tope de alto**),
+  recomprime SIEMPRE a WebP y deduplica por SHA256 del binario ya convertido → se persiste el
+  procesado, nunca el original. Si la imagen no se puede decodificar (SVG…), desde v0.3.1
+  `SaveDraftAsync` **rechaza el guardado** con `Unfinished` en vez de dejar el base64 inline
+  (ver gotcha 14). El caché de display y el rewriter NO tocan píxeles: solo leen.
 - **Returning sobre HTTP**: `ApiResult<T>`/`ReturningTransport` (en Abstractions/Transport);
   HTTP 200 siempre que el pipeline funcionó, el conflicto de publicación viaja como Unfinished.
 - **Rutas RCL**: prefijo fijo `/kh` (`KnowledgeHubRoutes`); CSS prefijado `kh-*`; la RCL no
@@ -99,7 +105,8 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (53 checks; 7 nuevos de icono en v0.3.0): mismo guion contra InMemory,
+- **Guion de paridad** (56 checks; 7 de icono en v0.3.0 + 3 de data-URI rechazada en v0.3.1):
+  mismo guion contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
@@ -159,6 +166,17 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     que reemplazar `TextProperty` por un `<Template Context="data">`; el `data` es un
     `RadzenTreeItem` y su `.Value` es `object?` → castear con `(PageTreeNodeDto)data.Value!`
     (si no, CS8600/CS8602 con TreatWarningsAsErrors). Caso real: `KnowledgeHubNavTree` (v0.3.0).
+14. **Un `continue` que traga un `Returning` fallido esconde dos bugs distintos** (v0.3.1).
+    `InterceptDataUrisAsync` hacía `if (!uploaded.OkNotNull) continue;`: (a) el data-URI se
+    quedaba INLINE en el `ContentHtml` almacenado —base64 ≈ 4/3 del binario, duplicado en cada
+    versión porque el versionado es insert-only— sin que el usuario se enterara, y (b) un error
+    real de store/BD quedaba silenciado igual que un rechazo de negocio. Reglas: **distinguir
+    siempre** `UnfinishedInfo is null` (Error de infra → `Throw()`) de un rechazo de negocio
+    (reportar al llamador), y que el fallo de decodificación de ImageSharp se clasifique como
+    `Unfinished` y no como excepción — para eso hay que capturar **`ImageFormatException`**, que
+    es la base de `UnknownImageFormatException` e `InvalidImageContentException` (SVG = formato
+    desconocido). El grupo `mime` de `DataUriRegex` existía sin usarse; ahora nombra el formato
+    en el mensaje de rechazo.
 
 ## Pendientes / siguientes pasos
 
