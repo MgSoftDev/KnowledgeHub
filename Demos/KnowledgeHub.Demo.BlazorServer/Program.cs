@@ -36,7 +36,11 @@ var dataFolder = Path.Combine(
 Directory.CreateDirectory(dataFolder);
 
 // ---- Blazor Server + cookie auth. --------------------------------------------------------
-builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+// El editor HTML manda documentos enteros por SignalR (al pegar y al cambiar el contenido) y el
+// límite de fábrica son 32 KB: pegar de Word o una imagen tumba el circuito SIN mensaje de error.
+builder.Services.AddRazorComponents()
+       .AddInteractiveServerComponents()
+       .AddHubOptions(o => o.MaximumReceiveMessageSize = 10 * 1024 * 1024);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>

@@ -213,6 +213,20 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     paquete debe impedir. Además dispara NU1902 y, con `TreatWarningsAsErrors`, rompe el restore.
     La línea `9.1.x-beta` usa AngleSharp 1.5.2 (parcheado) y restaura limpio: por eso el repo usa
     una beta a propósito. Al actualizar, comprobar si ya hay estable con AngleSharp ≥ 1.5.0.
+18. **En Blazor Server el editor choca con el límite de 32 KB de SignalR** (`MaximumReceiveMessageSize`,
+    default de fábrica). El `RadzenHtmlEditor` manda el documento ENTERO por el circuito, tanto al
+    pegar (evento `Paste` → `invokeMethodAsync('OnPaste', html)`) como al cambiar el valor enlazado.
+    Al superarlo, SignalR **cierra la conexión y el pegado se pierde sin ningún error**: el JS de
+    Radzen envuelve la llamada en `try{}catch{}` y la cadena `.then(html => insertHTML)` nunca
+    corre. Síntoma: "pego de Word y no pasa nada, ni una palabra". **Solo afecta a Server** — WPF
+    (BlazorWebView) y WASM no tienen salto por SignalR, por eso ahí funciona igual. Los demos y la
+    guía (§6) lo suben a 10 MB. Reproducido midiendo: 301 B pega bien, 51 KB no pega nada; con el
+    límite subido, el mismo payload pega y se limpia.
+    Corolario de diseño: **enlazar `Paste` NO es gratis**. Radzen solo dispara el evento si el
+    callback tiene delegado, y enlazarlo cambia el pegado nativo del navegador por un round-trip
+    JS→.NET. Por eso `KnowledgeHubPageEditor` lo engancha **solo si hay un `IKnowledgeHubHtmlSanitizer`
+    registrado** (`OnInitialized` → `EventCallback.Factory.Create`); si no, deja el pegado nativo
+    intacto y los hosts sin sanitizador no pagan nada.
 
 ## Pendientes / siguientes pasos
 

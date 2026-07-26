@@ -165,10 +165,22 @@ public partial class KnowledgeHubPageEditor : ComponentBase
     }
 
     /// <summary>
-    /// Cleans content pasted into the editor (Word markup, scripts…) when the host registered a
-    /// sanitizer. Radzen only raises this event when the Paste callback has a delegate, so binding
-    /// it also switches pasting to Radzen's own insert path.
+    /// Paste hook, wired ONLY when a sanitizer is registered — see <see cref="OnInitialized"/>.
     /// </summary>
+    protected EventCallback<HtmlEditorPasteEventArgs> PasteCallback { get; private set; }
+
+    protected override void OnInitialized()
+    {
+        // Binding Paste is NOT free: Radzen only raises the event when the callback has a
+        // delegate, and doing so switches pasting from the browser's native path to a JS→.NET
+        // round trip carrying the WHOLE pasted document. In Blazor Server that hits the SignalR
+        // MaximumReceiveMessageSize limit (32 KB by default) and the paste is dropped in silence.
+        // So only pay that price when there is actually something to clean.
+        if (Services.GetService<IKnowledgeHubHtmlSanitizer>() is not null)
+            PasteCallback = EventCallback.Factory.Create<HtmlEditorPasteEventArgs>(this, OnEditorPaste);
+    }
+
+    /// <summary>Cleans content pasted into the editor (Word markup, scripts…).</summary>
     private void OnEditorPaste(HtmlEditorPasteEventArgs args)
     {
         var sanitizer = Services.GetService<IKnowledgeHubHtmlSanitizer>();

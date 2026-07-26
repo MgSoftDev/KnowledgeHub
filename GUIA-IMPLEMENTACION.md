@@ -758,7 +758,11 @@ public sealed class ServerUserContext : IKnowledgeHubUserContext
 var builder = WebApplication.CreateBuilder(args);
 
 // Blazor Server + cookie auth.
-builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+// ⚠️ Sube MaximumReceiveMessageSize: el editor manda documentos enteros por SignalR y el límite
+// de fábrica son 32 KB (ver el aviso justo debajo de este bloque).
+builder.Services.AddRazorComponents()
+       .AddInteractiveServerComponents()
+       .AddHubOptions(o => o.MaximumReceiveMessageSize = 10 * 1024 * 1024);
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o => o.LoginPath = "/login");
@@ -795,6 +799,25 @@ app.MapRazorComponents<App>()
 
 app.Run();
 ```
+
+> ### ⚠️ Blazor Server: sube el límite de mensajes de SignalR
+>
+> **Esto solo afecta a Blazor Server.** WPF (BlazorWebView) y WASM ejecutan todo en el mismo
+> proceso, no hay salto por SignalR y no tienen este problema.
+>
+> El editor HTML manda **el documento entero por el circuito** (al pegar contenido y al cambiar el
+> valor enlazado). El límite de fábrica de SignalR es **32 KB**, así que pegar un documento de Word
+> —o una imagen, que viaja como `data:` en base64— supera el límite, **el circuito se cierra y no
+> se pega nada, sin ningún mensaje de error**: parece que el botón no hace nada.
+>
+> ```csharp
+> builder.Services.AddRazorComponents()
+>        .AddInteractiveServerComponents()
+>        .AddHubOptions(o => o.MaximumReceiveMessageSize = 10 * 1024 * 1024);  // 10 MB
+> ```
+>
+> Ajusta el valor a tu caso: es memoria por circuito, así que no lo pongas ilimitado. Como
+> referencia, 10 MB admite documentos de Word largos con varias imágenes incrustadas.
 
 ### Paso 4 — `Components\App.razor` (⚠️ patrón de render mode condicional)
 
@@ -1115,7 +1138,15 @@ core limpia al guardar. En WPF y Blazor Server es el mismo contenedor, así que 
 en WASM hacen falta **las dos**: cliente (pegar) y servidor de la API (guardar).
 
 Es **opcional**: si no lo registras, la librería se comporta exactamente como antes y no se limpia
-nada. El botón de limpieza avisa de que no hay sanitizador.
+nada. El botón de limpieza avisa de que no hay sanitizador. De hecho, el evento de pegado **solo se
+engancha si hay un sanitizador registrado**, precisamente porque engancharlo tiene un coste (ver el
+aviso siguiente).
+
+> **⚠️ En Blazor Server, sube `MaximumReceiveMessageSize` antes de activar esto.** Limpiar al pegar
+> exige mandar el contenido pegado del navegador al servidor por SignalR, y el límite de fábrica son
+> **32 KB**: un documento de Word lo supera y **el pegado se pierde en silencio**. Es el mismo ajuste
+> del §6 (`AddHubOptions(o => o.MaximumReceiveMessageSize = 10 * 1024 * 1024)`), y en Server te hace
+> falta igualmente para guardar documentos grandes. WPF y WASM no se ven afectados.
 
 ### Paso 3 (opcional) — Ampliar las reglas
 
@@ -1258,6 +1289,7 @@ anchas se reducen al ingresarlas).
 | Los diálogos de KnowledgeHub no abren aunque Radzen esté configurado | `<RadzenComponents />` vive en un layout que las páginas `/kh` no están usando | Móntalo a nivel de router, fuera de los layouts (§7.3, punto 3) |
 | Las páginas `/kh/*` se ven sin árbol, sin búsqueda y sin botón de crear | v0.2.0: las páginas ya no imponen `KnowledgeHubLayout`, y esa chrome vivía ahí | Layout anidado + `KnowledgeHubNavTree` (§3.5), o usa `KnowledgeHubBrowser` |
 | El portal se desborda / doble scrollbar bajo tu topbar | Las páginas `/kh/*` usan los defaults `100vh`; solo `KnowledgeHubBrowser` aplica `.kh-embedded` | Sobreescribe `--kh-portal-height` y `--kh-editor-height` en tu contenedor (§3.5) |
+| **(Blazor Server)** Pegas desde Word y **no se pega absolutamente nada**, sin error | El documento supera los 32 KB por defecto de SignalR y el circuito se cierra en silencio. WPF y WASM no lo sufren (no hay SignalR) | `AddHubOptions(o => o.MaximumReceiveMessageSize = 10 * 1024 * 1024)` (§6) |
 | Pegas desde Word y el HTML sigue lleno de `<o:p>` / `MsoNormal` | No hay sanitizador registrado en el contenedor de la **UI** | `AddKnowledgeHubHtmlSanitizer()` donde registras la UI; en WASM, en el cliente (§8.1) |
 | En WASM se limpia al guardar pero no al pegar (o al revés) | Solo registraste el sanitizador en uno de los dos lados | Hace falta en cliente **y** en el server de la API (§8.1 paso 2) |
 | Al guardar desaparecen todas las imágenes | Sanitizador propio que no permite el esquema `docimg` | Parte de `KnowledgeHubSanitizerDefaults.CreateSanitizer()` (§8.1 paso 3) |
@@ -1296,5 +1328,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.4.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.4.1-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*
