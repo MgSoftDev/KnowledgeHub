@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.1-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -542,9 +542,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.7.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.7.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.1-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.7.1-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.7.1-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1200,8 +1200,11 @@ documento**.
 | Nivel | Icono | Qué hace |
 |---|---|---|
 | **1 Estándar** | `format_paint` | El de siempre: quita basura de Word, scripts y manejadores de eventos, pero **conserva el formato** (colores, fuentes…). |
-| **2 Media** | `format_color_reset` | Además quita el ruido cosmético: colores de texto y fondo, `font-family`, `letter-spacing`, `word-spacing`, `white-space`, `line-height`… y desenvuelve `<span>`/`<font>`. **Conserva la estructura HTML, las imágenes con su tamaño y los avisos de KnowledgeHub.** |
-| **3 Máxima** | `text_fields` | Solo texto: sobreviven `<p>`, `<br>` e `<img>`. Todo lo demás desaparece. |
+| **2 Media** | `format_color_reset` | Deja **solo CSS estructural** (`margin`, `padding`, `text-align`, `border`, `width`, `height`, listas…) y desenvuelve `<span>`/`<font>`. Se va todo lo demás: colores, fondos, `font-family`, espaciados, `caret-color`, `orphans`… **Conserva la estructura HTML, las imágenes con su tamaño y los avisos de KnowledgeHub.** |
+| **3 Máxima** | `text_fields` | Solo texto: sobreviven `<p>`, `<br>` e `<img>`, **sin ningún atributo** salvo `src`/`alt` y el tamaño de la imagen. |
+
+Los niveles 2 y 3 usan listas de **inclusión** (enumeran lo que se queda, no lo que se quita), así
+que una propiedad exótica de una web cualquiera no se cuela por no estar prevista.
 
 El nivel **2 es el que resuelve** dos molestias típicas: pegar de una web de fondo oscuro y que se
 venga el fondo negro, y un `<h2>` que por dentro trae un `<span style="font-size:24px">` que impide
@@ -1411,5 +1414,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.7.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.7.1-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

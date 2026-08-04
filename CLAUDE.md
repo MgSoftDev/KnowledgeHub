@@ -151,8 +151,8 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (95 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
-  v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0 y 11 de niveles de limpieza en v0.7.0
+- **Guion de paridad** (99 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+  v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0 y 15 de niveles de limpieza en v0.7.0/0.7.1
   —estos últimos llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
@@ -302,6 +302,19 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     `background-*`. Para preservar lo propio (imágenes y callouts) el evento **`RemovingStyle`**,
     que se dispara por CADA propiedad y admite `Cancel`, es el gancho correcto; `AllowedClasses`
     filtra clase a clase, así que `class` puede permitirse dejando solo `kh-callout`.
+    **Corolario (v0.7.1, tras un bug real):** las trampas (c) y (d) son síntomas de lo mismo —
+    quitar de las listas es una estrategia que **falla abierta**. El primer intento listaba las
+    propiedades a quitar y un pegado real de una web coló `orphans: 4` entero, porque a nadie se le
+    ocurre listar `orphans`. Y en PlainText **vaciar `AllowedTags` no basta**: `style` seguía en
+    `AllowedAttributes` con las 239 propiedades de fábrica, así que el `<p>` conservaba colores y
+    fuentes y el nivel 3 era idéntico al 1. Ahora ambos niveles **sustituyen** las listas
+    (`AllowedCssProperties`, `AllowedAttributes`, `AllowedTags`) por las suyas y fallan cerrados.
+    Regla para tests: comprobar qué **etiquetas** sobreviven no dice nada de los **atributos** —
+    hay que afirmar la salida exacta.
+    Trampa (e), del mismo arreglo: renombrar a `<p>` un bloque que YA contiene párrafos produce
+    `<p><p>x</p></p>`, que el parser parte en **dos `<p>` vacíos** alrededor del bueno (líneas en
+    blanco visibles). Si el bloque contiene otro bloque hay que **desenvolverlo** (fragmento), no
+    renombrarlo — y el selector de «¿contiene bloques?» debe incluir `p`.
 
 ## Pendientes / siguientes pasos
 

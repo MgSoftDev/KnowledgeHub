@@ -15,19 +15,24 @@ public static class KnowledgeHubSanitizerDefaults
     public const string CalloutClass = "kh-callout";
 
     /// <summary>
-    /// Cosmetic properties stripped at <see cref="HtmlCleanupLevel.Strict"/>. Every
-    /// <c>background-*</c> longhand is listed on purpose: AngleSharp expands the <c>background</c>
-    /// shorthand, so removing only the shorthand leaves
+    /// The ONLY CSS kept at <see cref="HtmlCleanupLevel.Strict"/> — layout, not looks. It is an
+    /// allow-list on purpose: the first attempt listed the cosmetic properties to remove instead,
+    /// and real pastes sailed straight through it with whatever the site happened to use
+    /// (<c>orphans</c>, <c>-webkit-*</c>…). An allow-list fails closed. It also sidesteps the
+    /// <c>background</c> shorthand trap: AngleSharp expands it into longhands, so a deny-list has
+    /// to name every single <c>background-*</c> or it leaves
     /// <c>background-position: initial; background-size: initial; …</c> behind.
     /// </summary>
-    private static readonly string[] CosmeticCssProperties =
+    private static readonly string[] StructuralCssProperties =
     [
-        "color", "font", "font-family", "letter-spacing", "word-spacing", "white-space",
-        "caret-color", "line-height", "text-shadow", "text-decoration-color", "opacity", "filter",
-        "background", "background-color", "background-image", "background-position",
-        "background-position-x", "background-position-y", "background-size", "background-repeat",
-        "background-repeat-x", "background-repeat-y", "background-attachment", "background-origin",
-        "background-clip", "background-blend-mode"
+        "text-align", "vertical-align", "direction",
+        "margin", "margin-top", "margin-right", "margin-bottom", "margin-left",
+        "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",
+        "border", "border-top", "border-right", "border-bottom", "border-left",
+        "border-width", "border-style", "border-radius", "border-collapse", "border-spacing",
+        "width", "height", "max-width", "max-height", "min-width", "min-height", "zoom",
+        "display", "float", "clear", "table-layout",
+        "list-style", "list-style-type", "list-style-position"
     ];
 
     /// <summary>Presentational leftovers from old HTML, stripped at Strict.</summary>
@@ -35,6 +40,19 @@ public static class KnowledgeHubSanitizerDefaults
 
     /// <summary>Wrappers that only carry styling; unwrapped at Strict (their text is kept).</summary>
     private static readonly string[] CosmeticTags = ["font", "span"];
+
+    /// <summary>Everything that survives <see cref="HtmlCleanupLevel.PlainText"/>.</summary>
+    private static readonly string[] PlainTextTags = ["p", "br", "img"];
+
+    /// <summary>
+    /// Attributes kept at PlainText. <c>style</c> is here so images can keep their size — the CSS
+    /// allow-list is emptied instead, and <see cref="ImageSizeProperties"/> is vetoed back in.
+    /// </summary>
+    private static readonly string[] PlainTextAttributes = ["src", "alt", "style"];
+
+    /// <summary>What the image size tool writes; the only CSS that survives PlainText.</summary>
+    private static readonly string[] ImageSizeProperties =
+        ["width", "height", "max-width", "max-height", "zoom"];
 
     /// <summary>The permissive configuration (<see cref="HtmlCleanupLevel.Standard"/>).</summary>
     public static Ganss.Xss.HtmlSanitizer CreateSanitizer() => CreateSanitizer(HtmlCleanupLevel.Standard);
@@ -56,51 +74,65 @@ public static class KnowledgeHubSanitizerDefaults
         //    would silently delete every image already in the document.
         sanitizer.AllowedSchemes.Add("docimg");
 
-        // 3) 'zoom' is non-standard and NOT in the stock allow-list, but it is what the image
-        //    size tool writes (width/height already are allowed).
-        sanitizer.AllowedCssProperties.Add("zoom");
-
-        // Callouts are identified by a class, so their styling can be spared below. 'class' is not
-        // allowed out of the box; AllowedClasses then filters it down to just ours, which also
-        // removes Word's MsoNormal and friends.
+        // 3) Callouts are identified by a class, so their styling can be spared below. 'class' is
+        //    not allowed out of the box; AllowedClasses then filters it down to just ours, which
+        //    also removes Word's MsoNormal and friends.
         sanitizer.AllowedAttributes.Add("class");
         sanitizer.AllowedClasses.Add(CalloutClass);
 
-        if (level == HtmlCleanupLevel.Standard) return sanitizer;
-
-        // Unwrapping must KEEP the text of the removed element. With the default (false), taking
-        // 'span' out of the allow-list turns "<h2>T <span>inner</span></h2>" into "<h2>T </h2>" —
-        // silent data loss.
-        sanitizer.KeepChildNodes = true;
-
-        if (level == HtmlCleanupLevel.Strict)
+        switch (level)
         {
-            foreach (var property in CosmeticCssProperties) sanitizer.AllowedCssProperties.Remove(property);
-            foreach (var attribute in CosmeticAttributes) sanitizer.AllowedAttributes.Remove(attribute);
-            foreach (var tag in CosmeticTags) sanitizer.AllowedTags.Remove(tag);
+            case HtmlCleanupLevel.Standard:
+                // 'zoom' is non-standard and NOT in the stock allow-list, but it is what the image
+                // size tool writes (width/height already are allowed).
+                sanitizer.AllowedCssProperties.Add("zoom");
+                break;
 
-            // …but never at the cost of what KnowledgeHub itself produces: image sizes and callout
-            // colours are inline styles too. RemovingStyle fires per CSS property and can veto.
-            sanitizer.RemovingStyle += (_, e) =>
-            {
-                if (IsProtectedElement(e.Tag)) e.Cancel = true;
-            };
-        }
-        else // PlainText
-        {
-            sanitizer.AllowedTags.Clear();
-            sanitizer.AllowedTags.Add("p");
-            sanitizer.AllowedTags.Add("br");
-            sanitizer.AllowedTags.Add("img");
+            case HtmlCleanupLevel.Strict:
+                // Unwrapping must KEEP the text of the removed element. With the default (false),
+                // taking 'span' out of the allow-list turns "<h2>T <span>inner</span></h2>" into
+                // "<h2>T </h2>" — silent data loss.
+                sanitizer.KeepChildNodes = true;
+                Replace(sanitizer.AllowedCssProperties, StructuralCssProperties);
+                foreach (var attribute in CosmeticAttributes) sanitizer.AllowedAttributes.Remove(attribute);
+                foreach (var tag in CosmeticTags) sanitizer.AllowedTags.Remove(tag);
 
-            // Images keep their size; everything else loses styling entirely.
-            sanitizer.RemovingStyle += (_, e) =>
-            {
-                if (IsImage(e.Tag)) e.Cancel = true;
-            };
+                // …but never at the cost of what KnowledgeHub itself produces: image sizes and
+                // callout colours are inline styles too. RemovingStyle fires per CSS property and
+                // can veto, so both keep everything they were given.
+                sanitizer.RemovingStyle += (_, e) =>
+                {
+                    if (IsProtectedElement(e.Tag)) e.Cancel = true;
+                };
+                break;
+
+            default: // PlainText
+                sanitizer.KeepChildNodes = true;
+                Replace(sanitizer.AllowedTags, PlainTextTags);
+
+                // Emptying AllowedTags is NOT enough: 'style' would still be allowed with the stock
+                // 239-property list, so a pasted <p> kept its colours and fonts untouched. Both
+                // lists have to be cut down too.
+                Replace(sanitizer.AllowedAttributes, PlainTextAttributes);
+                sanitizer.AllowedCssProperties.Clear();
+
+                // With nothing allowed, every declaration is removed — images veto back the few
+                // that carry their size, and lose anything cosmetic they were pasted with.
+                sanitizer.RemovingStyle += (_, e) =>
+                {
+                    if (IsImage(e.Tag) && ImageSizeProperties.Contains(e.Style.Name, StringComparer.OrdinalIgnoreCase))
+                        e.Cancel = true;
+                };
+                break;
         }
 
         return sanitizer;
+    }
+
+    private static void Replace(ISet<string> allowList, string[] values)
+    {
+        allowList.Clear();
+        foreach (var value in values) allowList.Add(value);
     }
 
     private static bool IsImage(AngleSharp.Dom.IElement element) =>

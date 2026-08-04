@@ -26,6 +26,15 @@ internal static class HtmlPreProcessor
     private static readonly string[] BlockTags =
         ["h1", "h2", "h3", "h4", "h5", "h6", "div", "li", "tr", "blockquote", "pre", "figcaption", "dd", "dt"];
 
+    private static readonly string BlockSelector = string.Join(',', BlockTags);
+
+    /// <summary>
+    /// Used to ask "does this element already contain a paragraph?". It adds <c>p</c> to the list
+    /// above, because a &lt;p&gt; that is already a paragraph nests just as badly as one this class
+    /// is about to create.
+    /// </summary>
+    private static readonly string ContainsBlockSelector = BlockSelector + ",p";
+
     /// <summary>Returns the html ready to be sanitized at that level. Standard needs no changes.</summary>
     public static string Prepare(string html, HtmlCleanupLevel level)
     {
@@ -37,28 +46,34 @@ internal static class HtmlPreProcessor
             element.Remove();
 
         if (level == HtmlCleanupLevel.PlainText)
-            foreach (var element in document.QuerySelectorAll(string.Join(',', BlockTags)).ToList())
-                ReplaceWithParagraph(document, element);
+            foreach (var element in document.QuerySelectorAll(BlockSelector).ToList())
+                Flatten(document, element);
 
         return document.Body?.InnerHtml ?? string.Empty;
     }
 
     /// <summary>
-    /// Swaps a block element for a &lt;p&gt; carrying the same children. Done depth-first by
-    /// QuerySelectorAll order, so nested blocks are handled before their ancestors are replaced.
+    /// Turns a block element into a paragraph, or unwraps it when it already CONTAINS blocks.
+    /// Renaming a container would nest paragraphs (<c>&lt;p&gt;&lt;p&gt;Note&lt;/p&gt;&lt;/p&gt;</c>),
+    /// which the parser then splits into two empty paragraphs around the real one — visible as
+    /// stray blank lines. QuerySelectorAll returns document order, so a container is handled
+    /// before the blocks it holds.
     /// </summary>
-    private static void ReplaceWithParagraph(IHtmlDocument document, IElement element)
+    private static void Flatten(IHtmlDocument document, IElement element)
     {
-        // Already detached because an ancestor was replaced first.
+        // Already detached because an ancestor was unwrapped first.
         if (element.ParentElement is null) return;
 
-        var paragraph = document.CreateElement("p");
+        INode replacement = element.QuerySelector(ContainsBlockSelector) is null
+            ? document.CreateElement("p")
+            : document.CreateDocumentFragment();
+
         while (element.FirstChild is { } child)
         {
             element.RemoveChild(child);
-            paragraph.AppendChild(child);
+            replacement.AppendChild(child);
         }
 
-        element.Replace(paragraph);
+        element.Replace(replacement);
     }
 }

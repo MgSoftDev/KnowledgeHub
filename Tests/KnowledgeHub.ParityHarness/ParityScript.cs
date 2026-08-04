@@ -465,6 +465,20 @@ public static class ParityScript
                 !darkOut.Contains("color", StringComparison.OrdinalIgnoreCase) &&
                 !darkOut.Contains("Consolas") && darkOut.Contains("const x = 1;"));
 
+            // Pegado real de una web (reportado por el usuario). La lista de CSS de los niveles 2 y
+            // 3 es de INCLUSIÓN justo por esto: con una de exclusión, propiedades que a nadie se le
+            // ocurre listar (orphans, -webkit-*) pasaban enteras.
+            const string webPaste =
+                "<p style=\"line-height: inherit; orphans: 4; margin: 0px 10px; white-space: pre-wrap; " +
+                "caret-color: rgb(0, 243, 255); color: rgb(126, 140, 159); font-family: Optima-Regular, " +
+                "Optima, Cambria, serif; word-spacing: 2px; letter-spacing: 1.1px;\">Marcadora</p>" +
+                "<p style=\"orphans: 4; color: rgb(126, 140, 159);\">Para esta semana</p>";
+            var webStrict = Clean(webPaste, HtmlCleanupLevel.Strict);
+            Check("Nivel 2: solo deja CSS estructural (ni orphans ni caret-color)",
+                !webStrict.Contains("orphans") && !webStrict.Contains("caret-color") &&
+                !webStrict.Contains("color") && !webStrict.Contains("Optima") &&
+                webStrict.Contains("margin") && webStrict.Contains("Marcadora"));
+
             // Lo que produce la propia librería debe sobrevivir al nivel 2.
             var imgOut = Clean("<img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\" " +
                                "style=\"zoom:900%;width:100px;height:50px;\">", HtmlCleanupLevel.Strict);
@@ -490,6 +504,23 @@ public static class ParityScript
                 !plainOut.Contains("<h2", StringComparison.OrdinalIgnoreCase) &&
                 !plainOut.Contains("<ul", StringComparison.OrdinalIgnoreCase) &&
                 !plainOut.Contains("<b>", StringComparison.OrdinalIgnoreCase));
+
+            // Vaciar AllowedTags NO basta: 'style' seguía permitido con las 239 propiedades de
+            // fábrica, así que el <p> pegado conservaba colores y fuentes enteros.
+            Check("Nivel 3: el párrafo pegado queda SIN atributos",
+                Clean(webPaste, HtmlCleanupLevel.PlainText) ==
+                "<p>Marcadora</p><p>Para esta semana</p>");
+
+            // Renombrar un contenedor a <p> anidaba párrafos y el parser los partía en vacíos.
+            Check("Nivel 3: un contenedor con párrafos dentro no deja <p> vacíos",
+                Clean("<div class=\"kh-callout\" style=\"background:#eff6ff;\"><p>Nota</p></div>",
+                    HtmlCleanupLevel.PlainText) == "<p>Nota</p>");
+
+            var plainImg = Clean("<img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\" alt=\"QR\" " +
+                                 "style=\"zoom:900%;width:100px;border:2px solid red;\">", HtmlCleanupLevel.PlainText);
+            Check("Nivel 3: la imagen conserva su tamaño pero pierde lo cosmético",
+                plainImg.Contains("zoom") && plainImg.Contains("100px") && plainImg.Contains("alt=\"QR\"") &&
+                !plainImg.Contains("border"));
 
             // Trampa 3: con KeepChildNodes el texto de script/style se colaría al resultado.
             const string withScript = "<p>ok</p><script>alert(1)</script><style>p{color:red}</style>";
