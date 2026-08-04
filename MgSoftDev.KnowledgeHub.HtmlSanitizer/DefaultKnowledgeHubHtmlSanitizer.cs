@@ -4,24 +4,52 @@ namespace MgSoftDev.KnowledgeHub.HtmlSanitizer;
 
 /// <summary>
 /// <see cref="IKnowledgeHubHtmlSanitizer"/> backed by the HtmlSanitizer (Ganss.Xss) library.
-/// Applies the same rules in every context; a host that needs paste to be stricter than save can
-/// implement the interface itself and branch on the <see cref="HtmlSanitizeContext"/>.
+/// Holds one configured instance per <see cref="HtmlCleanupLevel"/>; the level only reaches here
+/// from the paste path and the manual cleanup button, while saving always uses Standard.
 ///
-/// Safe as a singleton: the underlying sanitizer was verified to produce identical output under
-/// concurrent use, and the pass is idempotent (sanitizing twice equals sanitizing once), which the
-/// save path relies on to detect real changes.
+/// Safe as a singleton: the underlying sanitizer produces identical output under concurrent use,
+/// and every level is idempotent (sanitizing twice equals sanitizing once), which the save path
+/// and the "nothing to clean" message rely on.
 /// </summary>
 public sealed class DefaultKnowledgeHubHtmlSanitizer : IKnowledgeHubHtmlSanitizer
 {
-    private readonly Ganss.Xss.HtmlSanitizer _sanitizer;
+    private readonly Ganss.Xss.HtmlSanitizer _standard;
+    private readonly Ganss.Xss.HtmlSanitizer _strict;
+    private readonly Ganss.Xss.HtmlSanitizer _plainText;
 
-    /// <param name="sanitizer">Configured instance; see <see cref="KnowledgeHubSanitizerDefaults"/>.</param>
-    public DefaultKnowledgeHubHtmlSanitizer(Ganss.Xss.HtmlSanitizer sanitizer) => _sanitizer = sanitizer;
+    /// <param name="standard">
+    /// The permissive instance, already customised by the host through
+    /// <c>AddKnowledgeHubHtmlSanitizer(configure)</c>. The two stricter levels are derived from
+    /// the defaults, so a host that widens Standard does not accidentally widen them too.
+    /// </param>
+    public DefaultKnowledgeHubHtmlSanitizer(Ganss.Xss.HtmlSanitizer standard)
+    {
+        _standard = standard;
+        _strict = KnowledgeHubSanitizerDefaults.CreateSanitizer(HtmlCleanupLevel.Strict);
+        _plainText = KnowledgeHubSanitizerDefaults.CreateSanitizer(HtmlCleanupLevel.PlainText);
+    }
 
     /// <summary>Creates one with the KnowledgeHub defaults.</summary>
     public DefaultKnowledgeHubHtmlSanitizer() : this(KnowledgeHubSanitizerDefaults.CreateSanitizer()) { }
 
     /// <inheritdoc />
     public string Sanitize(string html, HtmlSanitizeContext context) =>
-        string.IsNullOrEmpty(html) ? html : _sanitizer.Sanitize(html);
+        Sanitize(html, context, HtmlCleanupLevel.Standard);
+
+    /// <inheritdoc />
+    public string Sanitize(string html, HtmlSanitizeContext context, HtmlCleanupLevel level)
+    {
+        if (string.IsNullOrEmpty(html)) return html;
+
+        // The pre-process is what keeps script/style text out and stops paragraphs from being
+        // glued together; the sanitizer's own hooks run too late to do either.
+        var prepared = HtmlPreProcessor.Prepare(html, level);
+
+        return level switch
+        {
+            HtmlCleanupLevel.Strict => _strict.Sanitize(prepared),
+            HtmlCleanupLevel.PlainText => _plainText.Sanitize(prepared),
+            _ => _standard.Sanitize(prepared)
+        };
+    }
 }

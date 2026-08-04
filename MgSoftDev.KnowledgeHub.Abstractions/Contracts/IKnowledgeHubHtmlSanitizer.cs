@@ -23,9 +23,43 @@ public interface IKnowledgeHubHtmlSanitizer
     /// <param name="html">The HTML to clean; never null.</param>
     /// <param name="context">Where the call comes from, so hosts can vary strictness.</param>
     string Sanitize(string html, HtmlSanitizeContext context);
+
+    /// <summary>
+    /// Same, but at an explicit cleanup level chosen by the user in the editor toolbar. Only the
+    /// paste path and the manual cleanup button pass a level; saving always uses the plain
+    /// overload, so a level left selected can never strip a whole stored document.
+    ///
+    /// Default implementation ignores the level and falls back to the two-argument overload, so
+    /// hosts that implemented this interface before levels existed keep compiling and behaving
+    /// exactly as they did.
+    /// </summary>
+    string Sanitize(string html, HtmlSanitizeContext context, HtmlCleanupLevel level) =>
+        Sanitize(html, context);
 }
 
-/// <summary>Origin of a <see cref="IKnowledgeHubHtmlSanitizer.Sanitize"/> call.</summary>
+/// <summary>How aggressively to clean. Chosen per editor from the toolbar.</summary>
+public enum HtmlCleanupLevel
+{
+    /// <summary>
+    /// Permissive: drops Word junk, scripts and event handlers but keeps inline styles.
+    /// The historical behaviour and the default.
+    /// </summary>
+    Standard,
+
+    /// <summary>
+    /// Keeps the HTML structure but strips cosmetic noise — background/text colours, fonts,
+    /// letter/word spacing, white-space… — so pasted content adopts the site's look. Image sizes
+    /// and KnowledgeHub callouts survive.
+    /// </summary>
+    Strict,
+
+    /// <summary>
+    /// Text only: nothing survives but paragraphs, line breaks and images.
+    /// </summary>
+    PlainText
+}
+
+/// <summary>Origin of a sanitize call, so hosts can vary strictness by where it came from.</summary>
 public enum HtmlSanitizeContext
 {
     /// <summary>Content pasted into the editor (typically the dirtiest: Word, web pages…).</summary>

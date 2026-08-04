@@ -191,6 +191,6 @@ public partial class KnowledgeHubPageEditor : ComponentBase
         var sanitizer = Services.GetService<IKnowledgeHubHtmlSanitizer>();
         if (sanitizer is null || string.IsNullOrEmpty(args.Html)) return;
 
-        args.Html = sanitizer.Sanitize(args.Html, HtmlSanitizeContext.Paste);
+        args.Html = sanitizer.Sanitize(args.Html, HtmlSanitizeContext.Paste, UiState.CleanupLevel);
     }
 }

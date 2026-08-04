@@ -439,6 +439,83 @@ public static class ParityScript
         Check("Sin Admin no se puede normalizar", IsUnfinishedContaining(normDenied, "administrador"));
         user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
 
+        // ---- 24. Niveles de limpieza del HTML ------------------------------------------------------------
+        // Se llama al sanitizador DIRECTAMENTE: los niveles solo los usan pegar y el botón manual,
+        // que son de UI. Cada check fija una de las trampas verificadas al diseñarlo.
+        var san = (seederProvider ?? sp).GetService<IKnowledgeHubHtmlSanitizer>();
+        Check("Sanitizador disponible para los niveles", san is not null);
+
+        if (san is not null)
+        {
+            string Clean(string html, HtmlCleanupLevel level) =>
+                san.Sanitize(html, HtmlSanitizeContext.Paste, level);
+
+            // Trampa 1: quitar el <span> NO debe llevarse el texto por delante.
+            var spanOut = Clean("<h2>Titulo <span style=\"font-size:24px;color:#fff\">interno</span></h2>",
+                HtmlCleanupLevel.Strict);
+            Check("Nivel 2: desenvuelve el span SIN perder su texto",
+                spanOut.Contains("interno") && !spanOut.Contains("<span", StringComparison.OrdinalIgnoreCase));
+
+            // Trampa 4: el shorthand background se expande; no deben quedar longhands 'initial'.
+            var darkOut = Clean(
+                "<div style=\"background-color:#1e1e1e;color:#d4d4d4;font-family:Consolas;letter-spacing:.5px\">" +
+                "<p style=\"white-space:pre\">const x = 1;</p></div>", HtmlCleanupLevel.Strict);
+            Check("Nivel 2: quita colores/fuentes sin dejar residuos background-*",
+                !darkOut.Contains("background", StringComparison.OrdinalIgnoreCase) &&
+                !darkOut.Contains("color", StringComparison.OrdinalIgnoreCase) &&
+                !darkOut.Contains("Consolas") && darkOut.Contains("const x = 1;"));
+
+            // Lo que produce la propia librería debe sobrevivir al nivel 2.
+            var imgOut = Clean("<img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\" " +
+                               "style=\"zoom:900%;width:100px;height:50px;\">", HtmlCleanupLevel.Strict);
+            Check("Nivel 2: conserva el tamaño de las imágenes",
+                imgOut.Contains("zoom") && imgOut.Contains("100px") && imgOut.Contains("50px"));
+
+            var calloutOut = Clean("<div class=\"kh-callout\" style=\"background:#eff6ff;padding:16px;\">" +
+                                   "<p>Nota</p></div>", HtmlCleanupLevel.Strict);
+            Check("Nivel 2: conserva el fondo de los callouts marcados",
+                calloutOut.Contains("background") && calloutOut.Contains("kh-callout"));
+            var pastedDiv = Clean("<div style=\"background:#1e1e1e;color:#fff;\">pegado</div>", HtmlCleanupLevel.Strict);
+            Check("Nivel 2: un div pegado SIN marca sí pierde el fondo",
+                !pastedDiv.Contains("background") && pastedDiv.Contains("pegado"));
+
+            // Trampa 2: aplanar no debe pegar los textos de bloques distintos.
+            var plainOut = Clean("<h2>Titulo</h2><p>Parrafo uno</p><p>Parrafo <b>dos</b></p>" +
+                                 "<img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\"><ul><li>a</li><li>b</li></ul>",
+                HtmlCleanupLevel.PlainText);
+            Check("Nivel 3: no pega los párrafos entre sí",
+                !plainOut.Contains("TituloParrafo") && !plainOut.Contains(">ab<") && !plainOut.EndsWith("ab"));
+            Check("Nivel 3: conserva las imágenes y quita el resto de etiquetas",
+                plainOut.Contains("docimg://") &&
+                !plainOut.Contains("<h2", StringComparison.OrdinalIgnoreCase) &&
+                !plainOut.Contains("<ul", StringComparison.OrdinalIgnoreCase) &&
+                !plainOut.Contains("<b>", StringComparison.OrdinalIgnoreCase));
+
+            // Trampa 3: con KeepChildNodes el texto de script/style se colaría al resultado.
+            const string withScript = "<p>ok</p><script>alert(1)</script><style>p{color:red}</style>";
+            Check("Niveles 2 y 3: el texto de script/style no se filtra",
+                !Clean(withScript, HtmlCleanupLevel.Strict).Contains("alert") &&
+                !Clean(withScript, HtmlCleanupLevel.Strict).Contains("color:red") &&
+                !Clean(withScript, HtmlCleanupLevel.PlainText).Contains("alert") &&
+                !Clean(withScript, HtmlCleanupLevel.PlainText).Contains("color:red"));
+
+            // El nivel 1 no cambia: es el que usa el guardado.
+            var std = Clean("<p style=\"color:#f00\">x</p><script>alert(1)</script>", HtmlCleanupLevel.Standard);
+            Check("Nivel 1 sigue siendo el permisivo (conserva estilos, quita scripts)",
+                std.Contains("color") && !std.Contains("alert"));
+
+            // De la idempotencia dependen el «Nada que limpiar» y el log de SanitizeForSave.
+            const string mixed = "<h2>T <span style=\"color:#fff\">i</span></h2><p>uno</p>" +
+                                 "<img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\" style=\"width:10px\">";
+            var idempotent = true;
+            foreach (var level in new[] { HtmlCleanupLevel.Standard, HtmlCleanupLevel.Strict, HtmlCleanupLevel.PlainText })
+            {
+                var once = Clean(mixed, level);
+                if (Clean(once, level) != once) idempotent = false;
+            }
+            Check("Los tres niveles son idempotentes", idempotent);
+        }
+
         Console.WriteLine();
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL =====");
         return _failed;

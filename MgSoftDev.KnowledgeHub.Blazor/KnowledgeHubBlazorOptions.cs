@@ -1,4 +1,5 @@
 using MgSoftDev.KnowledgeHub.Blazor.EditorTools;
+using MgSoftDev.KnowledgeHub.Contracts;
 
 namespace MgSoftDev.KnowledgeHub.Blazor;
 
@@ -19,4 +20,11 @@ public sealed class KnowledgeHubBlazorOptions
     /// to host pages). Must be a Blazor component type.
     /// </summary>
     public Type? HeaderActionsComponent { get; set; }
+
+    /// <summary>
+    /// Cleanup level the editor starts on. The user can switch it from the toolbar; this is just
+    /// the starting point of each app session. Only affects pasting and the manual cleanup button
+    /// — saving always uses the host's sanitizer as-is.
+    /// </summary>
+    public HtmlCleanupLevel DefaultCleanupLevel { get; set; } = HtmlCleanupLevel.Standard;
 }

@@ -9,8 +9,10 @@ colaborativa validado en `../DocBookDemo` (DocsPortal, que queda INTACTO como re
 Multi-motor de BD (SQL Server, LiteDB; PostgreSQL futuro) y multi-hosting (WPF BlazorWebView,
 Blazor Server, Blazor WASM). Estado: **10 fases completas y verificadas**, v0.1.0-preview.1.
 Iteraciones posteriores: RCL embebible (v0.2.0-preview.1), **icono + color por página**
-(v0.3.0-preview.1, cambio de esquema) y **saneado de HTML + tool de tamaño de imagen**
-(v0.4.0-preview.1, paquete nuevo → 10 paquetes).
+(v0.3.0-preview.1, cambio de esquema), **saneado de HTML + tool de tamaño de imagen**
+(v0.4.0-preview.1, paquete nuevo → 10 paquetes), **limpieza de imágenes huérfanas + sincronía del
+árbol** (v0.5.0-preview.1), **orden de páginas con invariante 1..N** (v0.6.0-preview.1) y
+**3 niveles de limpieza de HTML** (v0.7.0-preview.1).
 
 ## Arquitectura (decisiones clave)
 
@@ -89,6 +91,19 @@ Iteraciones posteriores: RCL embebible (v0.2.0-preview.1), **icono + color por p
   rewrites de imagen y antes de `GetExistingImagePksAsync`) y el botón manual. Al guardar limpia y
   **loguea** (Information) sin molestar al usuario; el pase es idempotente. La allow-list DEBE
   incluir los esquemas `data` y `docimg` y el CSS `zoom` (gotcha 16).
+- **Niveles de limpieza (v0.7.0)**: `HtmlCleanupLevel { Standard, Strict, PlainText }` y una
+  sobrecarga `Sanitize(html, context, level)` con **implementación por defecto en la interfaz**
+  (delega en la de dos argumentos) → los anfitriones que ya implementaban el contrato no se rompen.
+  El paquete por defecto sostiene **una instancia de HtmlSanitizer por nivel** más un pre-proceso
+  con AngleSharp (`HtmlPreProcessor`) obligatorio en Strict/PlainText (gotcha 22). El nivel es de
+  **UI**: lo usan pegar y el botón manual; **guardar NO lo usa** a propósito, para que un nivel 3
+  olvidado no pueda arrasar el formato de una página al guardarla. Vive en `KnowledgeHubUiState`
+  (Scoped → dura la sesión), lo inicializa `KnowledgeHubBlazorOptions.DefaultCleanupLevel`, y se
+  elige con 3 tools que se pintan como grupo de radio vía `EditorToolDescriptor.IsSelected`
+  (`RadzenHtmlEditorCustomTool.Selected`); `IsVisible` las oculta —y a la escoba— si no hay
+  sanitizador. Strict conserva lo que produce la propia librería: las `<img>` (tamaño/zoom) y los
+  callouts, que desde esta versión se marcan con `class="kh-callout"` (los creados antes no la
+  llevan → pierden el fondo si les pasas la escoba en nivel 2).
 - **Icono + color por página (v0.3.0)**: propiedad ESTRUCTURAL del nodo (`DocPage.Icon`,
   `DocPage.IconColor`, NVARCHAR 64/32), no versionada. Se propaga por todos los DTOs donde
   aparece el título (`PageTreeNodeDto`, `PageInfoDto`, `PageReadDto`, `PageEditDto`,
@@ -136,8 +151,9 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (84 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
-  v0.4.0, 10 de huérfanas en v0.5.0 y 11 de orden en v0.6.0): mismo guion contra InMemory,
+- **Guion de paridad** (95 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+  v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0 y 11 de niveles de limpieza en v0.7.0
+  —estos últimos llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
@@ -268,6 +284,24 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     Lo correcto es `GetReferencedImagePksAsync`, que escanea el `ContentHtml` de TODAS las versiones
     con `KnowledgeHubHtml.ExtractDocImagePks`. Cubierto por el check "Imagen usada solo en el
     historial NO se borró".
+22. **Endurecer HtmlSanitizer tiene cuatro trampas, todas verificadas ejecutándolo** (v0.7.0):
+    (a) **`KeepChildNodes` (default `false`) BORRA el texto** del tag que quitas — sacar `span` de
+    la allow-list convierte `<h2>Titulo <span>interno</span></h2>` en `<h2>Titulo </h2>`; hay que
+    ponerlo en `true` en cuanto se quite un tag de formato. (b) **Con `KeepChildNodes=true` se
+    filtra el TEXTO de `<script>`/`<style>`** al resultado (`okalert(1)p{color:red}`); no es XSS
+    (va escapado) pero es basura visible → hay que eliminar esos nodos ANTES de sanear.
+    (c) **Aplanar a `AllowedTags` pega los textos sin separación**: con `{img}` la salida real es
+    `TituloParrafo unoParrafo dosab`, y **`{img,p,br}` no basta** porque `h2`/`li`/`div` siguen
+    colapsando contra sus vecinos → hay que convertir los bloques a `<p>` en el pre-proceso.
+    `PostProcessNode`/`PostProcessDom` **NO sirven** para (b) y (c): corren DESPUÉS del aplanado,
+    cuando esos nodos ya no existen; por eso el pre-proceso es un paso propio con AngleSharp
+    (`HtmlPreProcessor`), añadido como `PackageReference` explícito a la 1.5.2 que ya resolvía
+    como transitiva. (d) **El shorthand `background` deja residuos**: AngleSharp lo expande a
+    longhands, así que quitar `background`/`background-color` de `AllowedCssProperties` deja
+    `background-position: initial; background-size: initial; …` → hay que quitar **todos** los
+    `background-*`. Para preservar lo propio (imágenes y callouts) el evento **`RemovingStyle`**,
+    que se dispara por CADA propiedad y admite `Cancel`, es el gancho correcto; `AllowedClasses`
+    filtra clase a clase, así que `class` puede permitirse dejando solo `kh-callout`.
 
 ## Pendientes / siguientes pasos
 

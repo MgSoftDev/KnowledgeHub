@@ -54,7 +54,7 @@ en tu contenido, el editor en una pestaña…). Ver la
 | `MgSoftDev.KnowledgeHub.AspNetCore` | Endpoint de imágenes `/kh/assets` (caché `immutable`) |
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos (para clientes WASM) |
 | `MgSoftDev.KnowledgeHub.Http.Client` | Implementaciones `HttpClient` de los contratos (WASM-safe) |
-| `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (pegado desde Word, guardado y botón manual) |
+| `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (pegado desde Word, guardado y botón manual), con 3 niveles seleccionables |
 
 ### Qué instalar según el hosting
 
@@ -131,8 +131,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.6.0-preview.1**. Las 10 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-84/84 en los 4 modos de store; los demos están verificados end-to-end.
+**v0.7.0-preview.1**. Las 10 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+95/95 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia
 

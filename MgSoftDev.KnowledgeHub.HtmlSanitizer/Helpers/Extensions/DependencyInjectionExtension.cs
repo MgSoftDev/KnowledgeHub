@@ -18,8 +18,9 @@ public static class DependencyInjectionExtension
     /// <param name="services">The host's service collection.</param>
     /// <param name="configure">
     /// Widen or tighten the rules, e.g. <c>o => o.AllowedTags.Add("iframe")</c>. Starts from
-    /// <see cref="KnowledgeHubSanitizerDefaults.CreateSanitizer"/>, so the KnowledgeHub-specific
-    /// schemes and CSS properties are already in place.
+    /// <see cref="KnowledgeHubSanitizerDefaults.CreateSanitizer()"/>, so the KnowledgeHub-specific
+    /// schemes and CSS properties are already in place. Note this configures the STANDARD level
+    /// only; the stricter levels are derived from the defaults so widening one does not widen all.
     /// </param>
     public static IServiceCollection AddKnowledgeHubHtmlSanitizer(this IServiceCollection services,
         Action<Ganss.Xss.HtmlSanitizer>? configure = null)

@@ -53,7 +53,9 @@ else
                 <RadzenHtmlEditorSeparator />
                 @foreach (var tool in Options.EditorTools)
                 {
-                    <RadzenHtmlEditorCustomTool CommandName="@tool.CommandName" Icon="@tool.Icon" Title="@tool.Title" />
+                    <RadzenHtmlEditorCustomTool CommandName="@tool.CommandName" Icon="@tool.Icon" Title="@tool.Title"
+                                                Selected="@(tool.IsSelected?.Invoke(Services) ?? false)"
+                                                Visible="@(tool.IsVisible?.Invoke(Services) ?? true)" />
                 }
             </RadzenHtmlEditor>
         </div>

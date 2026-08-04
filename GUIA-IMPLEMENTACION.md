@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.6.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -542,9 +542,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.6.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.6.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.6.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.7.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.7.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1190,6 +1190,47 @@ aviso siguiente).
 > del §6 (`AddHubOptions(o => o.MaximumReceiveMessageSize = 10 * 1024 * 1024)`), y en Server te hace
 > falta igualmente para guardar documentos grandes. WPF y WASM no se ven afectados.
 
+### Los 3 niveles de limpieza (v0.7.0)
+
+En la barra del editor hay **tres botones que funcionan como un grupo de radio**: eligen con qué
+dureza se limpia lo que pegues. Solo uno queda enclavado, y el nivel elegido **se mantiene mientras
+dure la sesión de la app**. Junto a ellos, el botón de **escoba** aplica el nivel activo a **todo el
+documento**.
+
+| Nivel | Icono | Qué hace |
+|---|---|---|
+| **1 Estándar** | `format_paint` | El de siempre: quita basura de Word, scripts y manejadores de eventos, pero **conserva el formato** (colores, fuentes…). |
+| **2 Media** | `format_color_reset` | Además quita el ruido cosmético: colores de texto y fondo, `font-family`, `letter-spacing`, `word-spacing`, `white-space`, `line-height`… y desenvuelve `<span>`/`<font>`. **Conserva la estructura HTML, las imágenes con su tamaño y los avisos de KnowledgeHub.** |
+| **3 Máxima** | `text_fields` | Solo texto: sobreviven `<p>`, `<br>` e `<img>`. Todo lo demás desaparece. |
+
+El nivel **2 es el que resuelve** dos molestias típicas: pegar de una web de fondo oscuro y que se
+venga el fondo negro, y un `<h2>` que por dentro trae un `<span style="font-size:24px">` que impide
+cambiarlo a H1/H3 — al desenvolver el span, el encabezado vuelve a obedecer.
+
+**El nivel NO afecta al guardado**, a propósito: dejarte el nivel 3 puesto por olvido nunca podrá
+arrasar el formato de una página entera al guardarla. Guardar usa siempre el sanitizador tal cual.
+
+Nivel inicial configurable, y los botones se quitan como cualquier otra tool:
+
+```csharp
+services.AddKnowledgeHubBlazor(o =>
+{
+    o.DefaultCleanupLevel = HtmlCleanupLevel.Strict;              // arranca en el nivel 2
+    o.EditorTools.RemoveAll(t => t.CommandName == "CleanupLevelPlainText");   // quitar uno
+});
+```
+
+Los tres botones (y la escoba) **se ocultan solos** si no hay sanitizador registrado.
+
+> **Nota sobre avisos antiguos.** El nivel 2 respeta el color de los avisos porque desde la v0.7.0
+> se marcan con `class="kh-callout"`. Los creados con versiones anteriores no llevan esa marca, así
+> que si les pasas la escoba en nivel 2 pierden el fondo (conservan el borde de color). Solo ocurre
+> al limpiar el documento entero; al pegar no.
+
+Si implementas `IKnowledgeHubHtmlSanitizer` por tu cuenta **no tienes que hacer nada**: la
+sobrecarga con nivel tiene implementación por defecto que delega en la tuya de siempre. Impleméntala
+solo si quieres controlar los niveles tú.
+
 ### Paso 3 (opcional) — Ampliar las reglas
 
 Parte de los valores por defecto y añade lo tuyo:
@@ -1370,5 +1411,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.6.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.7.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

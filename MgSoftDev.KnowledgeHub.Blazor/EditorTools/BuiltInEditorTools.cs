@@ -61,11 +61,21 @@ public static class BuiltInEditorTools
             Title = "Tamaño de la imagen seleccionada…",
             ExecuteAsync = ImageSizeTool.ExecuteAsync
         },
+        // --- Cleanup level: a radio group. They only switch the mode used when pasting and by the
+        // broom below; they never touch the document by themselves, so a stray click is harmless.
+        CleanupLevelTool(HtmlCleanupLevel.Standard, "CleanupLevelStandard", "format_paint",
+            "Limpieza estándar: quita basura de Word y scripts, conserva el formato"),
+        CleanupLevelTool(HtmlCleanupLevel.Strict, "CleanupLevelStrict", "format_color_reset",
+            "Limpieza media: además quita colores, fuentes y espaciados (conserva imágenes y avisos)"),
+        CleanupLevelTool(HtmlCleanupLevel.PlainText, "CleanupLevelPlainText", "text_fields",
+            "Limpieza máxima: solo texto, saltos de línea e imágenes"),
+
         new EditorToolDescriptor
         {
             CommandName = "SanitizeHtml",
             Icon = "cleaning_services",
-            Title = "Limpiar el HTML del documento",
+            Title = "Aplicar la limpieza a todo el documento",
+            IsVisible = HasSanitizer,
             ExecuteAsync = async ctx =>
             {
                 var sanitizer = ctx.Services.GetService<IKnowledgeHubHtmlSanitizer>();
@@ -81,8 +91,9 @@ public static class BuiltInEditorTools
                     return null;
                 }
 
+                var level = CurrentLevel(ctx.Services);
                 var current = ctx.GetHtml();
-                var clean = sanitizer.Sanitize(current ?? string.Empty, HtmlSanitizeContext.Manual);
+                var clean = sanitizer.Sanitize(current ?? string.Empty, HtmlSanitizeContext.Manual, level);
 
                 var notify = ctx.Services.GetService<NotificationService>();
                 if (clean == current)
@@ -109,4 +120,33 @@ public static class BuiltInEditorTools
             }
         }
     };
+
+    /// <summary>
+    /// One of the three level buttons. They behave as a radio group because they all read and
+    /// write the same <see cref="KnowledgeHubUiState.CleanupLevel"/>, so exactly one is drawn
+    /// pressed. They return null: choosing a level must never modify the document by itself.
+    /// </summary>
+    private static EditorToolDescriptor CleanupLevelTool(HtmlCleanupLevel level, string commandName,
+        string icon, string title) =>
+        new()
+        {
+            CommandName = commandName,
+            Icon = icon,
+            Title = title,
+            IsVisible = HasSanitizer,
+            IsSelected = services => CurrentLevel(services) == level,
+            ExecuteAsync = ctx =>
+            {
+                if (ctx.Services.GetService<KnowledgeHubUiState>() is { } state)
+                    state.CleanupLevel = level;
+                return Task.FromResult<string?>(null);
+            }
+        };
+
+    /// <summary>Level buttons and the broom are pointless without a sanitizer, so they hide.</summary>
+    private static bool HasSanitizer(IServiceProvider services) =>
+        services.GetService<IKnowledgeHubHtmlSanitizer>() is not null;
+
+    private static HtmlCleanupLevel CurrentLevel(IServiceProvider services) =>
+        services.GetService<KnowledgeHubUiState>()?.CleanupLevel ?? HtmlCleanupLevel.Standard;
 }

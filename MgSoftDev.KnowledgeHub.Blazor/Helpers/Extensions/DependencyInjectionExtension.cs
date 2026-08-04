@@ -23,8 +23,9 @@ public static class DependencyInjectionExtension
         // Fallback UI options for hosts that do not register the core (e.g. WASM clients).
         services.TryAddSingleton(new KnowledgeHubOptions());
 
-        // In-UI notification bus (keeps the navigation tree in sync with page changes).
-        services.TryAddScoped<KnowledgeHubUiState>();
+        // In-UI notification bus (keeps the navigation tree in sync with page changes) and the
+        // cleanup level the editor toolbar toggles, seeded with the host's configured default.
+        services.TryAddScoped(_ => new KnowledgeHubUiState { CleanupLevel = options.DefaultCleanupLevel });
 
         services.AddRadzenComponents();
         return services;

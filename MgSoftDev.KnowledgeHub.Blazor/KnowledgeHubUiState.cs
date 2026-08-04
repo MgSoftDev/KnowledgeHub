@@ -1,3 +1,5 @@
+using MgSoftDev.KnowledgeHub.Contracts;
+
 namespace MgSoftDev.KnowledgeHub.Blazor;
 
 /// <summary>
@@ -20,4 +22,11 @@ public sealed class KnowledgeHubUiState
 
     /// <summary>Signals that the tree should reload.</summary>
     public void NotifyPageTreeChanged() => PageTreeChanged?.Invoke();
+
+    /// <summary>
+    /// How aggressively pasted content (and the manual cleanup button) is cleaned. Chosen from the
+    /// editor toolbar and kept here so it survives navigating between pages; being Scoped, it
+    /// resets to the configured default when the app reloads. It never affects saving.
+    /// </summary>
+    public HtmlCleanupLevel CleanupLevel { get; set; } = HtmlCleanupLevel.Standard;
 }
