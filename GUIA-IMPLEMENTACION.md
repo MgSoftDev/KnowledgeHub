@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.1-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.8.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -542,9 +542,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.7.1-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.7.1-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.7.1-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.8.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.8.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.8.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1331,6 +1331,40 @@ await seeder.SeedSampleContentIfEmptyAsync(new Dictionary<string, string[]>
 Solo siembra si no hay ninguna página (idempotente). Los **usuarios** los siembras tú — son
 del anfitrión.
 
+Las claves del diccionario son **slugs**, y el seeder los fija explícitamente para que este mapeo
+sea estable. Es el único sitio donde tú ves un slug (ver §9.1).
+
+### 9.1 Títulos repetidos y el slug (v0.8.0)
+
+**Puedes repetir títulos libremente**, también entre hermanos. Este árbol es válido:
+
+```
+Line Management System
+    Empezar
+LineCtrlSys
+    Empezar
+```
+
+Cada página guarda además un **slug**, un identificador interno que **nunca ves**: no aparece en las
+URLs (las rutas van por `Guid`), no se muestra en ninguna pantalla y no se puede editar. Se deriva
+del título, y si esa base ya está ocupada recibe un sufijo — arriba quedarían `empezar` y
+`empezar-2`. Por eso crear páginas **no falla nunca** por el nombre.
+
+> **Si vienes de la 0.7.x o anterior**, esto era justo al revés: dos páginas con el mismo título se
+> rechazaban con *"Ya existe una página con ese slug"*, aunque colgaran de padres distintos, y un
+> título que hubieras borrado quedaba bloqueado para siempre. Actualizar el paquete lo arregla:
+> **no hay migración de base de datos**.
+
+Si necesitas fijar un slug concreto (como hace el seeder), pásalo:
+
+```csharp
+await pageService.CreatePageAsync(parentPk, "Empezar");              // slug automático
+await pageService.CreatePageAsync(parentPk, "Empezar", "empezar-lms"); // slug fijo
+```
+
+El helper es público por si lo necesitas: `KnowledgeHubSlug.Slugify("Línea 1 — Producción")` →
+`linea-1-produccion`.
+
 ---
 
 ## 10. Permisos finos (opt-in)
@@ -1414,5 +1448,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.7.1-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.8.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

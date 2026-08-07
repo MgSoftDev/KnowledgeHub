@@ -195,10 +195,48 @@ public static class ParityScript
         var denied2 = await pages.CreatePageAsync(null, "X", "x-slug");
         Check("Sin permiso Edit no puede crear", IsUnfinishedContaining(denied2, "permiso"));
 
-        // ---- 16. Slug duplicado -------------------------------------------------------------------
+        // ---- 16. Slug: títulos repetidos NO se bloquean --------------------------------------------
+        // Antes esto se rechazaba con "Ya existe una página con ese slug", lo que impedía documentar
+        // dos aplicaciones en el mismo árbol (cada una con su "Empezar"). Ahora el servicio deriva el
+        // slug del título y le pone sufijo.
         user.SetUser("editor1", "Editor", KnowledgeHubPermissions.Edit);
         var dupSlug = await pages.CreatePageAsync(null, "Otra", "manual-usuario");
-        Check("Slug duplicado rechazado", IsUnfinishedContaining(dupSlug, "slug"));
+        Check("Slug explícito duplicado ya NO se rechaza", dupSlug.OkNotNull);
+        var dupInfo = await pages.GetPageInfoAsync(dupSlug.Value);
+        Check("Slug explícito duplicado recibe sufijo -2",
+            dupInfo.OkNotNull && dupInfo.Value.Slug == "manual-usuario-2");
+
+        // El caso real reportado: dos apps distintas, cada una con su página "Empezar".
+        var appA = await pages.CreatePageAsync(null, "Line Management System");
+        var appB = await pages.CreatePageAsync(null, "LineCtrlSys");
+        var startA = await pages.CreatePageAsync(appA.Value, "Empezar");
+        var startB = await pages.CreatePageAsync(appB.Value, "Empezar");
+        Check("Mismo título bajo padres distintos: ambas se crean",
+            startA.OkNotNull && startB.OkNotNull && startA.Value != startB.Value);
+
+        var slugA = await pages.GetPageInfoAsync(startA.Value);
+        var slugB = await pages.GetPageInfoAsync(startB.Value);
+        Check("El slug se deriva del título y se desambigua",
+            slugA.OkNotNull && slugA.Value.Slug == "empezar" &&
+            slugB.OkNotNull && slugB.Value.Slug == "empezar-2");
+
+        // Tercera vez seguida: el contador sigue, sin repetir ni saltarse un número.
+        var startC = await pages.CreatePageAsync(appA.Value, "Empezar");
+        var slugC = await pages.GetPageInfoAsync(startC.Value);
+        Check("El tercer título repetido recibe -3",
+            slugC.OkNotNull && slugC.Value.Slug == "empezar-3");
+
+        // SlugExistsAsync cuenta también las borradas (a propósito: el índice único de la BD sigue
+        // siendo global). Antes eso reservaba el título PARA SIEMPRE; ahora solo cuesta un sufijo.
+        var recycled = await pages.CreatePageAsync(null, "Título Reciclado");
+        await pages.DeletePageAsync(recycled.Value);
+        var recreated = await pages.CreatePageAsync(null, "Título Reciclado");
+        Check("Un título borrado se puede volver a usar", recreated.OkNotNull);
+
+        Check("Slugify quita acentos y símbolos",
+            KnowledgeHubSlug.Slugify("Línea 1 — Producción") == "linea-1-produccion");
+        Check("Un título sin caracteres útiles no produce un slug vacío",
+            KnowledgeHubSlug.Slugify("★ ★ ★") == KnowledgeHubSlug.Fallback);
 
         // ---- 17. Mover: detección de ciclos ----------------------------------------------------------
         var pageA = await pages.CreatePageAsync(null, "Página A", "pagina-a");

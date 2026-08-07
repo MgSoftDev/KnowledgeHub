@@ -5,7 +5,8 @@ namespace MgSoftDev.KnowledgeHub.Transport;
 
 // Request/response payloads of the KnowledgeHub HTTP API, shared by Http.Server and Http.Client.
 
-public sealed record CreatePageRequest(Guid? ParentPk, string Title, string Slug);
+/// <summary>Slug is optional: omitted, the server derives it from the title.</summary>
+public sealed record CreatePageRequest(Guid? ParentPk, string Title, string? Slug);
 
 public sealed record RenamePageRequest(string Title);
 

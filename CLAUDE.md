@@ -12,7 +12,8 @@ Iteraciones posteriores: RCL embebible (v0.2.0-preview.1), **icono + color por p
 (v0.3.0-preview.1, cambio de esquema), **saneado de HTML + tool de tamaño de imagen**
 (v0.4.0-preview.1, paquete nuevo → 10 paquetes), **limpieza de imágenes huérfanas + sincronía del
 árbol** (v0.5.0-preview.1), **orden de páginas con invariante 1..N** (v0.6.0-preview.1) y
-**3 niveles de limpieza de HTML** (v0.7.0-preview.1).
+**3 niveles de limpieza de HTML** (v0.7.0/0.7.1-preview.1) y **títulos repetibles con slug
+automático** (v0.8.0-preview.1).
 
 ## Arquitectura (decisiones clave)
 
@@ -67,6 +68,14 @@ Iteraciones posteriores: RCL embebible (v0.2.0-preview.1), **icono + color por p
   índices. `NormalizeAllPageOrdersAsync` (solo Admin, botón en Diagnóstico) arregla bases antiguas.
   El store expone `SetSortOrdersAsync` (escritura en lote **atómica**) y `PageLinkDto` lleva
   `SortOrder` + `Title` para poder renumerar sin consultas extra. Ver gotcha 20.
+- **Slug (v0.8.0)**: identificador **interno e invisible**. Las rutas van por `Guid`, no hay
+  `GetPageBySlugAsync` en el store, no se muestra ni se edita en la UI; sus únicos consumidores son
+  `KNOWLEDGEHUB_STARTPAGE` (solo DEBUG) y el `permissionsBySlug` del seeder. Por eso **crear una
+  página nunca falla por el slug**: `KnowledgeHubSlug.Slugify(title)` (en Abstractions) lo deriva del
+  título y `ResolveFreeSlugAsync` le añade `-2`, `-3`… si la base está ocupada. `CreatePageAsync`
+  acepta `string? slug = null`; pasarlo solo fuerza la base, que recibe el mismo tratamiento.
+  La unicidad **sigue siendo global** —es lo que imponen los índices únicos de los 3 proveedores—,
+  así que **no hay migración de BD**. Ver gotcha 23.
 - **Mantenimiento de imágenes (v0.5.0)**: `AnalyzeOrphanImagesAsync`/`DeleteOrphanImagesAsync` en
   `IKnowledgeHubImageService` (solo Admin), con UI en `KnowledgeHubDiagnosticsPanel` (analizar →
   confirmar → borrar). Huérfana = **no referenciada por ninguna versión** (gotcha 20). El borrado
@@ -152,7 +161,8 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 ## Verificación (cómo se probó)
 
 - **Guion de paridad** (99 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
-  v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0 y 15 de niveles de limpieza en v0.7.0/0.7.1
+  v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1
+  y 7 de slug en v0.8.0
   —estos últimos llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
@@ -315,6 +325,21 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     `<p><p>x</p></p>`, que el parser parte en **dos `<p>` vacíos** alrededor del bueno (líneas en
     blanco visibles). Si el bloque contiene otro bloque hay que **desenvolverlo** (fragmento), no
     renombrarlo — y el selector de «¿contiene bloques?» debe incluir `p`.
+
+23. **Un identificador invisible estaba bloqueando el trabajo real** (arreglado en v0.8.0). El slug
+    tenía unicidad GLOBAL validada en `CreatePageAsync`, así que **no se podían tener dos páginas con
+    el mismo título aunque colgaran de padres distintos** — imposible documentar dos aplicaciones en
+    un mismo árbol, cada una con su "Empezar". Y como `SlugExistsAsync` **no filtra `RowIsActive`**
+    (a propósito: el índice único de la BD tampoco distingue), un título usado y borrado quedaba
+    **reservado para siempre**, sin forma de liberarlo por UI ni API. Todo eso por un campo que
+    **no se usa para nada**: rutas por `Guid`, sin lookup por slug, invisible y no editable.
+    Antes de endurecer una restricción de unicidad, comprobar **quién consume realmente el campo**.
+    La solución barata fue dejar la unicidad global (cero migración en las BD existentes) y
+    **desambiguar en el servicio** con sufijos `-2`, `-3`. La cara habría sido unicidad por hermanos:
+    migrar el índice único en SQL Server, LiteDB y EF, **y** añadir validación a `MovePageAsync`
+    (hoy no valida nada), es decir, cambiar un error por otro error nuevo.
+    Cuidado con `$"{prefijo}-{Guid.NewGuid():n}"[..N]`: el `[..N]` trunca **la cadena entera**, no el
+    guid — el código viejo del árbol lo tenía y generaba slugs cortados.
 
 ## Pendientes / siguientes pasos
 

@@ -43,7 +43,8 @@ public sealed class HttpKnowledgeHubPageService : IKnowledgeHubPageService
     public Task<Returning<PageInfoDto>> GetPageInfoAsync(Guid pagePk) =>
         _api.GetAsync<PageInfoDto>($"/pages/{pagePk}/info");
 
-    public Task<Returning<Guid>> CreatePageAsync(Guid? parentPk, string title, string slug) =>
+    // The slug travels as-is (null included): it is the server that derives and de-duplicates it.
+    public Task<Returning<Guid>> CreatePageAsync(Guid? parentPk, string title, string? slug = null) =>
         _api.PostAsync<Guid>("/pages", new CreatePageRequest(parentPk, title, slug));
 
     public Task<Returning> RenamePageAsync(Guid pagePk, string title) =>

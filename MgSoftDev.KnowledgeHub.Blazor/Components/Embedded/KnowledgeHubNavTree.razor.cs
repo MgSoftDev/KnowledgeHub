@@ -99,8 +99,9 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable
     {
         Wait = true;
         StateHasChanged();
-        var slug = $"nueva-pagina-{Guid.NewGuid():n}"[..24];
-        var result = await DocService.CreatePageAsync(null, "Nueva página", slug);
+        // No slug: the service derives it from the title and suffixes it if taken. This used to
+        // pass a random one, which left every root page with a permanent "nueva-pagina-3f8a1c2b".
+        var result = await DocService.CreatePageAsync(null, "Nueva página");
         Wait = false;
 
         if (result.OkNotNull)

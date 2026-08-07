@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
 using MgSoftDev.KnowledgeHub.Blazor.Helpers;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
@@ -140,8 +137,8 @@ public partial class KnowledgeHubPageManage : ComponentBase
 
         Wait = true;
         StateHasChanged();
-        var slug = Slugify(NewChildTitle);
-        var result = await DocService.CreatePageAsync(PagePk, NewChildTitle.Trim(), slug);
+        // Titles may repeat between parents; the service derives the slug and suffixes it if taken.
+        var result = await DocService.CreatePageAsync(PagePk, NewChildTitle.Trim());
         Wait = false;
 
         if (result.OkNotNull)
@@ -197,18 +194,6 @@ public partial class KnowledgeHubPageManage : ComponentBase
         }
         else result.SendNotifyIfNotOk(Notify, errorTitle);
         StateHasChanged();
-    }
-
-    private static string Slugify(string text)
-    {
-        var normalized = text.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder();
-        foreach (var c in normalized)
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                sb.Append(c);
-
-        var slug = Regex.Replace(sb.ToString().Normalize(NormalizationForm.FormC), "[^a-z0-9]+", "-").Trim('-');
-        return string.IsNullOrEmpty(slug) ? Guid.NewGuid().ToString("n")[..8] : slug;
     }
 
     private async Task GoBack()

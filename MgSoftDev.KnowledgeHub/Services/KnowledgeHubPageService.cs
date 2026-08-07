@@ -314,20 +314,17 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             };
         }, saveLog: true);
 
-    public Task<Returning<Guid>> CreatePageAsync(Guid? parentPk, string title, string slug) =>
+    public Task<Returning<Guid>> CreatePageAsync(Guid? parentPk, string title, string? slug = null) =>
         Returning<Guid>.TryTask(async () =>
         {
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (string.IsNullOrWhiteSpace(title))
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
-            if (string.IsNullOrWhiteSpace(slug))
-                return Returning.Unfinished("El slug es requerido", UnfinishedInfo.NotifyType.Warning);
 
-            var existsR = await _store.SlugExistsAsync(slug);
-            if (!existsR.Ok) existsR.Throw();
-            if (existsR.Value)
-                return Returning.Unfinished("Ya existe una página con ese slug", UnfinishedInfo.NotifyType.Warning);
+            var uniqueSlugR = await ResolveFreeSlugAsync(
+                string.IsNullOrWhiteSpace(slug) ? KnowledgeHubSlug.Slugify(title) : slug);
+            if (!uniqueSlugR.OkNotNull) uniqueSlugR.Throw();
 
             var maxSortR = await _store.GetMaxSortOrderAsync(parentPk);
             if (!maxSortR.Ok) maxSortR.Throw();
@@ -335,7 +332,7 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             var page = new DocPage
             {
                 Fk_DocPageParent = parentPk,
-                Slug = slug,
+                Slug = uniqueSlugR.Value,
                 Title = title,
                 SortOrder = maxSortR.Value + 1,
                 IsPublic = false
@@ -633,6 +630,34 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         var orders = siblings.Select((l, i) => new PageSortOrderDto(l.Pk, i + 1)).ToList();
         var writeR = await _store.SetSortOrdersAsync(orders, Stamp());
         if (!writeR.Ok) writeR.Throw();
+    }
+
+    /// <summary>
+    /// Finds a free slug, appending -2, -3… to the base when needed. Creating a page must NEVER
+    /// fail over a name clash: two pages with the same title under different parents are perfectly
+    /// legitimate, and the slug is an invisible identifier nothing looks up.
+    ///
+    /// The uniqueness is GLOBAL because that is what the unique index of every provider enforces —
+    /// keeping it that way means existing databases need no migration. Deleted pages keep their
+    /// slug reserved (<c>SlugExistsAsync</c> ignores RowIsActive on purpose, so the index stays
+    /// valid); it just costs the reused title a suffix instead of blocking it as it used to.
+    /// </summary>
+    private async Task<Returning<string>> ResolveFreeSlugAsync(string baseSlug)
+    {
+        // Enough that no realistic tree reaches it, low enough to never spin: past it, a random
+        // suffix ends the search in a single extra round trip.
+        const int maxAttempts = 100;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var candidate = attempt == 1 ? baseSlug : $"{baseSlug}-{attempt}";
+            var existsR = await _store.SlugExistsAsync(candidate);
+            if (!existsR.Ok) existsR.Throw();
+            if (!existsR.Value) return candidate;
+        }
+
+        var random = Guid.NewGuid().ToString("n")[..8];
+        return $"{baseSlug}-{random}";
     }
 
     /// <summary>Reloads the structural rows, for callers that need them after a write.</summary>

@@ -40,7 +40,13 @@ public interface IKnowledgeHubPageService
     Task<ReturningList<VersionListItemDto>> GetVersionsAsync(Guid pagePk);
 
     Task<Returning<PageInfoDto>> GetPageInfoAsync(Guid pagePk);
-    Task<Returning<Guid>> CreatePageAsync(Guid? parentPk, string title, string slug);
+    /// <summary>
+    /// Creates a page. Titles may repeat freely — including between siblings: the slug is derived
+    /// from the title and gets a numeric suffix if that base is already taken, so this never fails
+    /// over a name clash. Pass <paramref name="slug"/> only to force a specific one (the seeder
+    /// does, to keep its permission mapping stable); it gets the same suffix treatment.
+    /// </summary>
+    Task<Returning<Guid>> CreatePageAsync(Guid? parentPk, string title, string? slug = null);
     Task<Returning> RenamePageAsync(Guid pagePk, string title);
     Task<Returning> MovePageAsync(Guid pagePk, Guid? newParentPk);
     /// <summary>
