@@ -2,21 +2,33 @@
 
 @* Shell de dos columnas para el escenario "portal standalone" (la app ES la documentación).
    Para embeber el módulo dentro del layout de una app anfitriona NO uses este layout: usa
-   los componentes de Components/Embedded (KnowledgeHubBrowser, KnowledgeHubNavTree, …). *@
+   los componentes de Components/Embedded (KnowledgeHubBrowser, KnowledgeHubNavTree, …).
 
-<div class="kh-portal">
-    <div class="kh-portal-sidebar">
-        @* Options.HeaderActionsComponent lo renderiza KnowledgeHubNavTree (así funciona en los
-           tres modos); aquí solo van los links propios del portal. *@
-        <KnowledgeHubNavTree @ref="NavTree">
-            <FooterContent>
-                <RadzenLink Path="@KnowledgeHubRoutes.Home" Text="Inicio" />
-                <RadzenLink Path="@KnowledgeHubRoutes.Diagnostics" Text="Diagnóstico" />
-            </FooterContent>
-        </KnowledgeHubNavTree>
-    </div>
+   El divisor entre el árbol y el contenido es el mismo componente que usa el Browser, así que
+   ancho, mínimo, máximo y colapso se configuran en AddKnowledgeHubBlazor. *@
 
-    <div class="kh-portal-content">
-        @Body
-    </div>
-</div>
+<KnowledgeHubSplitLayout Embedded="false"
+                         TreeSize="@Options.TreeSize"
+                         TreeMinSize="@Options.TreeMinSize"
+                         TreeMaxSize="@Options.TreeMaxSize"
+                         TreeCollapsible="@Options.TreeCollapsible"
+                         TreeWidthStorageKey="@Options.TreeWidthStorageKey">
+    <TreeContent>
+        <div class="kh-portal-sidebar">
+            @* Options.HeaderActionsComponent lo renderiza KnowledgeHubNavTree (así funciona en los
+               tres modos); aquí solo van los links propios del portal. *@
+            <KnowledgeHubNavTree @ref="NavTree">
+                <FooterContent>
+                    <RadzenLink Path="@KnowledgeHubRoutes.Home" Text="Inicio" />
+                    <RadzenLink Path="@KnowledgeHubRoutes.Diagnostics" Text="Diagnóstico" />
+                </FooterContent>
+            </KnowledgeHubNavTree>
+        </div>
+    </TreeContent>
+
+    <MainContent>
+        <div class="kh-portal-content">
+            @Body
+        </div>
+    </MainContent>
+</KnowledgeHubSplitLayout>

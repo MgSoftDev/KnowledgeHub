@@ -11,7 +11,55 @@
     --kh-editor-height: calc(100vh - 48px);
 }
 
-/* Portal layout: fixed sidebar + scrollable content. */
+/* Two-column shell shared by the standalone portal and the embeddable browser. It only sets the
+   height: the columns themselves are a RadzenSplitter (KnowledgeHubSplitLayout), so the tree can
+   be dragged, collapsed and remembered. Column width is configured in AddKnowledgeHubBlazor
+   (TreeSize / TreeMinSize / TreeMaxSize), NOT here. */
+.kh-split {
+    height: var(--kh-portal-height);
+    overflow: hidden;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Embedded mode: fill the host container instead of the viewport. */
+.kh-split.kh-embedded {
+    height: 100%;
+    min-height: 0;
+}
+
+.kh-split.kh-embedded .kh-editor-fill {
+    height: 100%;
+}
+
+/* Radzen panes are overflow:hidden, so whatever goes inside has to claim the full height for its
+   own scrollbar to appear. border-box keeps the content padding from overflowing that height. */
+.kh-split-tree,
+.kh-split-main {
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* With ShowTree="false" a single pane is left; make sure it takes the whole width instead of
+   keeping the width it was sized for. */
+.kh-split .rz-splitter-pane:only-child {
+    flex: 1 1 auto;
+}
+
+/* The tree pane is flex:0 0 auto with a pixel basis, so it does NOT shrink: narrow the window
+   after sizing it and the content column would be squeezed to nothing. This cap keeps the content
+   always visible. It sits above the default TreeMaxSize (60%), so it never interferes; raise it
+   from the host if you configure a larger maximum. */
+.kh-split {
+    --kh-tree-max-width: 75%;
+}
+
+.kh-split .rz-splitter-pane:first-child:not(:only-child) {
+    max-width: var(--kh-tree-max-width);
+}
+
+/* Plain two-column grid, no splitter. The module itself no longer uses it — both shells went to
+   .kh-split in v0.9.0 — but it is kept because the guide documents it for hosts that compose the
+   sidebar and the content by hand and want a fixed width. */
 .kh-portal {
     display: grid;
     grid-template-columns: 320px 1fr;
@@ -20,38 +68,27 @@
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Embeddable browser (tree + content) for use inside a host layout. */
-.kh-browser {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    height: var(--kh-portal-height);
-    overflow: hidden;
-    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-/* Embedded mode: fill the host container instead of the viewport. */
-.kh-browser.kh-embedded {
-    height: 100%;
-    min-height: 0;
-}
-
-.kh-browser.kh-embedded .kh-editor-fill {
-    height: 100%;
-}
-
-.kh-browser-sidebar {
+/* Sidebar/content of both scenarios. They are kept as separate classes (rather than merged into
+   .kh-split-*) because hosts may already be overriding them. */
+.kh-browser-sidebar,
+.kh-portal-sidebar {
     border-right: 1px solid #e5e7eb;
     background: #fafafa;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    height: 100%;
     overflow: auto;
+    box-sizing: border-box;
 }
 
-.kh-browser-content {
+.kh-browser-content,
+.kh-portal-content {
     overflow: auto;
     padding: 24px 32px;
     min-width: 0;
+    height: 100%;
+    box-sizing: border-box;
 }
 
 /* The nav tree fills whatever column hosts it (module sidebar or your own). */
@@ -60,14 +97,6 @@
     flex-direction: column;
     min-height: 0;
     height: 100%;
-}
-
-.kh-portal-sidebar {
-    border-right: 1px solid #e5e7eb;
-    background: #fafafa;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
 }
 
 .kh-portal-sidebar-header {
@@ -105,12 +134,6 @@
     gap: 16px;
     align-items: center;
     flex-wrap: wrap;
-}
-
-.kh-portal-content {
-    overflow: auto;
-    padding: 24px 32px;
-    min-width: 0;
 }
 
 /* ---------------------------------------------------------------- Text selection

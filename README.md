@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.8.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.9.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -131,7 +131,7 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.8.0-preview.1**. Las 10 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+**v0.9.0-preview.1**. Las 10 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
 106/106 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia

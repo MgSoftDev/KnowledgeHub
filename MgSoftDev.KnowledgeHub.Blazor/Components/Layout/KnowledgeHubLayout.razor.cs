@@ -13,6 +13,9 @@ public partial class KnowledgeHubLayout : LayoutComponentBase
 {
     [Inject] private NavigationManager Nav { get; set; } = null!;
 
+    /// <summary>Sizing of the tree column. The portal takes no parameters, so it reads the options.</summary>
+    [Inject] protected KnowledgeHubBlazorOptions Options { get; set; } = null!;
+
     /// <summary>The sidebar tree, exposed so the layout can refresh it.</summary>
     protected KnowledgeHubNavTree? NavTree { get; set; }
 

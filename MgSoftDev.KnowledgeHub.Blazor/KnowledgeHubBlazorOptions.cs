@@ -27,4 +27,28 @@ public sealed class KnowledgeHubBlazorOptions
     /// — saving always uses the host's sanitizer as-is.
     /// </summary>
     public HtmlCleanupLevel DefaultCleanupLevel { get; set; } = HtmlCleanupLevel.Standard;
+
+    /// <summary>
+    /// Starting width of the navigation tree column, in any CSS length the splitter accepts
+    /// (<c>"320px"</c>, <c>"25%"</c>). It is only the starting point: the user can drag it, and
+    /// unless <see cref="TreeWidthStorageKey"/> is cleared the dragged width wins on the next
+    /// visit. <c>KnowledgeHubBrowser</c> can override it per instance.
+    /// </summary>
+    public string TreeSize { get; set; } = "320px";
+
+    /// <summary>How narrow the tree can be dragged.</summary>
+    public string TreeMinSize { get; set; } = "200px";
+
+    /// <summary>How wide the tree can be dragged.</summary>
+    public string TreeMaxSize { get; set; } = "60%";
+
+    /// <summary>Show the arrow that collapses/expands the tree with one click. Default true.</summary>
+    public bool TreeCollapsible { get; set; } = true;
+
+    /// <summary>
+    /// localStorage key under which the dragged tree width is remembered. Set it to null or empty
+    /// to stop remembering (the tree then always starts at <see cref="TreeSize"/>). Change it if
+    /// the same origin hosts two modules whose trees should size independently.
+    /// </summary>
+    public string? TreeWidthStorageKey { get; set; } = "kh.treeWidth";
 }

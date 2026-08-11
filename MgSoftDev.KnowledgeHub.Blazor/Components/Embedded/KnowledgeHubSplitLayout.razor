@@ -1,0 +1,27 @@
+@* Shell de dos columnas con divisor arrastrable. Lo usan los DOS escenarios (el layout del portal
+   y el KnowledgeHubBrowser embebido), que antes duplicaban el mismo grid de 320px. *@
+
+@* El @attributes va ANTES del class a propósito: así el class de abajo (que ya incorpora el del
+   anfitrión) gana sobre el del splat, y el resto de atributos —style, id, data-*— pasan tal cual. *@
+<div @attributes="AdditionalAttributes" class="@RootCssClass" @ref="_rootElement">
+    @* El @key hace que el splitter se cree de nuevo cuando se restaura el ancho guardado: así nace
+       ya con el tamaño correcto, sin depender de que Radzen relea Size a mitad de vida. Solo
+       cambia una vez (al restaurar); arrastrar NO lo toca, así que no hay remontajes al arrastrar. *@
+    <RadzenSplitter @key="_treeSize" Resize="@RememberTreeWidthAsync">
+        @if (ShowTree)
+        {
+            <RadzenSplitterPane Size="@_treeSize" Min="@TreeMinSize" Max="@TreeMaxSize"
+                                Collapsible="@TreeCollapsible">
+                <div class="kh-split-tree" @ref="_treeElement">
+                    @TreeContent
+                </div>
+            </RadzenSplitterPane>
+        }
+
+        <RadzenSplitterPane>
+            <div class="kh-split-main">
+                @MainContent
+            </div>
+        </RadzenSplitterPane>
+    </RadzenSplitter>
+</div>

@@ -32,6 +32,9 @@ public partial class KnowledgeHubBrowser : ComponentBase
 
     private KnowledgeHubNavTree? _navTree;
 
+    /// <summary>Supplies the defaults for the tree column when the parameters below are null.</summary>
+    [Inject] protected KnowledgeHubBlazorOptions Options { get; set; } = null!;
+
     /// <summary>Title shown in the tree header and the empty state.</summary>
     [Parameter] public string Title { get; set; } = "Documentación";
 
@@ -55,6 +58,22 @@ public partial class KnowledgeHubBrowser : ComponentBase
     /// viewport, which is what you want inside a host layout with a topbar.
     /// </summary>
     [Parameter] public bool Embedded { get; set; } = true;
+
+    /// <summary>
+    /// Starting width of the tree column, in any CSS length (<c>"320px"</c>, <c>"25%"</c>). The
+    /// user can drag the divider, and the dragged width is what comes back on the next visit.
+    /// Null (default) takes <see cref="KnowledgeHubBlazorOptions.TreeSize"/>.
+    /// </summary>
+    [Parameter] public string? TreeSize { get; set; }
+
+    /// <summary>How narrow the tree can be dragged. Null takes the value from the options.</summary>
+    [Parameter] public string? TreeMinSize { get; set; }
+
+    /// <summary>How wide the tree can be dragged. Null takes the value from the options.</summary>
+    [Parameter] public string? TreeMaxSize { get; set; }
+
+    /// <summary>Show the arrow that collapses the tree. Null takes the value from the options.</summary>
+    [Parameter] public bool? TreeCollapsible { get; set; }
 
     /// <summary>Content shown when no page is selected. Defaults to a short hint.</summary>
     [Parameter] public RenderFragment? EmptyContent { get; set; }

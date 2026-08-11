@@ -55,6 +55,13 @@ automático** (v0.8.0-preview.1).
   - **Navegación con fallback**: cada componente expone `EventCallback` opcionales; si el
     anfitrión NO los pasa, el componente navega por URL (`KnowledgeHubRoutes`); si los pasa,
     delega. Patrón: `if (OnX.HasDelegate) await OnX.InvokeAsync(pk); else Nav.NavigateTo(...)`.
+  - **Divisor arrastrable (v0.9.0)**: los dos shells (el layout portal y `KnowledgeHubBrowser`)
+    duplicaban el mismo `grid-template-columns: 320px 1fr`. Ahora ambos delegan en
+    `Components/Embedded/KnowledgeHubSplitLayout`, un `RadzenSplitter` de dos panes con colapso y
+    ancho recordado en localStorage. Defaults en `KnowledgeHubBlazorOptions`
+    (`TreeSize`/`TreeMinSize`/`TreeMaxSize`/`TreeCollapsible`/`TreeWidthStorageKey`), overridables
+    por instancia en el Browser. `.kh-portal` sobrevive como rejilla simple porque la guía la
+    documenta para composición manual. Ver gotcha 23.
   - CSS: alturas por variables `--kh-portal-height` / `--kh-editor-height` (default `100vh`);
     `KnowledgeHubBrowser` usa `.kh-embedded` (100% del contenedor).
   - **`Options.HeaderActionsComponent` lo renderiza `KnowledgeHubNavTree`** (no el layout), que
@@ -340,6 +347,26 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     (hoy no valida nada), es decir, cambiar un error por otro error nuevo.
     Cuidado con `$"{prefijo}-{Guid.NewGuid():n}"[..N]`: el `[..N]` trunca **la cadena entera**, no el
     guid — el código viejo del árbol lo tenía y generaba slugs cortados.
+24. **Lo que hay que saber del `RadzenSplitter` 11.1.5** (v0.9.0, todo verificado leyendo el
+    paquete y midiendo en el demo):
+    - `.rz-splitter` ya es `width/height: 100%`, así que basta con que el contenedor tenga altura;
+      no hace falta `Style="height:100%"`. Pero `.rz-splitter-pane` es **`overflow:hidden`**, así
+      que lo que metas dentro necesita `height:100%` para que su propio `overflow:auto` aparezca.
+    - El pane es `position:relative`. **No** rompe el `position:absolute; inset:0` del
+      `RadzenHtmlEditor`, porque el ancestro posicionado más cercano sigue siendo `.kh-editor-host`
+      (comprobado midiendo `offsetParent` en el navegador).
+    - El drag escucha **`pointermove`/`pointerup`**, no `mousemove`/`mouseup`: un arrastre simulado
+      con `MouseEvent` no hace absolutamente nada.
+    - `RadzenSplitterResizeEventArgs.NewSize` es `parseFloat(pane.style.flexBasis)`, es decir un
+      **porcentaje**, no píxeles. Por eso el ancho se persiste midiendo el DOM
+      (`getBoundingClientRect`) en vez de usar ese valor.
+    - Cambiar `Size` en caliente no reposiciona el pane; para restaurar un ancho guardado hay que
+      **remontar** el splitter (`@key` sobre el tamaño), que así nace con el valor correcto.
+    - El primer pane es `flex: 0 0 auto` y **no encoge**: un ancho guardado mayor que el contenedor
+      deja el panel de contenido en 0px sin forma obvia de recuperarlo. Pasó de verdad al restaurar
+      520px en un contenedor de 384px. Se cierra por dos lados: recortando el valor guardado al
+      contenedor al restaurar (`fitToContainer` en el JS) y con un tope CSS
+      `--kh-tree-max-width: 75%` para cuando se estrecha la ventana después.
 
 ## Pendientes / siguientes pasos
 

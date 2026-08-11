@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.8.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -293,11 +293,15 @@ layout que **anide** el tuyo y solo aporte el árbol, y elige el layout en el Ro
 @inherits LayoutComponentBase
 @layout MainLayout          @* anida: header, menú y tema vienen de tu layout, sin duplicar markup *@
 
-<div class="kh-portal mi-doc-portal">
-    <div class="kh-portal-sidebar"><KnowledgeHubNavTree /></div>
-    <div class="kh-portal-content">@Body</div>
-</div>
+<KnowledgeHubSplitLayout Embedded="false" class="mi-doc-portal">
+    <TreeContent><div class="kh-portal-sidebar"><KnowledgeHubNavTree /></div></TreeContent>
+    <MainContent><div class="kh-portal-content">@Body</div></MainContent>
+</KnowledgeHubSplitLayout>
 ```
+
+> Desde la v0.9.0 esto usa el mismo divisor arrastrable que el resto del módulo. Si prefieres dos
+> columnas fijas sin divisor, la clase `.kh-portal` sigue existiendo como rejilla simple:
+> `<div class="kh-portal"><div class="kh-portal-sidebar">…</div><div class="kh-portal-content">@Body</div></div>`.
 
 ```csharp
 // En tu Router, DefaultLayout dinámico. Comparar por ASSEMBLY cubre todas las páginas del módulo,
@@ -326,6 +330,39 @@ completo. Ojo: estas páginas **no** llevan `.kh-embedded`, así que necesitas e
 (al elegir una página o pulsar Editar/Historial/Permisos cambia el panel, **sin cambiar la URL**
 ni sacar al usuario de tu pantalla).
 
+### Ancho del árbol (v0.9.0)
+
+La columna del árbol es **redimensionable arrastrando** el divisor, **colapsable** con la flecha
+del divisor, y **el ancho al que la dejes se recuerda** entre sesiones (localStorage). Aplica igual
+en el modo portal y en el embebido: es el mismo componente interno en los dos.
+
+Los valores por defecto (320px de ancho, mínimo 200px, máximo 60%) se cambian al registrar, y valen
+para los dos modos:
+
+```csharp
+services.AddKnowledgeHubBlazor(o =>
+{
+    o.TreeSize = "380px";       // ancho inicial; el arrastrado del usuario manda a partir de ahí
+    o.TreeMinSize = "220px";
+    o.TreeMaxSize = "50%";
+    o.TreeCollapsible = true;   // flecha para ocultar el árbol
+    o.TreeWidthStorageKey = null;   // null o "" → arranca siempre en TreeSize, sin recordar
+});
+```
+
+En el modo embebido puedes además afinarlo por instancia, útil si la misma app embebe el módulo en
+dos pantallas de distinto tamaño:
+
+```razor
+<KnowledgeHubBrowser TreeSize="25%" TreeMinSize="180px" TreeCollapsible="false" />
+```
+
+Dos comportamientos pensados para que el contenido nunca desaparezca: al restaurar un ancho
+guardado se **recorta al espacio disponible** (si arrastraste el árbol en un monitor grande y luego
+abres la app en una ventana pequeña, no se come el panel), y la columna del árbol tiene un tope
+duro del 75% del contenedor, sobreescribible con la variable CSS `--kh-tree-max-width` si
+configuras un `TreeMaxSize` mayor.
+
 **Componer a tu medida** (el árbol en tu sidebar, el lector en tu contenido):
 
 ```razor
@@ -346,7 +383,8 @@ ni sacar al usuario de tu pantalla).
 
 | Componente | Parámetros principales | Callbacks (opcionales) |
 |---|---|---|
-| `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `TreeFooterContent`, `@bind-SelectedPagePk` | — (navega internamente) |
+| `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `TreeFooterContent`, `@bind-SelectedPagePk`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible` | — (navega internamente) |
+| `KnowledgeHubSplitLayout` | `TreeContent`, `MainContent`, `ShowTree`, `Embedded`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible`, `TreeWidthStorageKey` | — (el divisor de los dos shells, por si quieres el mismo split con tu contenido) |
 | `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
 | `KnowledgeHubPageView` | `PagePk`, `ShowActions` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
 | `KnowledgeHubPageEditor` | `PagePk` | `OnPublished`, `OnDiscarded` |
@@ -542,9 +580,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.8.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.8.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.8.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.9.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.9.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1448,5 +1486,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.8.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.9.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*
