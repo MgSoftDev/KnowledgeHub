@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.1-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.10.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -329,6 +329,31 @@ completo. Ojo: estas páginas **no** llevan `.kh-embedded`, así que necesitas e
 `KnowledgeHubBrowser` es el compuesto: árbol + panel de contenido, con navegación **interna**
 (al elegir una página o pulsar Editar/Historial/Permisos cambia el panel, **sin cambiar la URL**
 ni sacar al usuario de tu pantalla).
+
+### Sustituir la pantalla de bienvenida (v0.10.0)
+
+La pantalla de `/kh` («Bienvenido al portal de documentación…») se cambia por un componente tuyo:
+
+```csharp
+services.AddKnowledgeHubBlazor(o => o.HomeComponent = typeof(MiPortada));
+```
+
+```razor
+@* MiPortada.razor — en TU proyecto *@
+<div class="kh-doc-content">
+    <h1>🏭 Documentación de Mi ERP</h1>
+    <p>Elige un documento en el árbol de la izquierda.</p>
+</div>
+```
+
+Cubre los **dos** sitios donde sale esa pantalla: la ruta `/kh` del modo portal y el estado vacío
+de `KnowledgeHubBrowser` cuando no hay página seleccionada. En el embebido, un `EmptyContent`
+explícito de esa instancia sigue teniendo prioridad, por si quieres una portada distinta por
+pantalla.
+
+> **No intentes declarar tu propio `@page "/kh"`**: el Router falla al arrancar con *"The following
+> routes are ambiguous"*, porque la página del módulo ya reclama esa ruta. Por eso el reemplazo va
+> por opciones.
 
 ### Ancho del árbol (v0.9.0)
 
@@ -580,9 +605,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.1-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.9.1-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.9.1-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.10.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.10.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.10.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1486,5 +1511,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.9.1-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.10.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

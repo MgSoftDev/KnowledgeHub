@@ -1,14 +1,25 @@
 @page "/kh"
+@inject KnowledgeHubBlazorOptions Options
 
 @* Página envoltorio (opt-in vía AdditionalAssemblies). NO declara @layout a propósito:
-   así adopta el DefaultLayout del anfitrión. Ruta DEBE coincidir con KnowledgeHubRoutes.Home. *@
+   así adopta el DefaultLayout del anfitrión. Ruta DEBE coincidir con KnowledgeHubRoutes.Home.
 
-<div class="kh-doc-content">
-    <h1>Bienvenido al portal de documentación</h1>
-    <p>Selecciona una página del árbol de navegación de la izquierda para leer su contenido.</p>
-    <p>El árbol solo muestra las páginas que tus permisos pueden ver.</p>
-    <p>
-        Consulta el panel de <RadzenLink Path="@KnowledgeHubRoutes.Diagnostics" Text="Diagnóstico" /> para
-        medir el rendimiento del caché de imágenes y de las consultas.
-    </p>
-</div>
+   El anfitrión NO puede sustituirla declarando su propio @page "/kh" —el Router fallaría al
+   arrancar con "The following routes are ambiguous"—, así que el reemplazo va por opciones. *@
+
+@if (Options.HomeComponent is not null)
+{
+    <DynamicComponent Type="@Options.HomeComponent" />
+}
+else
+{
+    <div class="kh-doc-content">
+        <h1>Bienvenido al portal de documentación</h1>
+        <p>Selecciona una página del árbol de navegación de la izquierda para leer su contenido.</p>
+        <p>El árbol solo muestra las páginas que tus permisos pueden ver.</p>
+        <p>
+            Consulta el panel de <RadzenLink Path="@KnowledgeHubRoutes.Diagnostics" Text="Diagnóstico" /> para
+            medir el rendimiento del caché de imágenes y de las consultas.
+        </p>
+    </div>
+}

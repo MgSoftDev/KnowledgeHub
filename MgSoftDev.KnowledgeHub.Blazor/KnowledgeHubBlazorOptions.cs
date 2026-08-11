@@ -22,6 +22,18 @@ public sealed class KnowledgeHubBlazorOptions
     public Type? HeaderActionsComponent { get; set; }
 
     /// <summary>
+    /// Replaces the module's welcome screen with a component of your own. It covers both places
+    /// that screen shows up: the <c>/kh</c> route in portal mode and the empty state of
+    /// <c>KnowledgeHubBrowser</c> when no page is selected (there, an explicit
+    /// <c>EmptyContent</c> still wins).
+    ///
+    /// This is the supported way to do it: declaring your own <c>@page "/kh"</c> makes the Router
+    /// fail at startup with "The following routes are ambiguous", because the module's page
+    /// already claims that route.
+    /// </summary>
+    public Type? HomeComponent { get; set; }
+
+    /// <summary>
     /// Cleanup level the editor starts on. The user can switch it from the toolbar; this is just
     /// the starting point of each app session. Only affects pasting and the manual cleanup button
     /// — saving always uses the host's sanitizer as-is.

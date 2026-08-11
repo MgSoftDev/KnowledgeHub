@@ -66,6 +66,11 @@ automático** (v0.8.0-preview.1).
     documenta para composición manual. Ver gotcha 23.
   - CSS: alturas por variables `--kh-portal-height` / `--kh-editor-height` (default `100vh`);
     `KnowledgeHubBrowser` usa `.kh-embedded` (100% del contenedor).
+  - **Pantalla de bienvenida sustituible (v0.10.0)**: `Options.HomeComponent` (`Type?`, mismo patrón
+    que `HeaderActionsComponent`) reemplaza el texto de `/kh` y el estado vacío del Browser, donde
+    el `EmptyContent` de la instancia sigue mandando. Hacía falta un gancho porque el anfitrión
+    **no puede** declarar su propio `@page "/kh"`: el Router falla al arrancar con *"The following
+    routes are ambiguous"*.
   - **`Options.HeaderActionsComponent` lo renderiza `KnowledgeHubNavTree`** (no el layout), que
     es el único componente presente en los tres modos → el gancho funciona siempre. Compone con
     el `FooterContent` del árbol (primero el del anfitrión, luego el gancho). `KnowledgeHubLayout`

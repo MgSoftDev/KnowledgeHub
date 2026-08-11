@@ -28,9 +28,16 @@
             @switch (View)
             {
                 case BrowserView.Empty:
+                    @* Prioridad: lo que pase esta instancia, luego el componente global de
+                       Options.HomeComponent (el mismo que sustituye la pantalla de /kh), y si no,
+                       el texto por defecto. *@
                     @if (EmptyContent is not null)
                     {
                         @EmptyContent
+                    }
+                    else if (Options.HomeComponent is not null)
+                    {
+                        <DynamicComponent Type="@Options.HomeComponent" />
                     }
                     else
                     {

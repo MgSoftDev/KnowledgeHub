@@ -68,6 +68,9 @@ builder.Services.AddKnowledgeHubBlazor(o =>
     o.PortalTitle = "📚 KnowledgeHub Server";
     o.HeaderActionsComponent = typeof(ServerHostLinks);
 
+    // Sustituye la pantalla de bienvenida del módulo por una del anfitrión.
+    o.HomeComponent = typeof(ServerHomeScreen);
+
     // A HOST-provided editor tool, registered exactly like the built-in callouts.
     o.EditorTools.Add(new EditorToolDescriptor
     {
