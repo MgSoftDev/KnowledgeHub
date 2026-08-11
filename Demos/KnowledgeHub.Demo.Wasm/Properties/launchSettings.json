@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "KnowledgeHub.Demo.Wasm": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:63238;http://localhost:63239"
+    }
+  }
+}

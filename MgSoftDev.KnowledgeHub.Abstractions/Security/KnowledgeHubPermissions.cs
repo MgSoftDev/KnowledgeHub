@@ -18,4 +18,11 @@ public static class KnowledgeHubPermissions
 
     /// <summary>Manage page visibility. Only enforced when KnowledgeHubOptions.UseFineGrainedManagePermissions is true.</summary>
     public const string ManagePermissions = "KnowledgeHub.ManagePermissions";
+
+    /// <summary>
+    /// Download pages as a file. Only enforced when KnowledgeHubOptions.UseFineGrainedExport is
+    /// true; by default anyone signed in can export what they can read. It never widens what a
+    /// user sees: the export still goes page by page through the visibility filter.
+    /// </summary>
+    public const string Export = "KnowledgeHub.Export";
 }

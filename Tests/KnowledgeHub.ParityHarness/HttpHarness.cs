@@ -49,23 +49,33 @@ public sealed class HarnessAuthHandler : DelegatingHandler
 public sealed class HeaderUserContext : IKnowledgeHubUserContext
 {
     private readonly IHttpContextAccessor _accessor;
+    private readonly HarnessUserContext _outsideRequest;
 
-    public HeaderUserContext(IHttpContextAccessor accessor)
+    // outsideRequest = who to be when there is no HTTP request. The script resolves a few
+    // server-side services directly (the seeder, the export service) to check the same logic in
+    // all four modes; with no HttpContext the headers are unreadable and everything would look
+    // signed out.
+    public HeaderUserContext(IHttpContextAccessor accessor, HarnessUserContext outsideRequest)
     {
         _accessor = accessor;
+        _outsideRequest = outsideRequest;
     }
+
+    private bool InRequest => _accessor.HttpContext is not null;
 
     private string Header(string name) =>
         _accessor.HttpContext?.Request.Headers[name].ToString() ?? string.Empty;
 
-    public bool IsAuthenticated => Header(HarnessAuthHeaders.UserHeader).Length > 0;
+    public bool IsAuthenticated =>
+        InRequest ? Header(HarnessAuthHeaders.UserHeader).Length > 0 : _outsideRequest.IsAuthenticated;
 
-    public string UserName => Header(HarnessAuthHeaders.UserHeader);
+    public string UserName => InRequest ? Header(HarnessAuthHeaders.UserHeader) : _outsideRequest.UserName;
 
     public string DisplayName
     {
         get
         {
+            if (!InRequest) return _outsideRequest.DisplayName;
             var encoded = Header(HarnessAuthHeaders.NameHeader);
             if (encoded.Length == 0) return string.Empty;
             try { return Encoding.UTF8.GetString(Convert.FromBase64String(encoded)); }
@@ -77,6 +87,7 @@ public sealed class HeaderUserContext : IKnowledgeHubUserContext
     {
         get
         {
+            if (!InRequest) return _outsideRequest.Permissions;
             var raw = Header(HarnessAuthHeaders.PermsHeader);
             return raw.Length == 0 ? Array.Empty<string>() : raw.Split(',', StringSplitOptions.RemoveEmptyEntries);
         }

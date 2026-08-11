@@ -34,6 +34,21 @@ public static class KnowledgeHubUserContextExtensions
             ? user.IsAdmin() || user.HasPermission(KnowledgeHubPermissions.ManagePermissions)
             : user.CanEdit();
 
+    /// <summary>
+    /// Coarse mode (default): anyone signed in can export what they are allowed to read.
+    /// Fine-grained mode (options.UseFineGrainedExport): requires Admin or the Export permission.
+    ///
+    /// Note the asymmetry with <see cref="CanPublish"/> and <see cref="CanManagePermissions"/>,
+    /// which fall back to <see cref="CanEdit"/>: exporting is NOT an editing capability. Reading a
+    /// page and taking it away as a PDF are the same act, so a plain reader must be able to do it
+    /// unless the host deliberately restricts it. Which page ends up in the file is decided by
+    /// visibility, page by page — never by this check.
+    /// </summary>
+    public static bool CanExport(this IKnowledgeHubUserContext user, KnowledgeHubOptions options) =>
+        options.UseFineGrainedExport
+            ? user.IsAdmin() || user.HasPermission(KnowledgeHubPermissions.Export)
+            : user.IsAuthenticated;
+
     /// <summary>The store-level visibility filter for this user.</summary>
     public static Store.VisibilityFilter ToVisibilityFilter(this IKnowledgeHubUserContext user) =>
         user.IsAdmin() ? Store.VisibilityFilter.Admin : new(false, user.Permissions);

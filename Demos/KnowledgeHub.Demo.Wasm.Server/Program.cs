@@ -4,6 +4,7 @@ using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.AspNetCore;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.HtmlSanitizer;
+using MgSoftDev.KnowledgeHub.Pdf;
 using MgSoftDev.KnowledgeHub.Http.Server;
 using MgSoftDev.KnowledgeHub.Seeding;
 using MgSoftDev.KnowledgeHub.Storage.LiteDb;
@@ -45,6 +46,7 @@ builder.Services.AddKnowledgeHubFileImageCache(Path.Combine(dataFolder, "cache")
 // Server side of the WASM pair: the last checkpoint before the html reaches the database. The
 // client registers it too, but never trust the client — this is the one that actually protects.
 builder.Services.AddKnowledgeHubHtmlSanitizer();
+builder.Services.AddKnowledgeHubPdf();
 
 var app = builder.Build();
 

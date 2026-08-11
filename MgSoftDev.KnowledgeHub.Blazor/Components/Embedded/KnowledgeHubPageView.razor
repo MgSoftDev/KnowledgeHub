@@ -54,6 +54,18 @@ else if (Page is not null)
                     }
                     <RadzenButton Text="Historial" Icon="history" Size="ButtonSize.ExtraSmall"
                                   ButtonStyle="ButtonStyle.Light" Click="@GoHistory" />
+                    @if (CanExport)
+                    {
+                        @* Pulsar el botón exporta solo esta página; el desplegable ofrece la rama. *@
+                        <RadzenSplitButton Text="@(Exporting ? "Generando…" : "PDF")" Icon="picture_as_pdf"
+                                           Size="ButtonSize.ExtraSmall" ButtonStyle="ButtonStyle.Light"
+                                           Disabled="@Exporting" Click="@OnExportClick">
+                            <ChildContent>
+                                <RadzenSplitButtonItem Text="Solo esta página" Value="page" />
+                                <RadzenSplitButtonItem Text="Con sus subpáginas" Value="branch" />
+                            </ChildContent>
+                        </RadzenSplitButton>
+                    }
                 </span>
             </div>
         }

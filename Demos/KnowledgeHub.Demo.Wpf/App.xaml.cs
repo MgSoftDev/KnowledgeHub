@@ -9,6 +9,7 @@ using MgSoftDev.KnowledgeHub.Blazor;
 using MgSoftDev.KnowledgeHub.Blazor.EditorTools;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.HtmlSanitizer;
+using MgSoftDev.KnowledgeHub.Pdf;
 using MgSoftDev.KnowledgeHub.Seeding;
 using MgSoftDev.KnowledgeHub.Storage.LiteDb;
 using MgSoftDev.ReturningCore.Logger;
@@ -87,6 +88,7 @@ public partial class App : Application
 
             // Cleans pasted Word/web markup and checks the html again right before it is stored.
             builder.Services.AddKnowledgeHubHtmlSanitizer();
+            builder.Services.AddKnowledgeHubPdf();
 
             builder.Services.AddKnowledgeHubBlazor(o =>
             {

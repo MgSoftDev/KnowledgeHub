@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.10.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.11.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -329,6 +329,116 @@ completo. Ojo: estas páginas **no** llevan `.kh-embedded`, así que necesitas e
 `KnowledgeHubBrowser` es el compuesto: árbol + panel de contenido, con navegación **interna**
 (al elegir una página o pulsar Editar/Historial/Permisos cambia el panel, **sin cambiar la URL**
 ni sacar al usuario de tu pantalla).
+
+## 8.2 Exportar a PDF (v0.11.0)
+
+Un botón **PDF** en el lector baja la página abierta, o toda su rama como un manual con portada,
+índice y numeración. Es **opcional**: sin el paquete instalado el botón no aparece.
+
+### Paso 1 — Instalar y registrar
+
+```bash
+dotnet add package MgSoftDev.KnowledgeHub.Pdf
+```
+
+```csharp
+services.AddKnowledgeHubPdf();
+```
+
+Regístralo **donde corre el core**, el mismo contenedor que `AddKnowledgeHubCore`. En WPF y Blazor
+Server es el mismo; en WASM va en el **servidor de la API**, no en el cliente.
+
+### Paso 2 — Decidir quién puede descargar
+
+Por defecto **cualquiera que pueda leer una página puede exportarla**: leer y llevarse el PDF son
+la misma capacidad. Para restringirlo:
+
+```csharp
+services.AddKnowledgeHubCore(o =>
+{
+    o.UseFineGrainedExport = true;   // ahora hace falta KnowledgeHub.Export (o Admin)
+    o.MaxExportPages = 200;          // tope de páginas por exportación
+});
+```
+
+**Lo que el permiso NO hace es ampliar lo que se ve.** La exportación pasa página por página por el
+mismo filtro de visibilidad que el lector: un usuario con `KnowledgeHub.Export` que no vea una
+subpágina obtiene el PDF **sin ella**. Si pide una rama entera, recibe su recorte de esa rama.
+
+Si la rama supera `MaxExportPages` la exportación se **rechaza** con un mensaje que lo dice — nunca
+se trunca en silencio, porque medio manual con pinta de estar completo es peor que un error.
+
+### Personalizar el aspecto
+
+```csharp
+services.AddKnowledgeHubPdf(o =>
+{
+    o.FontFamily = "Segoe UI";        // ojo: los emoji necesitan una fuente que los tenga
+    o.FontSize = 10;
+    o.IncludeCover = true;
+    o.IncludeTableOfContents = true;  // se omite solo si es una única página
+    o.IncludePageNumbers = true;
+});
+```
+
+> **Fuentes fuera de Windows.** PDFsharp resuelve fuentes por `GlobalFontSettings`, que es estático
+> de proceso. El paquete activa las fuentes del sistema en Windows y **solo escribe el resolver si
+> nadie lo ha hecho ya**, para no pisarte tu propia configuración. En Linux o en contenedores sin
+> fuentes instaladas, generar el PDF **lanza una excepción con un mensaje claro** en vez de producir
+> un documento con cuadraditos: instala fuentes en la imagen o configura tú
+> `GlobalFontSettings.FontResolver` y pon `o.ConfigureFonts = false`.
+
+### Otro motor: la receta de Playwright
+
+El contrato está partido en dos a propósito. `IKnowledgeHubPdfExportService` (en el core) hace los
+permisos, recorre la rama y resuelve las imágenes; `IKnowledgeHubPdfRenderer` solo convierte a
+bytes. **Cambiar de motor es implementar el segundo** — la seguridad la heredas intacta.
+
+Si quieres fidelidad exacta a lo que se ve en pantalla, con Chromium de verdad:
+
+```bash
+dotnet add package Microsoft.Playwright
+# y una vez por máquina, tras compilar:  pwsh bin/Debug/net10.0/playwright.ps1 install chromium
+```
+
+```csharp
+public sealed class PlaywrightPdfRenderer : IKnowledgeHubPdfRenderer
+{
+    public async Task<Returning<byte[]>> RenderAsync(PdfExportDocument document)
+    {
+        // Las imágenes llegan como se almacenan (WebP) y Chromium las lee nativamente:
+        // basta con incrustarlas como data URI en el html que se le pasa.
+        var html = new StringBuilder("<html><head><meta charset=\"utf-8\"></head><body>");
+        html.Append($"<h1>{WebUtility.HtmlEncode(document.Title)}</h1>");
+        foreach (var section in document.Sections)
+        {
+            html.Append($"<h{Math.Clamp(section.Level, 1, 6)}>{WebUtility.HtmlEncode(section.Title)}</h{Math.Clamp(section.Level, 1, 6)}>");
+            html.Append(KnowledgeHubHtml.DocImgRegex().Replace(section.ContentHtml, m =>
+                document.Images.TryGetValue(Guid.Parse(m.Groups["pk"].Value), out var image)
+                    ? $"data:{image.ContentType};base64,{Convert.ToBase64String(image.Content)}"
+                    : m.Value));
+        }
+        html.Append("</body></html>");
+
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(html.ToString());
+        return await page.PdfAsync(new PagePdfOptions { Format = "A4", PrintBackground = true });
+    }
+}
+```
+
+```csharp
+// ANTES de AddKnowledgeHubPdf() — el paquete usa TryAdd, así que el tuyo gana.
+services.AddSingleton<IKnowledgeHubPdfRenderer, PlaywrightPdfRenderer>();
+```
+
+Antes de decidirte, los números: `Microsoft.Playwright` son **195 MB de paquete** más ~150 MB de
+Chromium **por máquina**, frente a **1,7 MB** de PDFsharp sin nada que instalar. Y Chromium no
+genera marcadores de PDF ni un índice con números de página reales. A cambio, no hay nada que mapear
+y el resultado es idéntico a la pantalla. En una app de escritorio distribuida a clientes suele
+compensar el motor por defecto; en un Blazor Server tuyo, Playwright es perfectamente razonable.
 
 ### Sustituir la pantalla de bienvenida (v0.10.0)
 
@@ -605,9 +715,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.10.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.10.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.10.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.11.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.11.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.11.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1511,5 +1621,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.10.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.11.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

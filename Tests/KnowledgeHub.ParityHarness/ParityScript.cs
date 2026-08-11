@@ -585,6 +585,103 @@ public static class ParityScript
             Check("Los tres niveles son idempotentes", idempotent);
         }
 
+        // ---- 25. Exportación a PDF ------------------------------------------------------------------------
+        // Lo que se comprueba aquí NO es que el PDF sea bonito, sino que la exportación no pueda
+        // convertirse en una fuga: lo que acaba en el archivo es exactamente lo que ese usuario
+        // podría abrir a mano, página por página.
+        // Se toma del proveedor del SERVIDOR: la seguridad vive en el core y es la misma en los
+        // cuatro modos. Sobre HTTP se comprueba aparte que el endpoint devuelve el binario.
+        var serverProvider = seederProvider ?? sp;
+        var export = serverProvider.GetService<IKnowledgeHubPdfExportService>();
+        var options = serverProvider.GetService<KnowledgeHubOptions>();
+        Check("Servicio de exportación registrado", export is not null && options is not null);
+
+        if (export is not null && options is not null)
+        {
+            user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+
+            // Rama de tres niveles: la del medio solo la ve quien tenga Docs.Tech.
+            var expRoot = await pages.CreatePageAsync(null, "Exportar Raíz", "exportar-raiz");
+            var expChild = await pages.CreatePageAsync(expRoot.Value, "Exportar Hija", "exportar-hija");
+            var expDraft = await pages.CreatePageAsync(expRoot.Value, "Exportar Borrador", "exportar-borrador");
+            foreach (var pk in new[] { expRoot.Value, expChild.Value })
+            {
+                await PublishSimpleAsync(pages, pk, $"<p>Contenido de {pk}</p>");
+            }
+            // La raíz pública y la hija restringida: así se puede comprobar que un lector recibe
+            // la rama RECORTADA, en vez de que se le niegue entera y no se pruebe nada.
+            await pages.SetPermissionsAsync(expRoot.Value, true, Array.Empty<string>());
+            await pages.SetPermissionsAsync(expChild.Value, false, new[] { "Docs.Tech" });
+
+            var onlyRoot = await export.BuildAsync(expRoot.Value, includeDescendants: false);
+            Check("Exportar una página da UNA sección",
+                onlyRoot.OkNotNull && onlyRoot.Value.Sections.Count == 1 &&
+                onlyRoot.Value.Sections[0].Title == "Exportar Raíz");
+
+            var branch = await export.BuildAsync(expRoot.Value, includeDescendants: true);
+            Check("La rama incluye a la hija publicada y NO al borrador",
+                branch.OkNotNull && branch.Value.Sections.Count == 2 &&
+                branch.Value.Sections.Any(s => s.Title == "Exportar Hija") &&
+                branch.Value.Sections.All(s => s.Title != "Exportar Borrador"));
+            Check("Los niveles reflejan la jerarquía",
+                branch.OkNotNull && branch.Value.Sections.First(s => s.Title == "Exportar Raíz").Level == 1 &&
+                branch.Value.Sections.First(s => s.Title == "Exportar Hija").Level == 2);
+
+            // El corazón del asunto: un usuario que no ve la hija no puede sacarla en el PDF.
+            user.SetUser("lector", "Lector sin permisos");
+            var limited = await export.BuildAsync(expRoot.Value, includeDescendants: true);
+            Check("Un usuario sin visibilidad NO recibe la página restringida",
+                limited.OkNotNull && limited.Value.Sections.Count == 1 &&
+                limited.Value.Sections.All(s => s.Title != "Exportar Hija"));
+
+            var deniedPage = await export.BuildAsync(expChild.Value, includeDescendants: false);
+            Check("Exportar directamente una página que no ve se rechaza",
+                IsUnfinishedContaining(deniedPage, "permiso"));
+
+            var notPublished = await export.BuildAsync(expDraft.Value, includeDescendants: false);
+            Check("Una página sin publicar no se exporta", !notPublished.OkNotNull);
+
+            // Opt-in del permiso: apagado cualquiera exporta lo que puede leer; encendido hace falta.
+            options.UseFineGrainedExport = true;
+            var noPermission = await export.BuildAsync(expRoot.Value, includeDescendants: false);
+            Check("Con UseFineGrainedExport, sin el permiso se rechaza",
+                IsUnfinishedContaining(noPermission, "permiso"));
+
+            user.SetUser("descargador", "Con permiso", KnowledgeHubPermissions.Export);
+            var withPermission = await export.BuildAsync(expRoot.Value, includeDescendants: false);
+            Check("Con el permiso Export sí exporta", withPermission.OkNotNull);
+            options.UseFineGrainedExport = false;
+
+            // El tope rechaza, nunca trunca: media exportación que parece entera es peor que un error.
+            user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+            options.MaxExportPages = 1;
+            var overLimit = await export.BuildAsync(expRoot.Value, includeDescendants: true);
+            Check("Superar MaxExportPages rechaza en vez de truncar",
+                IsUnfinishedContaining(overLimit, "límite"));
+            options.MaxExportPages = 200;
+
+            // El renderer se busca en el SERVIDOR, no en sp: sobre HTTP el cliente no lo tiene y
+            // estos dos checks se saltarían en silencio, dejando ese modo con menos cobertura sin
+            // que se notara en el recuento.
+            Check("Renderer de PDF registrado", serverProvider.GetService<IKnowledgeHubPdfRenderer>() is not null);
+
+            var file = await export.ExportAsync(expRoot.Value, includeDescendants: true);
+            Check("ExportAsync devuelve bytes de PDF",
+                file.OkNotNull && file.Value.Content.Length > 1024 && IsPdf(file.Value.Content));
+            Check("El nombre del archivo sale del título",
+                file.OkNotNull && file.Value.FileName == "exportar-raiz.pdf");
+
+            // Y por el camino del cliente: en los modos en proceso es el mismo servicio, pero
+            // sobre HTTP esto atraviesa el endpoint binario de verdad.
+            var clientExport = sp.GetService<IKnowledgeHubPdfExportService>();
+            var overTransport = clientExport is null
+                ? file
+                : await clientExport.ExportAsync(expRoot.Value, includeDescendants: true);
+            Check("La exportación llega igual por el transporte del cliente",
+                overTransport.OkNotNull && IsPdf(overTransport.Value.Content) &&
+                overTransport.Value.FileName == "exportar-raiz.pdf");
+        }
+
         Console.WriteLine();
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL =====");
         return _failed;
@@ -611,6 +708,22 @@ public static class ParityScript
         $"{unfinished.Title} {unfinished.Mensaje}".Contains(text, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Titles of the children of the page with that slug, in the order the tree shows them.</summary>
+    private static bool IsPdf(byte[] bytes) =>
+        bytes.Length > 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F';
+
+    /// <summary>Saves a draft with the given html and publishes it, so the page becomes readable.</summary>
+    private static async Task PublishSimpleAsync(IKnowledgeHubPageService pages, Guid pagePk, string html)
+    {
+        var edit = await pages.GetPageForEditAsync(pagePk);
+        if (!edit.OkNotNull) return;
+
+        edit.Value.ContentHtml = html;
+        var saved = await pages.SaveDraftAsync(edit.Value);
+        if (!saved.Ok) return;
+
+        await pages.PublishAsync(pagePk, saved.Value);
+    }
+
     private static async Task<List<string>> SiblingOrderAsync(IKnowledgeHubPageService pages, string parentSlug)
     {
         var tree = await pages.GetTreeAsync();

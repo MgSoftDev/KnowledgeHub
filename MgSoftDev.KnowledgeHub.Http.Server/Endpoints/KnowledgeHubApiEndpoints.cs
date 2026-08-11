@@ -47,6 +47,21 @@ public static class KnowledgeHubApiEndpoints
         group.MapGet("/pages/{pagePk:guid}/edit", async (Guid pagePk, IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.GetPageForEditAsync(pagePk)).ToApi()));
 
+        // ---- Export ---------------------------------------------------------------------
+        // The only endpoint that answers with something other than an ApiResult, because a PDF is
+        // bytes. The convention still holds — 200 whenever the pipeline worked — so the client
+        // tells the two apart by CONTENT TYPE: application/pdf is the file, application/json is a
+        // business rejection (no permission, not published, over the page limit) it can show.
+        group.MapGet("/pages/{pagePk:guid}/pdf", async (Guid pagePk, bool? descendants,
+            IKnowledgeHubPdfExportService svc) =>
+        {
+            var result = await svc.ExportAsync(pagePk, descendants ?? false);
+            if (!result.OkNotNull) return Results.Ok(result.ToApi());
+
+            var file = result.Value;
+            return Results.File(file.Content, file.ContentType, file.FileName);
+        });
+
         group.MapGet("/versions/{versionPk:guid}", async (Guid versionPk, IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.GetVersionContentAsync(versionPk)).ToApi()));
 

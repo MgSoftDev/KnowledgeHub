@@ -8,6 +8,7 @@ using MgSoftDev.KnowledgeHub.Blazor;
 using MgSoftDev.KnowledgeHub.Blazor.EditorTools;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.HtmlSanitizer;
+using MgSoftDev.KnowledgeHub.Pdf;
 using MgSoftDev.KnowledgeHub.Seeding;
 using MgSoftDev.KnowledgeHub.Storage.LiteDb;
 using MgSoftDev.ReturningCore.Logger;
@@ -62,6 +63,7 @@ builder.Services.AddKnowledgeHubFileImageCache(Path.Combine(dataFolder, "cache")
 // Cleans pasted Word/web markup and checks the html again right before it is stored.
 // One registration covers both, because the UI and the core share this container.
 builder.Services.AddKnowledgeHubHtmlSanitizer();
+builder.Services.AddKnowledgeHubPdf();
 
 builder.Services.AddKnowledgeHubBlazor(o =>
 {

@@ -46,6 +46,16 @@ public static class DependencyInjectionExtension
         services.AddScoped<IKnowledgeHubDiagnostics, InMemoryKnowledgeHubDiagnostics>();
         services.AddScoped<KnowledgeHubContentSeeder>();
 
+        // The PDF renderer is OPTIONAL too (MgSoftDev.KnowledgeHub.Pdf, or the host's own), so the
+        // export service is built by hand as well. Registered unconditionally: without a renderer
+        // it still builds the document and reports politely that nothing can render it.
+        services.AddScoped<IKnowledgeHubPdfExportService>(sp => new KnowledgeHubPdfExportService(
+            sp.GetRequiredService<IKnowledgeHubPageService>(),
+            sp.GetRequiredService<IKnowledgeHubStore>(),
+            sp.GetRequiredService<IKnowledgeHubUserContext>(),
+            sp.GetRequiredService<KnowledgeHubOptions>(),
+            sp.GetService<IKnowledgeHubPdfRenderer>()));
+
         return services;
     }
 

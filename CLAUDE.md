@@ -127,6 +127,16 @@ automático** (v0.8.0-preview.1).
   sanitizador. Strict conserva lo que produce la propia librería: las `<img>` (tamaño/zoom) y los
   callouts, que desde esta versión se marcan con `class="kh-callout"` (los creados antes no la
   llevan → pierden el fondo si les pasas la escoba en nivel 2).
+- **Exportación a PDF (v0.11.0)**: **dos** contratos, no uno.
+  `IKnowledgeHubPdfExportService` (core, Scoped) es donde vive TODA la seguridad —`CanExport` una
+  vez, `GetTreeAsync` para la rama y luego `GetPageForReadAsync` **página por página** como defensa
+  en profundidad, saltando las rechazadas sin tumbar la exportación—; `IKnowledgeHubPdfRenderer`
+  (opcional, paquete `MgSoftDev.KnowledgeHub.Pdf` sobre PDFsharp/MigraDoc) solo convierte a bytes.
+  Así un anfitrión enchufa Playwright implementando **solo** el renderer y hereda el filtrado.
+  Las imágenes viajan en un diccionario aparte y **como se almacenan (WebP)**, con los `docimg://`
+  intactos en el HTML: sin inflar la cadena y dejando que cada motor decida. `MaxExportPages`
+  (200) **rechaza**, nunca trunca. El permiso `KnowledgeHub.Export` con `UseFineGrainedExport` cae
+  en `IsAuthenticated` —no en `CanEdit`— porque leer y exportar son la misma capacidad.
 - **Icono + color por página (v0.3.0)**: propiedad ESTRUCTURAL del nodo (`DocPage.Icon`,
   `DocPage.IconColor`, NVARCHAR 64/32), no versionada. Se propaga por todos los DTOs donde
   aparece el título (`PageTreeNodeDto`, `PageInfoDto`, `PageReadDto`, `PageEditDto`,
@@ -377,6 +387,21 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
       520px en un contenedor de 384px. Se cierra por dos lados: recortando el valor guardado al
       contenedor al restaurar (`fitToContainer` en el JS) y con un tope CSS
       `--kh-tree-max-width: 75%` para cuando se estrecha la ventana después.
+
+25. **PDFsharp/MigraDoc 6.2.4: tres cosas que solo se ven ejecutándolo** (v0.11.0).
+    - **Acepta WebP y genera el PDF SIN la imagen.** Ni excepción ni aviso. Verificado inspeccionando
+      la estructura: con PNG sale `/Subtype /Image /Width 200 /Height 100`; el mismo documento con
+      WebP sale con **cero** XObjects de imagen. Como KnowledgeHub almacena WebP, transcodificar con
+      ImageSharp NO es opcional, y si falla hay que pintar un marcador visible — nunca callar.
+    - **`PageSetup.PageFormat = A4` NO rellena `PageWidth`**: se queda en 0. Cualquier cuenta que
+      reste los márgenes da **negativo** (−124,7 pt con márgenes de 2,2 cm) y la tabla sale con las
+      columnas cambiadas y fuera de la página. Hay que fijar `PageWidth`/`PageHeight` a mano.
+    - **`GlobalFontSettings` es estático de proceso.** Sin resolver, el render **lanza** (bien: falla
+      ruidoso, no glifos vacíos). En Windows basta `UseWindowsFontsUnderWindows = true`; el resolver
+      solo se asigna si está a null para no pisar al anfitrión. Los emoji salen como cuadrito si la
+      fuente configurada no los tiene (Arial no).
+    Extra de MigraDoc que Chromium no da: índice con `AddPageRefField` (números de página reales) y
+    marcadores desde `ParagraphFormat.OutlineLevel`.
 
 ## Pendientes / siguientes pasos
 

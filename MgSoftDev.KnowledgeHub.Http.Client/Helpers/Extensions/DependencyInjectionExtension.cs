@@ -25,6 +25,7 @@ public static class DependencyInjectionExtension
         services.AddScoped<IKnowledgeHubPageService, HttpKnowledgeHubPageService>();
         services.AddScoped<IKnowledgeHubImageService, HttpKnowledgeHubImageService>();
         services.AddScoped<IKnowledgeHubHtmlImageRewriter, HttpKnowledgeHubHtmlImageRewriter>();
+        services.AddScoped<IKnowledgeHubPdfExportService, HttpKnowledgeHubPdfExportService>();
         services.TryAddScoped<IKnowledgeHubDiagnostics, InMemoryKnowledgeHubDiagnostics>();
 
         return services;

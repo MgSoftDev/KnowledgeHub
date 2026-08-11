@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.10.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.11.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -55,6 +55,7 @@ en tu contenido, el editor en una pestaña…). Ver la
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos (para clientes WASM) |
 | `MgSoftDev.KnowledgeHub.Http.Client` | Implementaciones `HttpClient` de los contratos (WASM-safe) |
 | `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (pegado desde Word, guardado y botón manual), con 3 niveles seleccionables |
+| `MgSoftDev.KnowledgeHub.Pdf` | Exportación a PDF por defecto (página o rama, con portada, índice y marcadores) sobre PDFsharp/MigraDoc |
 
 ### Qué instalar según el hosting
 
@@ -69,13 +70,13 @@ en tu contenido, el editor en una pestaña…). Ver la
 
 ```
 MgSoftDev.KnowledgeHub.slnx        Solución (.NET 10, Central Package Management)
-MgSoftDev.KnowledgeHub.*/          Los 10 proyectos de librería
+MgSoftDev.KnowledgeHub.*/          Los 11 proyectos de librería
 Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.Wpf                WPF + LiteDB
   KnowledgeHub.Demo.BlazorServer       Blazor Server + LiteDB
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
-Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (106 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (120 checks) sobre 4 modos de store
 ```
 
 ## Compilar y probar
@@ -120,7 +121,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 
 La publicación a nuget.org es automática vía GitHub Actions con **Trusted Publishing (OIDC)** —
 sin API keys. Se dispara al pushear un tag `v*`, y la versión sale del tag (`v1.2.3` → `1.2.3`,
-misma versión para los 10 paquetes):
+misma versión para los 11 paquetes):
 
 ```bash
 git tag v1.2.3
@@ -131,8 +132,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.10.0-preview.1**. Las 10 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-106/106 en los 4 modos de store; los demos están verificados end-to-end.
+**v0.11.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+120/120 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia
 

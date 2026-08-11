@@ -41,6 +41,31 @@ export function elementWidth(element) {
 }
 
 /**
+ * Saves a file the browser never fetched, streaming it out of .NET.
+ *
+ * The stream matters: under Blazor Server everything crosses SignalR, and handing the file over as
+ * base64 would inflate it by a third and blow the message limit — the same wall the paste path hit.
+ * A DotNetStreamReference arrives in chunks instead, so a multi-megabyte PDF gets through.
+ * @param {string} fileName Suggested name for the download.
+ * @param {string} contentType MIME type, e.g. "application/pdf".
+ * @param {any} streamReference A .NET DotNetStreamReference.
+ */
+export async function downloadFileFromStream(fileName, contentType, streamReference) {
+    const buffer = await streamReference.arrayBuffer();
+    const url = URL.createObjectURL(new Blob([buffer], { type: contentType }));
+
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName ?? '';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
+    // Revoking immediately can cancel the download in some engines; one turn later is safe.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/**
  * Fits a remembered width to the space actually available now. Without this, a width dragged on a
  * wide monitor comes back on a narrow window (or in a host container that is narrower than the
  * portal) larger than the whole container, and the content column ends up at zero pixels with no

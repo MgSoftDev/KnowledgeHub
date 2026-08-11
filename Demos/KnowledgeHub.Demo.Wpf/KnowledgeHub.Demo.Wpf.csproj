@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Blazor\MgSoftDev.KnowledgeHub.Blazor.csproj" />
     <ProjectReference Include="..\KnowledgeHub.Demo.SharedAuth\KnowledgeHub.Demo.SharedAuth.csproj" />
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.HtmlSanitizer\MgSoftDev.KnowledgeHub.HtmlSanitizer.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Pdf\MgSoftDev.KnowledgeHub.Pdf.csproj" />
   </ItemGroup>
 
 </Project>
