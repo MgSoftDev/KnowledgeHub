@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.1-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -332,9 +332,9 @@ ni sacar al usuario de tu pantalla).
 
 ### Ancho del árbol (v0.9.0)
 
-La columna del árbol es **redimensionable arrastrando** el divisor, **colapsable** con la flecha
-del divisor, y **el ancho al que la dejes se recuerda** entre sesiones (localStorage). Aplica igual
-en el modo portal y en el embebido: es el mismo componente interno en los dos.
+La columna del árbol es **redimensionable arrastrando** el divisor, y **el ancho al que la dejes se
+recuerda** entre sesiones (localStorage). Aplica igual en el modo portal y en el embebido: es el
+mismo componente interno en los dos.
 
 Los valores por defecto (320px de ancho, mínimo 200px, máximo 60%) se cambian al registrar, y valen
 para los dos modos:
@@ -345,7 +345,7 @@ services.AddKnowledgeHubBlazor(o =>
     o.TreeSize = "380px";       // ancho inicial; el arrastrado del usuario manda a partir de ahí
     o.TreeMinSize = "220px";
     o.TreeMaxSize = "50%";
-    o.TreeCollapsible = true;   // flecha para ocultar el árbol
+    o.TreeCollapsible = true;   // flechas para plegar el árbol de un clic; por defecto NO salen
     o.TreeWidthStorageKey = null;   // null o "" → arranca siempre en TreeSize, sin recordar
 });
 ```
@@ -354,7 +354,7 @@ En el modo embebido puedes además afinarlo por instancia, útil si la misma app
 dos pantallas de distinto tamaño:
 
 ```razor
-<KnowledgeHubBrowser TreeSize="25%" TreeMinSize="180px" TreeCollapsible="false" />
+<KnowledgeHubBrowser TreeSize="25%" TreeMinSize="180px" TreeCollapsible="true" />
 ```
 
 Dos comportamientos pensados para que el contenido nunca desaparezca: al restaurar un ancho
@@ -580,9 +580,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.9.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.9.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.9.1-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.9.1-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.9.1-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1486,5 +1486,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.9.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.9.1-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

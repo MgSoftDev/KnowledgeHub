@@ -44,8 +44,8 @@ public partial class KnowledgeHubSplitLayout : ComponentBase, IAsyncDisposable
     /// <summary>How wide the tree can be dragged.</summary>
     [Parameter] public string TreeMaxSize { get; set; } = "60%";
 
-    /// <summary>Show the collapse/expand arrow on the divider.</summary>
-    [Parameter] public bool TreeCollapsible { get; set; } = true;
+    /// <summary>Show the collapse/expand arrows on the divider. Off by default.</summary>
+    [Parameter] public bool TreeCollapsible { get; set; }
 
     /// <summary>localStorage key for the dragged width. Null or empty disables remembering.</summary>
     [Parameter] public string? TreeWidthStorageKey { get; set; }
@@ -63,6 +63,11 @@ public partial class KnowledgeHubSplitLayout : ComponentBase, IAsyncDisposable
         get
         {
             var css = Embedded ? "kh-split kh-embedded" : "kh-split";
+
+            // Collapsible="false" stops the arrows from WORKING but Radzen still renders one on
+            // the bar, so the modifier below is what actually hides them.
+            if (!TreeCollapsible) css += " kh-split-nocollapse";
+
             return AdditionalAttributes?.TryGetValue("class", out var hostClass) == true &&
                    hostClass?.ToString() is { Length: > 0 } extra
                 ? $"{css} {extra}"

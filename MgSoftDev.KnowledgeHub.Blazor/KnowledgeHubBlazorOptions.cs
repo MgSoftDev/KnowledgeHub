@@ -42,8 +42,13 @@ public sealed class KnowledgeHubBlazorOptions
     /// <summary>How wide the tree can be dragged.</summary>
     public string TreeMaxSize { get; set; } = "60%";
 
-    /// <summary>Show the arrow that collapses/expands the tree with one click. Default true.</summary>
-    public bool TreeCollapsible { get; set; } = true;
+    /// <summary>
+    /// Show the arrows on the divider that collapse/expand the tree with one click. Off by
+    /// default: they add two clickable targets to a bar whose job is to be dragged, and hitting
+    /// one by accident makes a column vanish. The tree can still be dragged all the way to its
+    /// minimum.
+    /// </summary>
+    public bool TreeCollapsible { get; set; }
 
     /// <summary>
     /// localStorage key under which the dragged tree width is remembered. Set it to null or empty

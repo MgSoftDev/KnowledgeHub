@@ -45,6 +45,14 @@
     flex: 1 1 auto;
 }
 
+/* Without collapsing, the divider is only for dragging. Radzen keeps rendering an arrow on the bar
+   even with Collapsible="false" (it stops working, but it is still there, focusable and 16px wide),
+   so hiding it is the only way to actually get a clean bar. */
+.kh-split-nocollapse .rz-splitter-bar > .rz-collapse,
+.kh-split-nocollapse .rz-splitter-bar > .rz-expand {
+    display: none;
+}
+
 /* The tree pane is flex:0 0 auto with a pixel basis, so it does NOT shrink: narrow the window
    after sizing it and the content column would be squeezed to nothing. This cap keeps the content
    always visible. It sits above the default TreeMaxSize (60%), so it never interferes; raise it

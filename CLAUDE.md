@@ -57,8 +57,10 @@ automático** (v0.8.0-preview.1).
     delega. Patrón: `if (OnX.HasDelegate) await OnX.InvokeAsync(pk); else Nav.NavigateTo(...)`.
   - **Divisor arrastrable (v0.9.0)**: los dos shells (el layout portal y `KnowledgeHubBrowser`)
     duplicaban el mismo `grid-template-columns: 320px 1fr`. Ahora ambos delegan en
-    `Components/Embedded/KnowledgeHubSplitLayout`, un `RadzenSplitter` de dos panes con colapso y
-    ancho recordado en localStorage. Defaults en `KnowledgeHubBlazorOptions`
+    `Components/Embedded/KnowledgeHubSplitLayout`, un `RadzenSplitter` de dos panes con el ancho
+    recordado en localStorage. El plegado de un clic existe pero va **apagado por defecto**
+    (`TreeCollapsible`): las flechas meten dos objetivos pulsables en una barra cuyo trabajo es que
+    la arrastren, y darle sin querer hace desaparecer una columna. Defaults en `KnowledgeHubBlazorOptions`
     (`TreeSize`/`TreeMinSize`/`TreeMaxSize`/`TreeCollapsible`/`TreeWidthStorageKey`), overridables
     por instancia en el Browser. `.kh-portal` sobrevive como rejilla simple porque la guía la
     documenta para composición manual. Ver gotcha 23.
@@ -357,6 +359,9 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
       (comprobado midiendo `offsetParent` en el navegador).
     - El drag escucha **`pointermove`/`pointerup`**, no `mousemove`/`mouseup`: un arrastre simulado
       con `MouseEvent` no hace absolutamente nada.
+    - **`Collapsible="false"` NO quita las flechas de la barra**: deja de funcionar el plegado, pero
+      Radzen sigue pintando un `<span class="rz-expand">` visible, focusable y de 16px. Para tener
+      una barra limpia hay que ocultarlas por CSS (`.kh-split-nocollapse`).
     - `RadzenSplitterResizeEventArgs.NewSize` es `parseFloat(pane.style.flexBasis)`, es decir un
       **porcentaje**, no píxeles. Por eso el ancho se persiste midiendo el DOM
       (`getBoundingClientRect`) en vez de usar ese valor.
