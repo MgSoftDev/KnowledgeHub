@@ -388,57 +388,152 @@ services.AddKnowledgeHubPdf(o =>
 > un documento con cuadraditos: instala fuentes en la imagen o configura tú
 > `GlobalFontSettings.FontResolver` y pon `o.ConfigureFonts = false`.
 
-### Otro motor: la receta de Playwright
+### Otro motor: la receta de Playwright, con el navegador empaquetado
 
 El contrato está partido en dos a propósito. `IKnowledgeHubPdfExportService` (en el core) hace los
 permisos, recorre la rama y resuelve las imágenes; `IKnowledgeHubPdfRenderer` solo convierte a
 bytes. **Cambiar de motor es implementar el segundo** — la seguridad la heredas intacta.
 
-Si quieres fidelidad exacta a lo que se ve en pantalla, con Chromium de verdad:
+Con Chromium el PDF sale idéntico a lo que se ve en pantalla y **no hay ningún mapeador que
+mantener**: el HTML que produzca el editor mañana funciona solo. El precio es el tamaño, y hay que
+resolver el despliegue.
 
-```bash
-dotnet add package Microsoft.Playwright
-# y una vez por máquina, tras compilar:  pwsh bin/Debug/net10.0/playwright.ps1 install chromium
+> **El ejemplo completo y compilable está en el demo WPF**:
+> [`Demos/KnowledgeHub.Demo.Wpf/Pdf/PlaywrightPdfRenderer.cs`](Demos/KnowledgeHub.Demo.Wpf/Pdf/PlaywrightPdfRenderer.cs)
+> y el bloque de MSBuild en su `.csproj`. Viene apagado; se enciende con
+> `dotnet build -p:KhBundleChromium=true`.
+
+#### Instalación en planta, sin internet
+
+La idea: el navegador se descarga **en la máquina de build**, queda dentro de la carpeta de salida
+de tu app y entra en el MSI/ZIP. El equipo de destino no descarga nada.
+
+Pega esto en el `.csproj` de tu aplicación:
+
+```xml
+<PropertyGroup>
+  <KhBundleChromium Condition="'$(KhBundleChromium)' == ''">true</KhBundleChromium>
+  <KhPlaywrightBrowser Condition="'$(KhPlaywrightBrowser)' == ''">chromium-headless-shell</KhPlaywrightBrowser>
+
+  <!-- IMPRESCINDIBLE. Sin esto Playwright no acierta la plataforma y copia el driver de Node de
+       las CINCO (win, linux x64/arm64, macOS x64/arm64): 548 MB en vez de 87 MB. Medido. -->
+  <PlaywrightPlatform>win</PlaywrightPlatform>
+</PropertyGroup>
+
+<ItemGroup>
+  <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
+</ItemGroup>
+
+<Target Name="KhBundleBrowserAfterBuild" AfterTargets="Build" Condition="'$(KhBundleChromium)' == 'true'">
+  <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="KhInstallPlaywrightBrowser"
+           Properties="KhBrowserDir=$(TargetDir);KhBundleChromium=true;Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+</Target>
+
+<!-- Publish NO arrastra el navegador desde bin: se descargó después de que MSBuild decidiera qué
+     copiar, así que no lo conoce. Se copia a mano; solo se descarga si no había nada que copiar. -->
+<Target Name="KhBundleBrowserAfterPublish" AfterTargets="Publish" Condition="'$(KhBundleChromium)' == 'true'">
+  <PropertyGroup>
+    <_KhPublishDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::GetFullPath('$(PublishDir)'))))</_KhPublishDir>
+    <_KhFromBuild>$(TargetDir).playwright\package\.local-browsers</_KhFromBuild>
+    <_KhToPublish>$(_KhPublishDir).playwright\package\.local-browsers</_KhToPublish>
+  </PropertyGroup>
+  <ItemGroup Condition="!Exists('$(_KhToPublish)') AND Exists('$(_KhFromBuild)')">
+    <_KhBrowserFile Include="$(_KhFromBuild)\**\*" />
+  </ItemGroup>
+  <Copy Condition="'@(_KhBrowserFile->Count())' != '0'"
+        SourceFiles="@(_KhBrowserFile)"
+        DestinationFiles="@(_KhBrowserFile->'$(_KhToPublish)\%(RecursiveDir)%(Filename)%(Extension)')"
+        SkipUnchangedFiles="true" />
+  <MSBuild Condition="!Exists('$(_KhToPublish)')"
+           Projects="$(MSBuildProjectFullPath)" Targets="KhInstallPlaywrightBrowser"
+           Properties="KhBrowserDir=$(_KhPublishDir);KhBundleChromium=true;Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+</Target>
+
+<Target Name="KhInstallPlaywrightBrowser">
+  <PropertyGroup>
+    <_KhDir>$([MSBuild]::EnsureTrailingSlash('$(KhBrowserDir)'))</_KhDir>
+    <_KhLocalBrowsers>$(_KhDir).playwright\package\.local-browsers</_KhLocalBrowsers>
+  </PropertyGroup>
+  <Exec Command="pwsh -NoProfile -Command &quot;exit 0&quot;" ContinueOnError="true" StandardOutputImportance="low">
+    <Output TaskParameter="ExitCode" PropertyName="_KhPwshExit" />
+  </Exec>
+  <Error Condition="'$(_KhPwshExit)' != '0'"
+         Text="Empaquetar Chromium necesita PowerShell 7 (pwsh) en la máquina de build." />
+  <Exec Condition="!Exists('$(_KhLocalBrowsers)')"
+        Command="pwsh -NoProfile -File &quot;$(_KhDir)playwright.ps1&quot; install $(KhPlaywrightBrowser)"
+        EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=0" />
+</Target>
 ```
 
-```csharp
-public sealed class PlaywrightPdfRenderer : IKnowledgeHubPdfRenderer
-{
-    public async Task<Returning<byte[]>> RenderAsync(PdfExportDocument document)
-    {
-        // Las imágenes llegan como se almacenan (WebP) y Chromium las lee nativamente:
-        // basta con incrustarlas como data URI en el html que se le pasa.
-        var html = new StringBuilder("<html><head><meta charset=\"utf-8\"></head><body>");
-        html.Append($"<h1>{WebUtility.HtmlEncode(document.Title)}</h1>");
-        foreach (var section in document.Sections)
-        {
-            html.Append($"<h{Math.Clamp(section.Level, 1, 6)}>{WebUtility.HtmlEncode(section.Title)}</h{Math.Clamp(section.Level, 1, 6)}>");
-            html.Append(KnowledgeHubHtml.DocImgRegex().Replace(section.ContentHtml, m =>
-                document.Images.TryGetValue(Guid.Parse(m.Groups["pk"].Value), out var image)
-                    ? $"data:{image.ContentType};base64,{Convert.ToBase64String(image.Content)}"
-                    : m.Value));
-        }
-        html.Append("</body></html>");
+`PLAYWRIGHT_BROWSERS_PATH=0` va **solo en esa invocación**: hace que los binarios queden junto al
+driver, en `.playwright\package\.local-browsers`, en vez de en la caché del usuario. Es incremental:
+si la carpeta ya existe no se vuelve a descargar.
 
-        using var playwright = await Playwright.CreateAsync();
-        await using var browser = await playwright.Chromium.LaunchAsync();
-        var page = await browser.NewPageAsync();
-        await page.SetContentAsync(html.ToString());
-        return await page.PdfAsync(new PagePdfOptions { Format = "A4", PrintBackground = true });
-    }
-}
+#### La trampa: la variable también hace falta en EJECUCIÓN
+
+Instalar con `PLAYWRIGHT_BROWSERS_PATH=0` **no basta**. En ejecución, Playwright sigue buscando en
+`%LOCALAPPDATA%\ms-playwright` salvo que se le diga otra cosa, y ahí no hay nada en un equipo de
+planta. Comprobado: con la variable sin definir falla con
+
+```
+Executable doesn't exist at C:\Users\<usuario>\AppData\Local\ms-playwright\chromium_headless_shell-…
 ```
 
+La solución no exige tocar el equipo del cliente: **la fija la propia aplicación en su proceso**,
+antes de arrancar el navegador. Una línea en el renderer:
+
 ```csharp
-// ANTES de AddKnowledgeHubPdf() — el paquete usa TryAdd, así que el tuyo gana.
+Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", "0");
+```
+
+#### Lo que ocupa de verdad
+
+Medido sobre el demo WPF publicado, con `PlaywrightPlatform=win`:
+
+| | |
+|---|---|
+| `chromium-headless-shell` + ffmpeg | 268,4 MB |
+| Driver de Playwright (solo win) | 100,2 MB |
+| La aplicación en sí | 59,0 MB |
+| **Total de la carpeta que va al instalador** | **427,6 MB** |
+
+Sin `PlaywrightPlatform` serían **888,3 MB**. Y con `chromium` completo en vez del headless shell,
+súmale otros ~145 MB. Para comparar: el motor por defecto son **1,7 MB** y no instala nada.
+
+#### El renderer
+
+Puntos que el ejemplo del demo resuelve y conviene no perder al copiarlo:
+
+- **Cachea el navegador.** El contrato pide que el renderer sea seguro como singleton, y arrancar
+  Chromium cuesta 1-2 s: se abre una vez tras un `SemaphoreSlim` y se reutiliza. Medido: la segunda
+  exportación tarda **396 ms**.
+- **`Channel = "chromium-headless-shell"`**, que es el binario que instala el target.
+- **Errores de despliegue como `Unfinished`, no como excepción.** Si el instalador se armó sin la
+  carpeta del navegador, el usuario lee «no se encontró el navegador incrustado», no un error
+  genérico.
+- **CSS embebido.** Chromium no tiene cargado el `knowledgehub.css` de la RCL, así que el contenido
+  llegaría sin estilo. El ejemplo inyecta su propia hoja — y de paso, con este motor **el aspecto lo
+  decides tú**.
+- **El WebP se incrusta tal cual**, sin transcodificar: Chromium lo lee de forma nativa.
+
+#### Antes de decidirte
+
+- **Rutas largas.** Playwright añade **119 caracteres** desde la carpeta de la app hasta el
+  ejecutable. Si el total pasa de 260 (MAX_PATH), falla con un `spawn … ENOENT` que no dice nada de
+  longitudes. `C:\Program Files\TuApp\` va sobrado; una instalación muy anidada, no.
+- **La máquina de build necesita internet y PowerShell 7.** El equipo de destino, ninguna de las dos.
+- **Subir la versión de `Microsoft.Playwright` cambia el navegador**, así que hay que rehacer el
+  instalador. Fija la versión y súbela a propósito.
+- **Chromium no genera marcadores de PDF ni un índice con números de página reales**; solo cabecera
+  y pie por plantilla. Si el índice navegable te importa, el motor por defecto lo hace mejor.
+
+Registro, en tu contenedor:
+
+```csharp
+// ANTES de AddKnowledgeHubPdf() — el paquete usa TryAdd, así que gana quien registre primero.
 services.AddSingleton<IKnowledgeHubPdfRenderer, PlaywrightPdfRenderer>();
+services.AddKnowledgeHubPdf();
 ```
-
-Antes de decidirte, los números: `Microsoft.Playwright` son **195 MB de paquete** más ~150 MB de
-Chromium **por máquina**, frente a **1,7 MB** de PDFsharp sin nada que instalar. Y Chromium no
-genera marcadores de PDF ni un índice con números de página reales. A cambio, no hay nada que mapear
-y el resultado es idéntico a la pantalla. En una app de escritorio distribuida a clientes suele
-compensar el motor por defecto; en un Blazor Server tuyo, Playwright es perfectamente razonable.
 
 ### Sustituir la pantalla de bienvenida (v0.10.0)
 

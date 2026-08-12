@@ -10,6 +10,7 @@
     <!-- Transitive of HtmlSanitizer; referenced directly to pre-process the DOM before sanitizing. -->
     <PackageVersion Include="AngleSharp" Version="1.5.2" />
     <PackageVersion Include="PDFsharp-MigraDoc" Version="6.2.4" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.59.0" />
 
     <!-- Imaging / storage engines -->
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />

@@ -403,6 +403,26 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     Extra de MigraDoc que Chromium no da: índice con `AddPageRefField` (números de página reales) y
     marcadores desde `ParagraphFormat.OutlineLevel`.
 
+26. **Empaquetar Chromium con la app (Playwright) tiene cuatro trampas medidas** — ejemplo vivo en
+    `Demos/KnowledgeHub.Demo.Wpf` (`Pdf/PlaywrightPdfRenderer.cs` + el MSBuild del csproj), apagado
+    tras `KhBundleChromium`, que hay que encender con `-p:KhBundleChromium=true`.
+    - **`PLAYWRIGHT_BROWSERS_PATH=0` al instalar NO basta**: en ejecución Playwright sigue mirando
+      `%LOCALAPPDATA%\ms-playwright` y falla con «Executable doesn't exist at …». La app tiene que
+      fijar la variable en su propio proceso antes de lanzar el navegador (no hay que tocar el
+      equipo del cliente).
+    - **Sin `<PlaywrightPlatform>win</PlaywrightPlatform>` se copia el driver de Node de las CINCO
+      plataformas**: 548 MB en vez de 87 MB. Publish medido: **888,3 → 427,6 MB**.
+    - **`dotnet publish` NO arrastra el navegador desde `bin`**: se descargó después de que MSBuild
+      resolviera qué copiar, así que no lo conoce como item. Hace falta un segundo target en
+      `AfterTargets="Publish"` que lo copie (o volvería a descargar 370 MB). Y ojo: `$(PublishDir)`
+      está definido también en un build normal, así que no sirve para distinguir el enganche —
+      por eso son dos targets que pasan la carpeta explícitamente.
+    - **Playwright añade 119 caracteres de ruta** hasta el ejecutable. Pasado MAX_PATH (260) falla
+      con `spawn … ENOENT`, que no menciona longitudes en ningún momento.
+    Confirmado además: `PdfAsync` **sí** funciona con `Channel="chromium-headless-shell"` (265 MB
+    frente a 412 MB del Chromium completo), y cachear el navegador baja la segunda exportación a
+    396 ms.
+
 ## Pendientes / siguientes pasos
 
 - Captura visual del demo WPF (la sesión de Windows estaba bloqueada durante la verificación;

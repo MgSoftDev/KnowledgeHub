@@ -10,6 +10,26 @@
     <AssemblyName>KnowledgeHubDemo</AssemblyName>
   </PropertyGroup>
 
+  <!-- ================================================================================
+       EJEMPLO: motor de PDF alternativo con Playwright, con el navegador EMPAQUETADO.
+
+       Pensado para instalación en planta sin internet: el navegador se descarga en la
+       máquina de BUILD y queda dentro de la carpeta de salida, así que entra en el MSI y
+       el equipo de destino no descarga nada ni necesita variables de entorno.
+
+       Apagado en este repositorio para que compilarlo no cueste ~370 MB. En tu app pon
+       esta propiedad a true (o pasa -p:KhBundleChromium=true al compilar).
+       ================================================================================ -->
+  <PropertyGroup>
+    <KhBundleChromium Condition="'$(KhBundleChromium)' == ''">false</KhBundleChromium>
+    <KhPlaywrightBrowser Condition="'$(KhPlaywrightBrowser)' == ''">chromium-headless-shell</KhPlaywrightBrowser>
+
+    <!-- IMPRESCINDIBLE, y ahorra 461 MB: sin esto el paquete no acierta la plataforma y copia el
+         driver de Node de las CINCO (win, linux x64/arm64, macOS x64/arm64) = 548 MB, cuando en
+         Windows solo hacen falta 87 MB. Medido en este mismo proyecto. -->
+    <PlaywrightPlatform Condition="'$(KhBundleChromium)' == 'true'">win</PlaywrightPlatform>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" />
     <PackageReference Include="MgSoftDev.PrismPlus.Returning" />
@@ -18,7 +38,89 @@
     <PackageReference Include="Serilog.Extensions.Hosting" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Microsoft.Playwright" Condition="'$(KhBundleChromium)' == 'true'" />
   </ItemGroup>
+
+  <!-- La constante deja fuera del compilado el renderer de Playwright cuando el ejemplo está
+       apagado; así el demo sigue usando MigraDoc y no hace falta el paquete. -->
+  <PropertyGroup Condition="'$(KhBundleChromium)' == 'true'">
+    <DefineConstants>$(DefineConstants);KH_PLAYWRIGHT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(KhBundleChromium)' != 'true'">
+    <Compile Remove="Pdf\PlaywrightPdfRenderer.cs" />
+  </ItemGroup>
+
+  <!-- Descarga el navegador DENTRO de la salida.
+
+       Se engancha a Build y a Publish porque son carpetas distintas: lo que se descarga tras
+       compilar no lo conoce MSBuild como item, así que no viaja solo a la de publicación — y esa
+       es justamente la que se mete en el instalador.
+
+       PLAYWRIGHT_BROWSERS_PATH=0 va SOLO en esta invocación: hace que los binarios queden junto al
+       driver (.playwright\package\.local-browsers) en vez de en la caché del usuario. La aplicación
+       vuelve a fijar esa variable en su propio proceso al arrancar el navegador; el equipo del
+       cliente no necesita configuración alguna.
+
+       Es incremental: si la carpeta ya existe no se vuelve a descargar. -->
+  <!-- Dos objetivos y no uno: $(PublishDir) está definido también en un build normal, así que no
+       sirve para saber cuál de los dos enganches disparó. Cada uno pasa SU carpeta, ya absoluta
+       (OutDir y PublishDir son relativos al proyecto y pwsh los resolvería contra otro sitio). -->
+  <Target Name="KhBundleBrowserAfterBuild" AfterTargets="Build" Condition="'$(KhBundleChromium)' == 'true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="KhInstallPlaywrightBrowser"
+             Properties="KhBrowserDir=$(TargetDir);KhBundleChromium=true;Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+  </Target>
+
+  <!-- Publish NO arrastra el navegador desde bin: los archivos se descargaron después de que
+       MSBuild resolviera qué copiar, así que no los conoce. Se copian a mano, y solo se descarga
+       si no había nada que copiar — si no, un build limpio pagaría la descarga DOS veces. -->
+  <Target Name="KhBundleBrowserAfterPublish" AfterTargets="Publish" Condition="'$(KhBundleChromium)' == 'true'">
+    <PropertyGroup>
+      <_KhPublishDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::GetFullPath('$(PublishDir)'))))</_KhPublishDir>
+      <_KhFromBuild>$(TargetDir).playwright\package\.local-browsers</_KhFromBuild>
+      <_KhToPublish>$(_KhPublishDir).playwright\package\.local-browsers</_KhToPublish>
+    </PropertyGroup>
+
+    <ItemGroup Condition="!Exists('$(_KhToPublish)') AND Exists('$(_KhFromBuild)')">
+      <_KhBrowserFile Include="$(_KhFromBuild)\**\*" />
+    </ItemGroup>
+
+    <Message Importance="high" Condition="'@(_KhBrowserFile->Count())' != '0'"
+             Text="KnowledgeHub: copiando el navegador ya descargado a $(_KhPublishDir)…" />
+    <Copy Condition="'@(_KhBrowserFile->Count())' != '0'"
+          SourceFiles="@(_KhBrowserFile)"
+          DestinationFiles="@(_KhBrowserFile->'$(_KhToPublish)\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+
+    <MSBuild Condition="!Exists('$(_KhToPublish)')"
+             Projects="$(MSBuildProjectFullPath)" Targets="KhInstallPlaywrightBrowser"
+             Properties="KhBrowserDir=$(_KhPublishDir);KhBundleChromium=true;Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+  </Target>
+
+  <Target Name="KhInstallPlaywrightBrowser">
+    <PropertyGroup>
+      <_KhDir>$([MSBuild]::EnsureTrailingSlash('$(KhBrowserDir)'))</_KhDir>
+      <_KhLocalBrowsers>$(_KhDir).playwright\package\.local-browsers</_KhLocalBrowsers>
+    </PropertyGroup>
+
+    <!-- playwright.ps1 exige PowerShell 7. Mejor decirlo que dejar que Exec falle con un
+         "command not found" que no explica nada. -->
+    <Exec Command="pwsh -NoProfile -Command &quot;exit 0&quot;" ContinueOnError="true" StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_KhPwshExit" />
+    </Exec>
+    <Error Condition="'$(_KhPwshExit)' != '0'"
+           Text="KhBundleChromium=true necesita PowerShell 7 (pwsh) en la máquina de build para ejecutar playwright.ps1. Instálalo desde https://aka.ms/powershell o pon KhBundleChromium=false." />
+
+    <Message Importance="high" Condition="Exists('$(_KhLocalBrowsers)')"
+             Text="KnowledgeHub: el navegador ya está en $(_KhLocalBrowsers); no se descarga." />
+
+    <Message Importance="high" Condition="!Exists('$(_KhLocalBrowsers)')"
+             Text="KnowledgeHub: descargando $(KhPlaywrightBrowser) en $(_KhDir) (una sola vez, ~370 MB con el driver)…" />
+
+    <Exec Condition="!Exists('$(_KhLocalBrowsers)')"
+          Command="pwsh -NoProfile -File &quot;$(_KhDir)playwright.ps1&quot; install $(KhPlaywrightBrowser)"
+          EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=0" />
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />

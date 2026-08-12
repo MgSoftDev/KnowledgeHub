@@ -88,6 +88,13 @@ public partial class App : Application
 
             // Cleans pasted Word/web markup and checks the html again right before it is stored.
             builder.Services.AddKnowledgeHubHtmlSanitizer();
+
+#if KH_PLAYWRIGHT
+            // EJEMPLO de motor alternativo (se activa con -p:KhBundleChromium=true). Va ANTES de
+            // AddKnowledgeHubPdf porque el paquete registra el suyo con TryAdd: gana quien llega
+            // primero. Singleton porque mantiene vivo un Chromium entre exportaciones.
+            builder.Services.AddSingleton<IKnowledgeHubPdfRenderer, Pdf.PlaywrightPdfRenderer>();
+#endif
             builder.Services.AddKnowledgeHubPdf();
 
             builder.Services.AddKnowledgeHubBlazor(o =>
