@@ -127,16 +127,27 @@ automático** (v0.8.0-preview.1).
   sanitizador. Strict conserva lo que produce la propia librería: las `<img>` (tamaño/zoom) y los
   callouts, que desde esta versión se marcan con `class="kh-callout"` (los creados antes no la
   llevan → pierden el fondo si les pasas la escoba en nivel 2).
-- **Exportación a PDF (v0.11.0)**: **dos** contratos, no uno.
+- **Exportación a PDF (v0.11.0, motor cambiado en v0.12.0)**: **dos** contratos, no uno.
   `IKnowledgeHubPdfExportService` (core, Scoped) es donde vive TODA la seguridad —`CanExport` una
   vez, `GetTreeAsync` para la rama y luego `GetPageForReadAsync` **página por página** como defensa
   en profundidad, saltando las rechazadas sin tumbar la exportación—; `IKnowledgeHubPdfRenderer`
-  (opcional, paquete `MgSoftDev.KnowledgeHub.Pdf` sobre PDFsharp/MigraDoc) solo convierte a bytes.
-  Así un anfitrión enchufa Playwright implementando **solo** el renderer y hereda el filtrado.
+  (opcional, paquete `MgSoftDev.KnowledgeHub.Pdf`) solo convierte a bytes. Esa separación se puso a
+  prueba de verdad en la v0.12.0: **se cambió el motor entero de PDFsharp a Playwright sin tocar ni
+  un contrato, ni el endpoint, ni la UI, ni el permiso**.
   Las imágenes viajan en un diccionario aparte y **como se almacenan (WebP)**, con los `docimg://`
   intactos en el HTML: sin inflar la cadena y dejando que cada motor decida. `MaxExportPages`
   (200) **rechaza**, nunca trunca. El permiso `KnowledgeHub.Export` con `UseFineGrainedExport` cae
   en `IsAuthenticated` —no en `CanEdit`— porque leer y exportar son la misma capacidad.
+- **Motor de PDF = Chromium vía Playwright (v0.12.0)**. PDFsharp se retiró: mantener a mano un
+  mapeador HTML→documento no cubría la variedad real de la documentación, y sobre todo **hacía
+  imposible el objetivo de temas por empresa** — un tema es CSS y solo un navegador aplica CSS.
+  El navegador sale de `PdfBrowserSource` (`Auto` → Edge instalado → copia empaquetada → caché), y
+  **no queda residente**: se abre y se cierra en cada exportación, serializado con un semáforo y con
+  tope de tiempo, porque exportar es ocasional y una app de escritorio no debe sostener 200-300 MB.
+  Portada, cabecera y pie los define el anfitrión con `PdfTemplate` (Html / FilePath leído en cada
+  exportación / Factory) y hay `Css`/`AdditionalCss`/`CssFilePath` para el tema. El paquete ships un
+  `.props` que fija `PlaywrightPlatform` al SO actual: sin él cada app consumidora se llevaría
+  **548 MB** de driver a su salida en vez de 87.
 - **Icono + color por página (v0.3.0)**: propiedad ESTRUCTURAL del nodo (`DocPage.Icon`,
   `DocPage.IconColor`, NVARCHAR 64/32), no versionada. Se propaga por todos los DTOs donde
   aparece el título (`PageTreeNodeDto`, `PageInfoDto`, `PageReadDto`, `PageEditDto`,
@@ -388,7 +399,9 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
       contenedor al restaurar (`fitToContainer` en el JS) y con un tope CSS
       `--kh-tree-max-width: 75%` para cuando se estrecha la ventana después.
 
-25. **PDFsharp/MigraDoc 6.2.4: tres cosas que solo se ven ejecutándolo** (v0.11.0).
+25. **PDFsharp/MigraDoc 6.2.4** — *nota histórica: el paquete dejó de usarlo en la v0.12.0.* Se
+    conserva por si alguien vuelve a plantear un motor sin navegador; en ese caso, estas tres se
+    dan por seguras porque están medidas.
     - **Acepta WebP y genera el PDF SIN la imagen.** Ni excepción ni aviso. Verificado inspeccionando
       la estructura: con PNG sale `/Subtype /Image /Width 200 /Height 100`; el mismo documento con
       WebP sale con **cero** XObjects de imagen. Como KnowledgeHub almacena WebP, transcodificar con
@@ -422,6 +435,22 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     Confirmado además: `PdfAsync` **sí** funciona con `Channel="chromium-headless-shell"` (265 MB
     frente a 412 MB del Chromium completo), y cachear el navegador baja la segunda exportación a
     396 ms.
+
+27. **Imprimir con Chromium: tres trampas medidas** (v0.12.0).
+    - **`PagePdfOptions.Outline` no hace NADA sin `Tagged`.** Chromium construye el esquema a partir
+      de la estructura etiquetada, así que pedir solo marcadores devuelve el PDF sin ellos **y sin
+      ningún error**. Medido con el mismo documento: `outline` solo → 41.934 bytes y cero
+      marcadores; `outline + tagged` → 49.727 bytes y los títulos dentro; `outline=false` a secas →
+      **byte a byte idéntico** al primero. Por eso `EmbedOutline` fuerza `Tagged`. Coste: ~19%.
+    - **La cabecera y el pie viven en un contexto AISLADO**: no les llega el CSS del documento, no
+      cargan imágenes por URL (hay que pasarlas como data URI) y los estilos deben ir en línea.
+      Además, si el margen es menor que la cabecera, esta **se superpone al contenido** —comprobado
+      con 5 mm: el logo pisa el primer encabezado— sin dar aviso. Deja ~22 mm si lleva imagen.
+    - **`PLAYWRIGHT_BROWSERS_PATH=0` al instalar NO basta**: en ejecución Playwright vuelve a mirar
+      `%LOCALAPPDATA%\ms-playwright`. La variable hay que fijarla también **en el proceso de la
+      aplicación** antes de lanzar el navegador (así el equipo del cliente no configura nada).
+    Y lo que SÍ sale gratis: el índice con anclas `#id` produce enlaces reales del PDF (`/Annots`),
+    el WebP se incrusta sin transcodificar, y `Channel="msedge"` usa el Edge instalado sin descargar.
 
 ## Pendientes / siguientes pasos
 

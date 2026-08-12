@@ -3,19 +3,23 @@
   <PropertyGroup>
     <RootNamespace>MgSoftDev.KnowledgeHub.Pdf</RootNamespace>
     <IsPackable>true</IsPackable>
-    <Description>Default PDF exporter for MgSoftDev.KnowledgeHub, built on PDFsharp/MigraDoc (MIT). Turns published pages — a single page or a whole branch — into a PDF with cover, table of contents, page numbers and bookmarks, resolving stored WebP images. Fully managed, no external binaries. Optional: register it to enable the export button, or implement IKnowledgeHubPdfRenderer yourself.</Description>
-    <PackageTags>knowledgehub;pdf;export;migradoc;pdfsharp;mgsoftdev</PackageTags>
+    <Description>PDF export for MgSoftDev.KnowledgeHub, rendered by Chromium through Playwright: the PDF looks exactly like the reader, CSS themes included, with no HTML-to-document mapper to maintain. The browser can come from the already-installed Microsoft Edge, from a copy bundled with your app (offline installs), from Playwright's cache, or be downloaded on demand. Cover, header and footer are defined by the host. Optional: register it to enable the export button, or implement IKnowledgeHubPdfRenderer yourself.</Description>
+    <PackageTags>knowledgehub;pdf;export;playwright;chromium;mgsoftdev</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="PDFsharp-MigraDoc" />
-    <PackageReference Include="AngleSharp" />
-    <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="Microsoft.Playwright" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!-- Le fija a quien consuma el paquete la plataforma del driver de Playwright: sin esto cada app
+       se llevaría 548 MB a su salida en vez de 87. Ver el comentario del .props. -->
+  <ItemGroup>
+    <None Include="build\MgSoftDev.KnowledgeHub.Pdf.props" Pack="true" PackagePath="build\" />
   </ItemGroup>
 
 </Project>

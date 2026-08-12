@@ -15,7 +15,7 @@ public static class DependencyInjectionExtension
     /// setup that means the API server, not the client.
     /// </summary>
     /// <param name="services">The host's service collection.</param>
-    /// <param name="configure">Fonts, cover, table of contents and page numbers.</param>
+    /// <param name="configure">Where the browser comes from, the theme, and the cover/header/footer.</param>
     public static IServiceCollection AddKnowledgeHubPdf(this IServiceCollection services,
         Action<KnowledgeHubPdfOptions>? configure = null)
     {
@@ -23,7 +23,7 @@ public static class DependencyInjectionExtension
         configure?.Invoke(options);
 
         // TryAdd: a host that registered its own IKnowledgeHubPdfRenderer beforehand wins.
-        services.TryAddSingleton<IKnowledgeHubPdfRenderer>(new MigraDocPdfRenderer(options));
+        services.TryAddSingleton<IKnowledgeHubPdfRenderer>(new PlaywrightPdfRenderer(options));
         return services;
     }
 }

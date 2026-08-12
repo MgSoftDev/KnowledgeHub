@@ -103,7 +103,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 o con `PackageReference`:
 
 ```xml
-<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.11.0-preview.1" />
+<PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.12.0-preview.1" />
 ```
 
 > **Feed local (opcional, solo para desarrollo del propio KnowledgeHub).** Si trabajas contra una
@@ -330,10 +330,13 @@ completo. Ojo: estas páginas **no** llevan `.kh-embedded`, así que necesitas e
 (al elegir una página o pulsar Editar/Historial/Permisos cambia el panel, **sin cambiar la URL**
 ni sacar al usuario de tu pantalla).
 
-## 8.2 Exportar a PDF (v0.11.0)
+## 8.2 Exportar a PDF (v0.12.0)
 
 Un botón **PDF** en el lector baja la página abierta, o toda su rama como un manual con portada,
-índice y numeración. Es **opcional**: sin el paquete instalado el botón no aparece.
+índice y marcadores navegables. Es **opcional**: sin el paquete instalado el botón no aparece.
+
+El PDF lo imprime **Chromium**, así que sale exactamente como se ve en el lector — incluido tu CSS.
+No hay ningún mapeador HTML que mantener: lo que produzca el editor mañana se renderiza solo.
 
 ### Paso 1 — Instalar y registrar
 
@@ -348,10 +351,35 @@ services.AddKnowledgeHubPdf();
 Regístralo **donde corre el core**, el mismo contenedor que `AddKnowledgeHubCore`. En WPF y Blazor
 Server es el mismo; en WASM va en el **servidor de la API**, no en el cliente.
 
-### Paso 2 — Decidir quién puede descargar
+> **El paquete arrastra `Microsoft.Playwright`, que son 195 MB de nupkg.** Es una descarga única por
+> máquina a la caché de NuGet, pero conviene saberlo antes de añadirlo.
 
-Por defecto **cualquiera que pueda leer una página puede exportarla**: leer y llevarse el PDF son
-la misma capacidad. Para restringirlo:
+### Paso 2 — Decidir de dónde sale el navegador
+
+```csharp
+services.AddKnowledgeHubPdf(o => o.BrowserSource = PdfBrowserSource.Auto);
+```
+
+| Modo | Qué hace | Qué pesa en tu app |
+|---|---|---|
+| **`Auto`** (por defecto) | Prueba el Edge instalado, luego una copia empaquetada, luego la caché. Recuerda el que funcionó. | lo del modo que acabe usando |
+| **`SystemBrowser`** | El **Microsoft Edge ya instalado**. No descarga nada. | ~100 MB (solo el driver) |
+| **`BundledWithApp`** | Copia dentro de la carpeta de la app; entra en el MSI. **Instalación en planta sin internet.** | ~370 MB |
+| **`PlaywrightCache`** | `%LOCALAPPDATA%\ms-playwright`, tras un `playwright install` en ese equipo. | ~100 MB |
+| **`DownloadOnDemand`** | Lo instala en la primera exportación. Necesita internet **en el equipo de destino**. | ~100 MB |
+
+> **Ojo con «uso Edge, así no empaqueto nada»**: te ahorras los 265 MB del navegador, pero **no** los
+> ~100 MB del driver de Playwright, que se copia a la salida igualmente. El paquete ya fija
+> `PlaywrightPlatform` a tu sistema operativo; sin eso serían **548 MB**, porque Playwright copiaría
+> el driver de las cinco plataformas.
+
+**Si no hay ningún navegador**, la exportación se rechaza con un mensaje que dice cuál falta. Nunca
+una excepción cruda ni un PDF a medias.
+
+### Paso 3 — Quién puede descargar
+
+Por defecto **cualquiera que pueda leer una página puede exportarla**: leer y llevarse el PDF son la
+misma capacidad. Para restringirlo:
 
 ```csharp
 services.AddKnowledgeHubCore(o =>
@@ -361,77 +389,27 @@ services.AddKnowledgeHubCore(o =>
 });
 ```
 
-**Lo que el permiso NO hace es ampliar lo que se ve.** La exportación pasa página por página por el
-mismo filtro de visibilidad que el lector: un usuario con `KnowledgeHub.Export` que no vea una
-subpágina obtiene el PDF **sin ella**. Si pide una rama entera, recibe su recorte de esa rama.
+**El permiso no amplía lo que se ve.** La exportación pasa página por página por el mismo filtro de
+visibilidad que el lector: quien no vea una subpágina recibe el PDF **sin ella**.
 
-Si la rama supera `MaxExportPages` la exportación se **rechaza** con un mensaje que lo dice — nunca
-se trunca en silencio, porque medio manual con pinta de estar completo es peor que un error.
+### Empaquetar el navegador (planta sin internet)
 
-### Personalizar el aspecto
-
-```csharp
-services.AddKnowledgeHubPdf(o =>
-{
-    o.FontFamily = "Segoe UI";        // ojo: los emoji necesitan una fuente que los tenga
-    o.FontSize = 10;
-    o.IncludeCover = true;
-    o.IncludeTableOfContents = true;  // se omite solo si es una única página
-    o.IncludePageNumbers = true;
-});
-```
-
-> **Fuentes fuera de Windows.** PDFsharp resuelve fuentes por `GlobalFontSettings`, que es estático
-> de proceso. El paquete activa las fuentes del sistema en Windows y **solo escribe el resolver si
-> nadie lo ha hecho ya**, para no pisarte tu propia configuración. En Linux o en contenedores sin
-> fuentes instaladas, generar el PDF **lanza una excepción con un mensaje claro** en vez de producir
-> un documento con cuadraditos: instala fuentes en la imagen o configura tú
-> `GlobalFontSettings.FontResolver` y pon `o.ConfigureFonts = false`.
-
-### Otro motor: la receta de Playwright, con el navegador empaquetado
-
-El contrato está partido en dos a propósito. `IKnowledgeHubPdfExportService` (en el core) hace los
-permisos, recorre la rama y resuelve las imágenes; `IKnowledgeHubPdfRenderer` solo convierte a
-bytes. **Cambiar de motor es implementar el segundo** — la seguridad la heredas intacta.
-
-Con Chromium el PDF sale idéntico a lo que se ve en pantalla y **no hay ningún mapeador que
-mantener**: el HTML que produzca el editor mañana funciona solo. El precio es el tamaño, y hay que
-resolver el despliegue.
-
-> **El ejemplo completo y compilable está en el demo WPF**:
-> [`Demos/KnowledgeHub.Demo.Wpf/Pdf/PlaywrightPdfRenderer.cs`](Demos/KnowledgeHub.Demo.Wpf/Pdf/PlaywrightPdfRenderer.cs)
-> y el bloque de MSBuild en su `.csproj`. Viene apagado; se enciende con
-> `dotnet build -p:KhBundleChromium=true`.
-
-#### Instalación en planta, sin internet
-
-La idea: el navegador se descarga **en la máquina de build**, queda dentro de la carpeta de salida
-de tu app y entra en el MSI/ZIP. El equipo de destino no descarga nada.
-
-Pega esto en el `.csproj` de tu aplicación:
+El navegador se descarga en la **máquina de build**, queda en la carpeta de salida y entra en el
+MSI. El equipo de destino no descarga nada. Pega esto en el `.csproj` de tu aplicación:
 
 ```xml
 <PropertyGroup>
-  <KhBundleChromium Condition="'$(KhBundleChromium)' == ''">true</KhBundleChromium>
-  <KhPlaywrightBrowser Condition="'$(KhPlaywrightBrowser)' == ''">chromium-headless-shell</KhPlaywrightBrowser>
-
-  <!-- IMPRESCINDIBLE. Sin esto Playwright no acierta la plataforma y copia el driver de Node de
-       las CINCO (win, linux x64/arm64, macOS x64/arm64): 548 MB en vez de 87 MB. Medido. -->
-  <PlaywrightPlatform>win</PlaywrightPlatform>
+  <KhPlaywrightBrowser>chromium-headless-shell</KhPlaywrightBrowser>
 </PropertyGroup>
 
-<ItemGroup>
-  <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
-</ItemGroup>
-
-<Target Name="KhBundleBrowserAfterBuild" AfterTargets="Build" Condition="'$(KhBundleChromium)' == 'true'">
+<Target Name="KhBundleBrowserAfterBuild" AfterTargets="Build">
   <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="KhInstallPlaywrightBrowser"
-           Properties="KhBrowserDir=$(TargetDir);KhBundleChromium=true;Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+           Properties="KhBrowserDir=$(TargetDir);Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
 </Target>
 
 <!-- Publish NO arrastra el navegador desde bin: se descargó después de que MSBuild decidiera qué
      copiar, así que no lo conoce. Se copia a mano; solo se descarga si no había nada que copiar. -->
-<Target Name="KhBundleBrowserAfterPublish" AfterTargets="Publish" Condition="'$(KhBundleChromium)' == 'true'">
+<Target Name="KhBundleBrowserAfterPublish" AfterTargets="Publish">
   <PropertyGroup>
     <_KhPublishDir>$([MSBuild]::EnsureTrailingSlash($([System.IO.Path]::GetFullPath('$(PublishDir)'))))</_KhPublishDir>
     <_KhFromBuild>$(TargetDir).playwright\package\.local-browsers</_KhFromBuild>
@@ -440,13 +418,12 @@ Pega esto en el `.csproj` de tu aplicación:
   <ItemGroup Condition="!Exists('$(_KhToPublish)') AND Exists('$(_KhFromBuild)')">
     <_KhBrowserFile Include="$(_KhFromBuild)\**\*" />
   </ItemGroup>
-  <Copy Condition="'@(_KhBrowserFile->Count())' != '0'"
-        SourceFiles="@(_KhBrowserFile)"
+  <Copy Condition="'@(_KhBrowserFile->Count())' != '0'" SourceFiles="@(_KhBrowserFile)"
         DestinationFiles="@(_KhBrowserFile->'$(_KhToPublish)\%(RecursiveDir)%(Filename)%(Extension)')"
         SkipUnchangedFiles="true" />
   <MSBuild Condition="!Exists('$(_KhToPublish)')"
            Projects="$(MSBuildProjectFullPath)" Targets="KhInstallPlaywrightBrowser"
-           Properties="KhBrowserDir=$(_KhPublishDir);KhBundleChromium=true;Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
+           Properties="KhBrowserDir=$(_KhPublishDir);Configuration=$(Configuration);TargetFramework=$(TargetFramework)" />
 </Target>
 
 <Target Name="KhInstallPlaywrightBrowser">
@@ -458,82 +435,144 @@ Pega esto en el `.csproj` de tu aplicación:
     <Output TaskParameter="ExitCode" PropertyName="_KhPwshExit" />
   </Exec>
   <Error Condition="'$(_KhPwshExit)' != '0'"
-         Text="Empaquetar Chromium necesita PowerShell 7 (pwsh) en la máquina de build." />
+         Text="Empaquetar el navegador necesita PowerShell 7 (pwsh) en la máquina de build." />
   <Exec Condition="!Exists('$(_KhLocalBrowsers)')"
         Command="pwsh -NoProfile -File &quot;$(_KhDir)playwright.ps1&quot; install $(KhPlaywrightBrowser)"
         EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=0" />
 </Target>
 ```
 
-`PLAYWRIGHT_BROWSERS_PATH=0` va **solo en esa invocación**: hace que los binarios queden junto al
-driver, en `.playwright\package\.local-browsers`, en vez de en la caché del usuario. Es incremental:
-si la carpeta ya existe no se vuelve a descargar.
+Y en el registro, `o.BrowserSource = PdfBrowserSource.BundledWithApp;`.
 
-#### La trampa: la variable también hace falta en EJECUCIÓN
+> **`PLAYWRIGHT_BROWSERS_PATH=0` al instalar NO basta.** En ejecución, Playwright sigue buscando en
+> `%LOCALAPPDATA%\ms-playwright` salvo que se le diga otra cosa. El paquete fija esa variable en su
+> propio proceso antes de arrancar el navegador, así que **el equipo del cliente no configura nada**
+> — pero si escribes tu propio renderer, no lo olvides.
 
-Instalar con `PLAYWRIGHT_BROWSERS_PATH=0` **no basta**. En ejecución, Playwright sigue buscando en
-`%LOCALAPPDATA%\ms-playwright` salvo que se le diga otra cosa, y ahí no hay nada en un equipo de
-planta. Comprobado: con la variable sin definir falla con
+Otras dos cosas de este modo: la máquina de **build** necesita internet y **PowerShell 7**; y
+Playwright añade **119 caracteres** de ruta hasta el ejecutable, así que una instalación muy anidada
+puede pasar de MAX_PATH y fallar con un `spawn … ENOENT` que no menciona longitudes.
 
-```
-Executable doesn't exist at C:\Users\<usuario>\AppData\Local\ms-playwright\chromium_headless_shell-…
-```
-
-La solución no exige tocar el equipo del cliente: **la fija la propia aplicación en su proceso**,
-antes de arrancar el navegador. Una línea en el renderer:
+### El aspecto: temas por empresa
 
 ```csharp
-Environment.SetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH", "0");
+services.AddKnowledgeHubPdf(o =>
+{
+    // Se lee en CADA exportación: dejando este archivo junto al ejecutable, una empresa cambia
+    // el aspecto de sus PDF sin recompilar ni redesplegar nada.
+    o.CssFilePath = Path.Combine(AppContext.BaseDirectory, "pdf-tema.css");
+
+    o.AdditionalCss = "h1, h2 { color: #7c2d12; }";   // o directamente en código
+    o.PageFormat = "A4";
+    o.Margins = new PdfMargins { Top = "22mm", Bottom = "18mm", Left = "16mm", Right = "16mm" };
+});
 ```
 
-#### Lo que ocupa de verdad
+El paquete trae una hoja por defecto que imita al lector; `AdditionalCss` y `CssFilePath` se añaden
+**después**, así que ganan. `Css` la sustituye entera.
 
-Medido sobre el demo WPF publicado, con `PlaywrightPlatform=win`:
+### Portada, cabecera y pie
 
-| | |
-|---|---|
-| `chromium-headless-shell` + ffmpeg | 268,4 MB |
-| Driver de Playwright (solo win) | 100,2 MB |
-| La aplicación en sí | 59,0 MB |
-| **Total de la carpeta que va al instalador** | **427,6 MB** |
+Los tres se definen desde tu app, con el mismo tipo y tres niveles: `Html` (plantilla),
+`FilePath` (leído en cada exportación) y `Factory` (un delegado, que gana sobre los otros).
+Marcadores disponibles: `{{Title}}`, `{{GeneratedAt}}`, `{{GeneratedBy}}`, `{{SectionCount}}`,
+`{{Logo}}` (una etiqueta `<img>` ya montada) y `{{LogoSrc}}` (solo el data URI).
 
-Sin `PlaywrightPlatform` serían **888,3 MB**. Y con `chromium` completo en vez del headless shell,
-súmale otros ~145 MB. Para comparar: el motor por defecto son **1,7 MB** y no instala nada.
+```csharp
+services.AddKnowledgeHubPdf(o =>
+{
+    o.LogoFilePath = Path.Combine(AppContext.BaseDirectory, "logo.png");
 
-#### El renderer
+    o.Cover = new PdfTemplate
+    {
+        Html = """
+            {{Logo}}
+            <h1>{{Title}}</h1>
+            <div class="kh-pdf-meta">{{GeneratedAt}} · {{GeneratedBy}} · {{SectionCount}} páginas</div>
+            """
+    };
 
-Puntos que el ejemplo del demo resuelve y conviene no perder al copiarlo:
+    o.Header = new PdfTemplate
+    {
+        Html = """
+            <div style="font-size:8px;width:100%;padding:0 16mm;display:flex;
+                        align-items:center;justify-content:space-between;color:#92400e;">
+              <img src="{{LogoSrc}}" style="height:10px">
+              <span>{{Title}}</span>
+            </div>
+            """
+    };
 
-- **Cachea el navegador.** El contrato pide que el renderer sea seguro como singleton, y arrancar
-  Chromium cuesta 1-2 s: se abre una vez tras un `SemaphoreSlim` y se reutiliza. Medido: la segunda
-  exportación tarda **396 ms**.
-- **`Channel = "chromium-headless-shell"`**, que es el binario que instala el target.
-- **Errores de despliegue como `Unfinished`, no como excepción.** Si el instalador se armó sin la
-  carpeta del navegador, el usuario lee «no se encontró el navegador incrustado», no un error
-  genérico.
-- **CSS embebido.** Chromium no tiene cargado el `knowledgehub.css` de la RCL, así que el contenido
-  llegaría sin estilo. El ejemplo inyecta su propia hoja — y de paso, con este motor **el aspecto lo
-  decides tú**.
-- **El WebP se incrusta tal cual**, sin transcodificar: Chromium lo lee de forma nativa.
+    o.Footer = new PdfTemplate
+    {
+        Html = """
+            <div style="font-size:8px;width:100%;padding:0 16mm;display:flex;justify-content:space-between;">
+              <span>Mi Empresa</span>
+              <span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+            </div>
+            """
+    };
+});
+```
 
-#### Antes de decidirte
+> **La cabecera y el pie NO se renderizan como el resto del documento**, y esta es la confusión
+> clásica. Chromium los dibuja en un **contexto aislado**: no les llega el CSS del documento, **no
+> cargan imágenes por URL** (por eso `{{LogoSrc}}` es un data URI), los estilos tienen que ir **en
+> línea** y la fuente base es diminuta. A cambio, ahí funcionan las clases propias de Chromium:
+> `pageNumber`, `totalPages`, `date`, `title` y `url`.
+>
+> Y **si el margen superior o inferior es más pequeño que la cabecera, esta se superpone al
+> contenido** —comprobado con 5 mm: el logo pisa el primer encabezado— sin dar ningún aviso. Deja
+> ~22 mm si la cabecera lleva imagen.
 
-- **Rutas largas.** Playwright añade **119 caracteres** desde la carpeta de la app hasta el
-  ejecutable. Si el total pasa de 260 (MAX_PATH), falla con un `spawn … ENOENT` que no dice nada de
-  longitudes. `C:\Program Files\TuApp\` va sobrado; una instalación muy anidada, no.
-- **La máquina de build necesita internet y PowerShell 7.** El equipo de destino, ninguna de las dos.
-- **Subir la versión de `Microsoft.Playwright` cambia el navegador**, así que hay que rehacer el
-  instalador. Fija la versión y súbela a propósito.
-- **Chromium no genera marcadores de PDF ni un índice con números de página reales**; solo cabecera
-  y pie por plantilla. Si el índice navegable te importa, el motor por defecto lo hace mejor.
+La **portada sí es una página normal** del documento: ahí vale todo tu CSS.
 
-Registro, en tu contenedor:
+### Marcadores, índice y accesibilidad
+
+```csharp
+o.EmbedOutline = true;   // por defecto
+o.IncludeIndex = true;
+o.TaggedPdf = false;
+```
+
+`EmbedOutline` mete el esquema navegable que sacan los lectores en su panel lateral, construido a
+partir de los encabezados.
+
+> **Activar `EmbedOutline` activa también `TaggedPdf`, lo pidas o no.** Chromium construye el
+> esquema a partir de la estructura etiquetada, y **por su cuenta la opción se ignora en silencio**:
+> devuelve el PDF sin marcadores y sin ningún error. Medido: solo outline → 41.934 bytes y cero
+> marcadores; outline + tagged → 49.727 bytes y los títulos dentro. El coste de tenerlos es ~19% más
+> de tamaño.
+
+El **índice lleva enlaces internos pero no números de página**: Chromium no sabe en qué página cae
+cada sección hasta haber maquetado, y no hay segunda pasada. Para navegar en pantalla sobran los
+enlaces y los marcadores; solo se echa de menos al imprimir en papel.
+
+### Memoria y concurrencia
+
+El navegador **no se queda residente**: se abre, imprime y se cierra en cada exportación. Exportar
+es una acción ocasional, y una app de escritorio que corre días no debería sostener 200-300 MB por
+un botón que quizá nadie pulse. El coste es 1-2 s de arranque por PDF.
+
+Las exportaciones se **serializan** (un `SemaphoreSlim`), así que dos usuarios a la vez no levantan
+dos navegadores, y hay un tope de tiempo configurable:
+
+```csharp
+o.TimeoutSeconds = 60;   // un Chromium colgado no deja la app esperando para siempre
+```
+
+### Otro motor
+
+El contrato está partido en dos a propósito. `IKnowledgeHubPdfExportService` (en el core) hace los
+permisos, recorre la rama y resuelve las imágenes; `IKnowledgeHubPdfRenderer` solo convierte a
+bytes. **Cambiar de motor es implementar el segundo** — la seguridad la heredas intacta:
 
 ```csharp
 // ANTES de AddKnowledgeHubPdf() — el paquete usa TryAdd, así que gana quien registre primero.
-services.AddSingleton<IKnowledgeHubPdfRenderer, PlaywrightPdfRenderer>();
+services.AddSingleton<IKnowledgeHubPdfRenderer, MiRenderer>();
 services.AddKnowledgeHubPdf();
 ```
+
 
 ### Sustituir la pantalla de bienvenida (v0.10.0)
 
@@ -810,9 +849,9 @@ Referencia completa: `Demos\KnowledgeHub.Demo.Wpf`.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.80" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.11.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.11.0-preview.1" />
-    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.11.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub" Version="0.12.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Storage.LiteDb" Version="0.12.0-preview.1" />
+    <PackageReference Include="MgSoftDev.KnowledgeHub.Blazor" Version="0.12.0-preview.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
 </Project>
@@ -1716,5 +1755,5 @@ Al terminar la integración, verifica en la app corriendo:
 
 ---
 
-*Guía para MgSoftDev.KnowledgeHub v0.11.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
+*Guía para MgSoftDev.KnowledgeHub v0.12.0-preview.1 (.NET 10). Los demos de `Demos\` compilan con 0
 warnings y están verificados end-to-end; úsalos como referencia canónica.*

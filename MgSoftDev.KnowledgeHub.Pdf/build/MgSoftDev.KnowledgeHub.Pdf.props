@@ -1,0 +1,21 @@
+<Project>
+
+  <!-- ================================================================================
+       Playwright copia a la salida el driver de Node de la plataforma que indique
+       $(PlaywrightPlatform). Cuando no acierta a deducirla —lo normal en una app sin
+       RuntimeIdentifier— copia las CINCO: 548 MB en vez de 87 MB. Medido.
+
+       Como MgSoftDev.KnowledgeHub.Pdf arrastra Playwright, ese coste lo heredaría cada
+       aplicación que exporte a PDF, así que el valor por defecto lo pone el paquete.
+
+       Para compilar para otra plataforma, defínelo tú en tu csproj: gana lo tuyo.
+       ================================================================================ -->
+  <PropertyGroup Condition="'$(PlaywrightPlatform)' == ''">
+    <PlaywrightPlatform Condition="$([MSBuild]::IsOSPlatform('Windows'))">win</PlaywrightPlatform>
+    <PlaywrightPlatform Condition="$([MSBuild]::IsOSPlatform('Linux')) AND '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">linux-x64</PlaywrightPlatform>
+    <PlaywrightPlatform Condition="$([MSBuild]::IsOSPlatform('Linux')) AND '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">linux-arm64</PlaywrightPlatform>
+    <PlaywrightPlatform Condition="$([MSBuild]::IsOSPlatform('OSX')) AND '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">osx-x64</PlaywrightPlatform>
+    <PlaywrightPlatform Condition="$([MSBuild]::IsOSPlatform('OSX')) AND '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64'">osx-arm64</PlaywrightPlatform>
+  </PropertyGroup>
+
+</Project>

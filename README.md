@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.11.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.12.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -55,7 +55,7 @@ en tu contenido, el editor en una pestaña…). Ver la
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos (para clientes WASM) |
 | `MgSoftDev.KnowledgeHub.Http.Client` | Implementaciones `HttpClient` de los contratos (WASM-safe) |
 | `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (pegado desde Word, guardado y botón manual), con 3 niveles seleccionables |
-| `MgSoftDev.KnowledgeHub.Pdf` | Exportación a PDF por defecto (página o rama, con portada, índice y marcadores) sobre PDFsharp/MigraDoc |
+| `MgSoftDev.KnowledgeHub.Pdf` | Exportación a PDF impresa por Chromium vía Playwright: sale igual que el lector, con temas CSS, portada/cabecera/pie propios y marcadores |
 
 ### Qué instalar según el hosting
 
@@ -76,7 +76,7 @@ Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.BlazorServer       Blazor Server + LiteDB
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
-Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (120 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (123 checks) sobre 4 modos de store
 ```
 
 ## Compilar y probar
@@ -132,8 +132,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.11.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-120/120 en los 4 modos de store; los demos están verificados end-to-end.
+**v0.12.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+123/123 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia
 

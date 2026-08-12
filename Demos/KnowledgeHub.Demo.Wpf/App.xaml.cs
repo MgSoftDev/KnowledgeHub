@@ -89,13 +89,17 @@ public partial class App : Application
             // Cleans pasted Word/web markup and checks the html again right before it is stored.
             builder.Services.AddKnowledgeHubHtmlSanitizer();
 
-#if KH_PLAYWRIGHT
-            // EJEMPLO de motor alternativo (se activa con -p:KhBundleChromium=true). Va ANTES de
-            // AddKnowledgeHubPdf porque el paquete registra el suyo con TryAdd: gana quien llega
-            // primero. Singleton porque mantiene vivo un Chromium entre exportaciones.
-            builder.Services.AddSingleton<IKnowledgeHubPdfRenderer, Pdf.PlaywrightPdfRenderer>();
-#endif
-            builder.Services.AddKnowledgeHubPdf();
+            // Exportación a PDF con Chromium. En Auto usa el Edge ya instalado, y si no lo hay
+            // busca una copia empaquetada con la app o la caché de Playwright — el mismo binario
+            // vale en un portátil y en un equipo de planta sin internet.
+            builder.Services.AddKnowledgeHubPdf(o =>
+            {
+                o.BrowserSource = PdfBrowserSource.Auto;
+
+                // Un tema de ejemplo: si existe pdf-tema.css junto al ejecutable se aplica sin
+                // recompilar nada. Es el gancho pensado para el aspecto de cada empresa.
+                o.CssFilePath = Path.Combine(AppContext.BaseDirectory, "pdf-tema.css");
+            });
 
             builder.Services.AddKnowledgeHubBlazor(o =>
             {

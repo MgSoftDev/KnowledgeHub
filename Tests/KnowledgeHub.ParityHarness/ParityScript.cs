@@ -2,6 +2,7 @@ using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
 using MgSoftDev.KnowledgeHub.Enums;
+using MgSoftDev.KnowledgeHub.Pdf;
 using MgSoftDev.KnowledgeHub.Security;
 using MgSoftDev.KnowledgeHub.Seeding;
 using MgSoftDev.ReturningCore;
@@ -22,6 +23,9 @@ public static class ParityScript
     private static int _passed;
     private static int _failed;
 
+    /// <summary>Checks that could not run on this machine (hoy: el motor real de PDF sin navegador).</summary>
+    private static int _omitted;
+
     /// <summary>
     /// Runs the full parity script against the services in <paramref name="sp"/>. In HTTP mode
     /// the client provider has no store, so <paramref name="seederProvider"/> points at the
@@ -32,6 +36,7 @@ public static class ParityScript
     {
         _passed = 0;
         _failed = 0;
+        _omitted = 0;
 
         var pages = sp.GetRequiredService<IKnowledgeHubPageService>();
         var images = sp.GetRequiredService<IKnowledgeHubImageService>();
@@ -661,10 +666,13 @@ public static class ParityScript
             options.MaxExportPages = 200;
 
             // El renderer se busca en el SERVIDOR, no en sp: sobre HTTP el cliente no lo tiene y
-            // estos dos checks se saltarían en silencio, dejando ese modo con menos cobertura sin
-            // que se notara en el recuento.
+            // estos checks se saltarían en silencio, dejando ese modo con menos cobertura sin que
+            // se notara en el recuento.
             Check("Renderer de PDF registrado", serverProvider.GetService<IKnowledgeHubPdfRenderer>() is not null);
 
+            // El arnés registra un renderer FALSO: el motor real es Chromium y dependería de que la
+            // máquina tenga navegador, lo que haría que estos checks dieran distinto según dónde se
+            // ejecute. Lo que se verifica aquí es el pipeline y los permisos, no el dibujo.
             var file = await export.ExportAsync(expRoot.Value, includeDescendants: true);
             Check("ExportAsync devuelve bytes de PDF",
                 file.OkNotNull && file.Value.Content.Length > 1024 && IsPdf(file.Value.Content));
@@ -680,10 +688,15 @@ public static class ParityScript
             Check("La exportación llega igual por el transporte del cliente",
                 overTransport.OkNotNull && IsPdf(overTransport.Value.Content) &&
                 overTransport.Value.FileName == "exportar-raiz.pdf");
+
+            // Y una pasada con el motor REAL, que sí necesita navegador. Si no lo hay se informa
+            // en voz alta: un salto silencioso haría creer que el motor quedó probado.
+            await CheckRealPdfEngineAsync(export, expRoot.Value);
         }
 
         Console.WriteLine();
-        Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL =====");
+        var omitted = _omitted > 0 ? $" / {_omitted} OMIT" : string.Empty;
+        Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL{omitted} =====");
         return _failed;
     }
 
@@ -710,6 +723,40 @@ public static class ParityScript
     /// <summary>Titles of the children of the page with that slug, in the order the tree shows them.</summary>
     private static bool IsPdf(byte[] bytes) =>
         bytes.Length > 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F';
+
+    /// <summary>
+    /// Runs the REAL engine once. Unlike everything else in this script it needs a browser on the
+    /// machine, so it can legitimately not run — and when that happens it says so out loud and is
+    /// counted apart. Reporting it as a pass, or skipping it in silence, would both suggest the
+    /// engine had been exercised when it had not.
+    /// </summary>
+    private static async Task CheckRealPdfEngineAsync(IKnowledgeHubPdfExportService export, Guid rootPagePk)
+    {
+        var built = await export.BuildAsync(rootPagePk, includeDescendants: true);
+        if (!built.OkNotNull)
+        {
+            Check("Motor real: se pudo construir el documento", false);
+            return;
+        }
+
+        using var renderer = new PlaywrightPdfRenderer();
+        var rendered = await renderer.RenderAsync(built.Value);
+
+        if (!rendered.OkNotNull)
+        {
+            _omitted++;
+            Console.WriteLine("  [OMIT] Motor real (Chromium) -> " +
+                              (rendered.UnfinishedInfo?.Title ?? "no disponible en esta máquina"));
+            return;
+        }
+
+        var pdf = rendered.Value;
+        var raw = System.Text.Encoding.Latin1.GetString(pdf);
+        Console.WriteLine($"         (motor real: {pdf.Length} bytes)");
+        Check("Motor real (Chromium) produce un PDF", IsPdf(pdf));
+        Check("El PDF lleva marcadores navegables (/Outlines)", raw.Contains("/Outlines"));
+        Check("El índice deja enlaces internos (/Annots)", raw.Contains("/Annots"));
+    }
 
     /// <summary>Saves a draft with the given html and publishes it, so the page becomes readable.</summary>
     private static async Task PublishSimpleAsync(IKnowledgeHubPageService pages, Guid pagePk, string html)

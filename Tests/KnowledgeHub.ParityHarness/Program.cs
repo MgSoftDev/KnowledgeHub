@@ -43,6 +43,10 @@ if (mode == "http")
     serverBuilder.Services.AddKnowledgeHubCore(o => o.PublicAssetsBaseUrl = "/kh/assets");
     serverBuilder.Services.AddKnowledgeHubFileImageCache(cacheFolder);
     serverBuilder.Services.AddKnowledgeHubHtmlSanitizer();
+    // Renderer FALSO: el motor real es Chromium y dependería de que la máquina tenga navegador,
+    // cuando el arnés debe dar lo mismo en los cuatro modos y en cualquier equipo. Va ANTES porque
+    // AddKnowledgeHubPdf usa TryAdd. El motor real se prueba aparte y avisa si no puede ejecutarse.
+    serverBuilder.Services.AddSingleton<IKnowledgeHubPdfRenderer, FakePdfRenderer>();
     serverBuilder.Services.AddKnowledgeHubPdf();
 
     var server = serverBuilder.Build();
@@ -128,6 +132,7 @@ else
     services.AddKnowledgeHubCore(o => o.PublicAssetsBaseUrl = "/kh/assets");
     services.AddKnowledgeHubFileImageCache(cacheFolder);
     services.AddKnowledgeHubHtmlSanitizer();
+    services.AddSingleton<IKnowledgeHubPdfRenderer, FakePdfRenderer>();
     services.AddKnowledgeHubPdf();
 
     var provider = services.BuildServiceProvider();

@@ -11,23 +11,19 @@
   </PropertyGroup>
 
   <!-- ================================================================================
-       EJEMPLO: motor de PDF alternativo con Playwright, con el navegador EMPAQUETADO.
+       EMPAQUETAR EL NAVEGADOR con la aplicación, para instalar en planta sin internet:
+       se descarga en la máquina de BUILD, queda dentro de la carpeta de salida y entra en
+       el MSI. El equipo de destino no descarga nada.
 
-       Pensado para instalación en planta sin internet: el navegador se descarga en la
-       máquina de BUILD y queda dentro de la carpeta de salida, así que entra en el MSI y
-       el equipo de destino no descarga nada ni necesita variables de entorno.
+       Apagado en este repositorio para que compilarlo no cueste ~370 MB. En tu app ponlo
+       a true (o pasa -p:KhBundleChromium=true) y usa BrowserSource.BundledWithApp.
 
-       Apagado en este repositorio para que compilarlo no cueste ~370 MB. En tu app pon
-       esta propiedad a true (o pasa -p:KhBundleChromium=true al compilar).
+       No hace falta tocar PlaywrightPlatform: el paquete MgSoftDev.KnowledgeHub.Pdf ya lo
+       fija a la plataforma actual con su .props, que ahorra 461 MB.
        ================================================================================ -->
   <PropertyGroup>
     <KhBundleChromium Condition="'$(KhBundleChromium)' == ''">false</KhBundleChromium>
     <KhPlaywrightBrowser Condition="'$(KhPlaywrightBrowser)' == ''">chromium-headless-shell</KhPlaywrightBrowser>
-
-    <!-- IMPRESCINDIBLE, y ahorra 461 MB: sin esto el paquete no acierta la plataforma y copia el
-         driver de Node de las CINCO (win, linux x64/arm64, macOS x64/arm64) = 548 MB, cuando en
-         Windows solo hacen falta 87 MB. Medido en este mismo proyecto. -->
-    <PlaywrightPlatform Condition="'$(KhBundleChromium)' == 'true'">win</PlaywrightPlatform>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,17 +34,6 @@
     <PackageReference Include="Serilog.Extensions.Hosting" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.Sinks.Console" />
-    <PackageReference Include="Microsoft.Playwright" Condition="'$(KhBundleChromium)' == 'true'" />
-  </ItemGroup>
-
-  <!-- La constante deja fuera del compilado el renderer de Playwright cuando el ejemplo está
-       apagado; así el demo sigue usando MigraDoc y no hace falta el paquete. -->
-  <PropertyGroup Condition="'$(KhBundleChromium)' == 'true'">
-    <DefineConstants>$(DefineConstants);KH_PLAYWRIGHT</DefineConstants>
-  </PropertyGroup>
-
-  <ItemGroup Condition="'$(KhBundleChromium)' != 'true'">
-    <Compile Remove="Pdf\PlaywrightPdfRenderer.cs" />
   </ItemGroup>
 
   <!-- Descarga el navegador DENTRO de la salida.
