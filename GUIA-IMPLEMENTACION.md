@@ -199,6 +199,33 @@ el padre no es visible, los hijos tampoco se muestran. `KnowledgeHub.Admin` ve t
 Los servicios **validan permisos server-side** en cada mutación — la UI solo refleja lo mismo.
 Nunca dependas de esconder botones.
 
+#### Hasta dónde llega la visibilidad, y hasta dónde no
+
+Conviene tenerlo claro antes de prometerle nada a nadie. **El límite de seguridad es lector ↔
+editor**, no editor ↔ editor: en el modo por defecto `Edit` también gestiona visibilidad, así que
+**un editor es, de hecho, un lector universal** — puede darse acceso a cualquier rama. Si necesitas
+separar editores entre sí, enciende `UseFineGrainedManagePermissions` (§10) y reserva
+`ManagePermissions` a quien de verdad deba repartir accesos.
+
+Lo que **sí** filtra por visibilidad: el árbol, la búsqueda, la lectura de una página, el historial
+de versiones y el contenido de una versión (desde la 0.15.0; antes eran una puerta trasera que
+devolvía el HTML íntegro a cualquiera con el Guid), y la exportación a PDF página por página.
+
+Lo que **no**, por diseño y con motivo:
+
+- **El texto de un enlace.** Nadie reescribe los `<a href>` del contenido, así que si una página
+  enlaza a otra que no ves, el **título y el Guid del destino** quedan a la vista, también en el PDF.
+  El contenido del destino sí está protegido. Lo escribió alguien que veía ambas páginas.
+- **Las imágenes.** `/kh/assets` sirve por hash **sin autenticación**, y no hay forma de saber a qué
+  página pertenece un binario. El hash son 256 bits: **la URL es la credencial**. Si eso no te vale,
+  `MapKnowledgeHubAssets` devuelve el `IEndpointConventionBuilder`, así que puedes encadenarle
+  `.RequireAuthorization()`.
+- **La herencia de ancestros solo se aplica al construir el árbol.** Una página visible cuyo padre
+  no lo es no aparece en el árbol, pero **sí se lee por su Guid y sí sale en la búsqueda**.
+- **Una página recién creada es invisible hasta que le asignas permisos** — incluso para quien la
+  creó, salvo que sea Admin. Es la razón de que la gestión no exija visibilidad: exigirla dejaría al
+  autor sin poder configurar su propia página.
+
 ### 3.3 El pipeline de imágenes y `PublicAssetsBaseUrl`
 
 El HTML almacenado referencia imágenes como `docimg://{id}` (estable). Al mostrar, la librería

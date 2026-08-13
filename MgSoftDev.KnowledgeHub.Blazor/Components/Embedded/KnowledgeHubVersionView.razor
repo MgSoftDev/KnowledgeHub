@@ -1,6 +1,10 @@
 @* Visualización de una versión histórica concreta. Embebible. *@
 
-@if (Loading)
+@if (!User.CanEdit())
+{
+    <div class="kh-doc-content"><h1>Sin permiso</h1><p>No tienes permiso para ver versiones anteriores.</p></div>
+}
+else if (Loading)
 {
     <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
 }

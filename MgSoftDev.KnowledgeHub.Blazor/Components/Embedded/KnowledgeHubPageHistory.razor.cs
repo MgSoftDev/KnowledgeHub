@@ -22,7 +22,7 @@ public partial class KnowledgeHubPageHistory : ComponentBase
     [Parameter] public EventCallback<Guid> OnBackRequested { get; set; }
 
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
-    [Inject] private IKnowledgeHubUserContext User { get; set; } = null!;
+    [Inject] protected IKnowledgeHubUserContext User { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
 

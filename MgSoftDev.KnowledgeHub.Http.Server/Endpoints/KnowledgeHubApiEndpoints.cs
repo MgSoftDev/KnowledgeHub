@@ -1,6 +1,8 @@
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
 using MgSoftDev.KnowledgeHub.Transport;
+using MgSoftDev.ReturningCore;
+using MgSoftDev.ReturningCore.Helper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -139,8 +141,24 @@ public static class KnowledgeHubApiEndpoints
             Results.Ok((await svc.DeleteOrphanImagesAsync()).ToApi()));
 
         // ---- HTML rewriter (server resolves display URLs and warms its cache) --------------------------
-        group.MapPost("/html/prepare", async (PrepareHtmlRequest request, IKnowledgeHubHtmlImageRewriter rewriter) =>
-            Results.Ok((await rewriter.PrepareForDisplayAsync(request.StoredHtml)).ToApi()));
+        // It takes html rather than a page, so there is no page to check visibility against; the
+        // caller already had to hold the stored html to ask. What it must not be is anonymous:
+        // it translates image pks into display hashes and writes the binaries to the server's disk
+        // cache, so leaving it open hands out both a lookup table and a way to fill the disk.
+        group.MapPost("/html/prepare", async (PrepareHtmlRequest request,
+            IKnowledgeHubHtmlImageRewriter rewriter, IKnowledgeHubUserContext user) =>
+        {
+            if (!user.IsAuthenticated)
+            {
+                // Typed local on purpose: Unfinished returns ReturningError, and ToApi only takes
+                // Returning — the implicit conversion does not kick in for extension methods.
+                Returning denied = Returning.Unfinished("No tienes permiso para realizar esta acción",
+                    UnfinishedInfo.NotifyType.Warning);
+                return Results.Ok(denied.ToApi());
+            }
+
+            return Results.Ok((await rewriter.PrepareForDisplayAsync(request.StoredHtml)).ToApi());
+        });
 
         return group;
     }

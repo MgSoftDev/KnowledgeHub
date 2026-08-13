@@ -267,8 +267,10 @@ public static class ParityScript
         Check("Permisos de página inexistente → Unfinished", IsUnfinishedContaining(permsMissing, "no encontrada"));
         var editMissing = await pages.GetPageForEditAsync(missingPk);
         Check("Editar página inexistente → Unfinished", IsUnfinishedContaining(editMissing, "no encontrada"));
+        // Desde la 0.15.0 responde el mensaje AMBIGUO, el mismo que si existiera y no la vieras:
+        // distinguir ambos casos convertía el rechazo en una forma de enumerar páginas probando Guids.
         var versionMissing = await pages.GetVersionContentAsync(missingPk);
-        Check("Versión inexistente → Unfinished", IsUnfinishedContaining(versionMissing, "no encontrada"));
+        Check("Versión inexistente → Unfinished", IsUnfinishedContaining(versionMissing, "no existe o no tienes permiso"));
 
         // Página nueva: sin versiones (GetLatestVersion null) y sin publicar (lector avisa).
         var fresh = await pages.CreatePageAsync(null, "Página Fresca", "pagina-fresca");
@@ -811,6 +813,53 @@ public static class ParityScript
             // en voz alta: un salto silencioso haría creer que el motor quedó probado.
             await CheckRealPdfEngineAsync(export, expRoot.Value);
         }
+
+        // ---- 26. El historial ya no es una puerta trasera ------------------------------------------------
+        // Salió de una pregunta sobre enlaces: el cuerpo de una página deja a la vista el Guid de la
+        // página enlazada, y con ese Guid se podía pedir la lista de versiones y luego el HTML de
+        // cada una SIN NINGÚN permiso. El árbol, la búsqueda, la lectura y el PDF filtraban; el
+        // historial no. Estos checks son la prueba de que esa puerta está cerrada.
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+        var secret = await pages.CreatePageAsync(null, "Cifras de dirección", "cifras-direccion");
+        await PublishSimpleAsync(pages, secret.Value, "<p>Margen por línea: confidencial</p>");
+        await pages.SetPermissionsAsync(secret.Value, false, new[] { "Docs.Tech" });
+
+        var secretVersions = await pages.GetVersionsAsync(secret.Value);
+        Check("Admin sí lista el historial", secretVersions.Ok && secretVersions.Value!.Count > 0);
+        var secretVersionPk = secretVersions.OkNotNull && secretVersions.Value!.Count > 0
+            ? secretVersions.Value![0].Pk
+            : Guid.NewGuid();
+
+        // Un editor CON permiso de edición pero SIN visibilidad sobre esta página: es el caso que
+        // devolvía el HTML entero.
+        user.SetUser("editor-sin-acceso", "Editor", KnowledgeHubPermissions.Edit);
+        var deniedList = await pages.GetVersionsAsync(secret.Value);
+        Check("Editor sin visibilidad NO lista el historial",
+            IsUnfinishedContaining(deniedList, "no existe o no tienes permiso"));
+        var deniedContent = await pages.GetVersionContentAsync(secretVersionPk);
+        Check("Editor sin visibilidad NO lee el contenido de una versión",
+            IsUnfinishedContaining(deniedContent, "no existe o no tienes permiso"));
+        Check("El contenido confidencial no viaja en el rechazo",
+            !deniedContent.OkNotNull);
+
+        // Y el rechazo tiene que ser INDISTINGUIBLE del de una página que no existe, o el propio
+        // mensaje sirve para enumerar Guids.
+        var ghostContent = await pages.GetVersionContentAsync(Guid.NewGuid());
+        Check("El rechazo no distingue «no existe» de «no puedes verla»",
+            deniedContent.UnfinishedInfo?.Title == ghostContent.UnfinishedInfo?.Title);
+
+        // Decisión explícita de la 0.15.0: el historial pasa a ser cosa de editores. Un lector que SÍ
+        // ve la página tampoco entra. Es un cambio de comportamiento, y por eso se afirma.
+        user.SetUser("lector-con-acceso", "Lector", "Docs.Tech");
+        Check("Un lector con visibilidad pero sin edición ya no ve el historial",
+            IsUnfinishedContaining(await pages.GetVersionsAsync(secret.Value), "permiso"));
+
+        // Y lo que debe seguir funcionando: editor con las dos cosas.
+        user.SetUser("editor-con-acceso", "Editor", KnowledgeHubPermissions.Edit, "Docs.Tech");
+        Check("Editor con visibilidad sigue listando el historial",
+            (await pages.GetVersionsAsync(secret.Value)).Ok);
+        Check("Editor con visibilidad sigue leyendo la versión",
+            (await pages.GetVersionContentAsync(secretVersionPk)).OkNotNull);
 
         Console.WriteLine();
         var omitted = _omitted > 0 ? $" / {_omitted} OMIT" : string.Empty;

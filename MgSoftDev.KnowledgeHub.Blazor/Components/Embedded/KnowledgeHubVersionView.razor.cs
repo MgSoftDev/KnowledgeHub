@@ -19,6 +19,9 @@ public partial class KnowledgeHubVersionView : ComponentBase
     [Inject] private IKnowledgeHubHtmlImageRewriter Rewriter { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
 
+    /// <summary>Mirrors the server-side check; the service rejects anyway, this is for the message.</summary>
+    [Inject] protected IKnowledgeHubUserContext User { get; set; } = null!;
+
     protected PageReadDto? Page { get; private set; }
     protected string RenderedHtml { get; private set; } = string.Empty;
     protected string? ErrorMessage { get; private set; }

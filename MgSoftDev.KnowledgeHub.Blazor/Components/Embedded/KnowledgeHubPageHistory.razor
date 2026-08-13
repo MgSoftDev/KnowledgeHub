@@ -1,5 +1,11 @@
 @* Historial de versiones de una página (ver / restaurar). Embebible. *@
 
+@if (!User.CanEdit())
+{
+    <div class="kh-doc-content"><h1>Sin permiso</h1><p>No tienes permiso para ver el historial de versiones.</p></div>
+}
+else
+{
 <div class="kh-doc-content" style="max-width:1040px;">
     <RadzenText TextStyle="TextStyle.H5" class="rz-mb-3">Historial de versiones</RadzenText>
 
@@ -45,3 +51,4 @@
                       Click="@GoBack" />
     }
 </div>
+}

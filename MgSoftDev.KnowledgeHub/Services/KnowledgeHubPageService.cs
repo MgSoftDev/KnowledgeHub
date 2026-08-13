@@ -23,6 +23,12 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
 {
     private const string NoPermissionMessage = "No tienes permiso para realizar esta acción";
 
+    /// <summary>
+    /// Deliberately ambiguous: it must NOT tell "does not exist" apart from "you may not see it",
+    /// or the rejection itself becomes a way to enumerate pages by trying Guids.
+    /// </summary>
+    private const string NotVisibleMessage = "La página no existe o no tienes permiso para verla";
+
     private readonly IKnowledgeHubStore _store;
     private readonly IKnowledgeHubUserContext _user;
     private readonly IKnowledgeHubImageService _imageService;
@@ -117,11 +123,15 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     public Task<Returning<PageReadDto>> GetVersionContentAsync(Guid versionPk) =>
         Returning<PageReadDto>.TryTask(async () =>
         {
-            var versionR = await _store.GetVersionAsync(versionPk);
-            if (!versionR.Ok) versionR.Throw();
+            // Reading an old version is an editing concern, and the version key bypasses the
+            // visibility filter, so both gates are needed. Without them this returned the full html
+            // of any version of any page — drafts that were never published included.
+            if (!_user.CanEdit())
+                return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
 
-            if (versionR.Value is not { } version)
-                return Returning.Unfinished("Versión no encontrada", UnfinishedInfo.NotifyType.Warning);
+            if (await EnsureVersionVisibleAsync(versionPk) is not { } version)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             return ToReadDto(version);
         }, saveLog: true);
 
@@ -130,7 +140,6 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
-
             var pageR = await _store.GetPageAsync(pagePk);
             if (!pageR.Ok) pageR.Throw();
             if (pageR.Value is not { } page)
@@ -176,7 +185,6 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (string.IsNullOrWhiteSpace(draft.Title))
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
-
             // Replace any pasted data-URI images with uploaded docimg:// references before storing.
             // Refuse the save when one could not be processed: storing it would leave the base64
             // blob inline (and duplicated in every later version) without the user noticing.
@@ -226,7 +234,6 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanPublish(_options))
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
-
             var publishR = await _store.TryPublishAsync(pagePk, baseVersionNumber, Stamp());
             if (!publishR.Ok) publishR.Throw();
 
@@ -276,6 +283,13 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     public Task<ReturningList<VersionListItemDto>> GetVersionsAsync(Guid pagePk) =>
         ReturningList<VersionListItemDto>.TryTask(async () =>
         {
+            // The list of versions is what turns a page Guid into version Guids, so leaving it open
+            // handed out the keys to GetVersionContentAsync.
+            if (!_user.CanEdit())
+                return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var pageR = await _store.GetPageAsync(pagePk);
             if (!pageR.Ok) pageR.Throw();
             var publishedPk = pageR.Value?.Fk_DocPageVersionPublished;
@@ -322,7 +336,6 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (string.IsNullOrWhiteSpace(title))
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
-
             var uniqueSlugR = await ResolveFreeSlugAsync(
                 string.IsNullOrWhiteSpace(slug) ? KnowledgeHubSlug.Slugify(title) : slug);
             if (!uniqueSlugR.OkNotNull) uniqueSlugR.Throw();
@@ -357,7 +370,6 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (string.IsNullOrWhiteSpace(title))
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
-
             var okR = await _store.RenamePageAsync(pagePk, title, Stamp());
             if (!okR.Ok) okR.Throw();
             if (!okR.Value)
@@ -372,7 +384,6 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (newParentPk == pagePk)
                 return Returning.Unfinished("Una página no puede ser su propio padre", UnfinishedInfo.NotifyType.Warning);
-
             var linksBefore = await LoadLinksAsync();
             var current = linksBefore.FirstOrDefault(l => l.Pk == pagePk);
             if (current is null)
@@ -557,7 +568,6 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanManagePermissions(_options))
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
-
             var permsR = await _store.GetPagePermissionsAsync(pagePk);
             if (!permsR.Ok) permsR.Throw();
             if (permsR.Value is not { } perms)
@@ -672,6 +682,40 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
 
         var random = Guid.NewGuid().ToString("n")[..8];
         return $"{baseSlug}-{random}";
+    }
+
+    /// <summary>
+    /// The visibility gate for every entry point that takes a page Guid. Returns null when the user
+    /// may not see the page — caller answers <see cref="NotVisibleMessage"/>.
+    ///
+    /// It exists because the store can only filter in the three methods that take a
+    /// <see cref="VisibilityFilter"/> (visible pages, visible header, search). Every other store
+    /// method answers by primary key with no notion of who is asking, so a Guid obtained anywhere —
+    /// a link in another page's html, a bookmark, a log — would otherwise be enough to read or
+    /// change a page the user cannot see. Holding a Guid is not permission to use it.
+    ///
+    /// Admins pass through: <c>ToVisibilityFilter()</c> already returns the admin filter.
+    /// </summary>
+    private async Task<PageHeaderDto?> EnsureVisibleAsync(Guid pagePk)
+    {
+        var headerR = await _store.GetVisiblePageHeaderAsync(pagePk, _user.ToVisibilityFilter());
+        if (!headerR.Ok) headerR.Throw();
+        return headerR.Value;
+    }
+
+    /// <summary>
+    /// Same gate, keyed by version. A <c>versionPk</c> SKIPS the filter by design — no store method
+    /// resolves a version against a visibility filter — so it has to be turned into its page and
+    /// checked. Costs one extra round trip, and that is the price of the key being the version.
+    /// Returns the version only when its page is visible.
+    /// </summary>
+    private async Task<PageVersionDto?> EnsureVersionVisibleAsync(Guid versionPk)
+    {
+        var versionR = await _store.GetVersionAsync(versionPk);
+        if (!versionR.Ok) versionR.Throw();
+        if (versionR.Value is not { } version) return null;
+
+        return await EnsureVisibleAsync(version.PagePk) is null ? null : version;
     }
 
     /// <summary>Reloads the structural rows, for callers that need them after a write.</summary>

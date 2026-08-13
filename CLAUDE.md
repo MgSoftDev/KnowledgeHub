@@ -214,10 +214,10 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (145 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (153 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
   7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
-  v0.13.0 y 12 de páginas excluidas/vacías en v0.14.0
+  v0.13.0 , 12 de páginas excluidas/vacías en v0.14.0 y 8 de fugas por Guid en v0.15.0
   —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
@@ -506,6 +506,34 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     se ven sin aportar texto (`img`, `iframe`, `video`, `embed`, `object`, `svg`, `canvas`).
     Y (c) hay que **decodificar entidades** antes de juzgar: los niveles 2 y 3 de limpieza pueden
     dejar un `<p>` con solo `&nbsp;`, que a una comparación cruda le parece texto.
+
+30. **El store solo filtra en 3 métodos; un `versionPk` salta el filtro por diseño** (v0.15.0, salió
+    de una pregunta sobre enlaces). `IKnowledgeHubStore` recibe `VisibilityFilter` únicamente en
+    `GetVisiblePagesAsync`, `GetVisiblePageHeaderAsync` y `SearchPublishedAsync`; los ~30 restantes
+    responden por clave primaria sin saber quién pregunta. **Donde el core no pone la guarda, no la
+    pone nadie.** El agujero real: nadie reescribe los `<a href>` del cuerpo, así que el Guid de una
+    página enlazada es público para quien lea la que enlaza, y con él `GetVersionsAsync(pagePk)` →
+    `GetVersionContentAsync(versionPk)` devolvían el HTML íntegro **sin una sola comprobación**,
+    borradores nunca publicados incluidos. Cerrado con `EnsureVisibleAsync` /
+    `EnsureVersionVisibleAsync`; el segundo cuesta dos viajes porque **no existe forma de resolver
+    versión → página filtrada**. Regla: *todo método que reciba un `versionPk` tiene que resolver su
+    página y validarla*.
+    **Trampa al cerrarlo, medida con el arnés**: una página recién creada nace `IsPublic = false` y
+    **sin filas de permisos**, y la visibilidad es *admin OR pública OR tienes uno de sus permisos*
+    → **es invisible incluso para quien la crea**. Poner la guarda en las rutas de gestión
+    (`GetPageInfoAsync`, `GetPageForEditAsync`, renombrar, permisos…) **bloquea al creador de su
+    propia página**: 10 checks del arnés en rojo. Por eso la guarda quedó **solo en las rutas de
+    lectura**, y el límite de seguridad de la librería es **lector ↔ editor, no editor ↔ editor**:
+    con `CanManagePermissions` cayendo en `CanEdit`, un editor es de hecho un lector universal.
+    Está documentado en la guía; endurecerlo exige antes resolver que una página nueva sea visible
+    para su autor.
+31. **Lo que NO protege el módulo, y conviene repetir antes de prometer nada**: el **texto de un
+    enlace** a una página restringida queda a la vista (nadie toca el cuerpo, solo `docimg://`), y
+    viaja también al PDF; las **imágenes** de `/kh/assets` se sirven por hash **sin autenticación**
+    (256 bits: la URL ES la credencial) y sin forma de saber a qué página pertenecen — el anfitrión
+    puede encadenar `.RequireAuthorization()`; y la **herencia de ancestros solo existe en
+    `BuildTree`**, así que una página visible con padre invisible no sale en el árbol pero sí se lee
+    por pk y sí aparece en la búsqueda.
 
 ## Pendientes / siguientes pasos
 

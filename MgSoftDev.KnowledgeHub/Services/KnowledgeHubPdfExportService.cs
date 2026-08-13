@@ -122,6 +122,11 @@ public sealed class KnowledgeHubPdfExportService : IKnowledgeHubPdfExportService
     public Task<Returning<PdfFileDto>> ExportAsync(Guid rootPagePk, bool includeDescendants) =>
         Returning<PdfFileDto>.TryTask(async () =>
         {
+            // Capability first: answering "no renderer registered" to someone who may not export
+            // leaks how the server is configured before they have earned an answer at all.
+            if (!_user.CanExport(_options))
+                return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
             if (_renderer is null)
                 return Returning.Unfinished(
                     "No hay ningún generador de PDF registrado. Añade el paquete " +
