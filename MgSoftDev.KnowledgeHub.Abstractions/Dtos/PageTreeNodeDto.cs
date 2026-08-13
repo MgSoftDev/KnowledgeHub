@@ -22,5 +22,12 @@ public sealed class PageTreeNodeDto
     /// <summary>True when the page has a published version (readers can open it).</summary>
     public bool HasPublishedVersion { get; set; }
 
+    /// <summary>
+    /// True when the page must be left out of PDF exports. It travels in the TREE, not only in the
+    /// page metadata, because the exporter has to know before reading the pages: the page limit is
+    /// measured while planning, so a page filtered later would still eat quota.
+    /// </summary>
+    public bool ExcludeFromPdf { get; set; }
+
     public List<PageTreeNodeDto> Children { get; set; } = new();
 }

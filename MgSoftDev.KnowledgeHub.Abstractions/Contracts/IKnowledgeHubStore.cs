@@ -111,6 +111,12 @@ public interface IKnowledgeHubStore
     Task<Returning<bool>> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor, AuditStamp audit);
 
     /// <summary>
+    /// Marks the page as excluded from (or included in) PDF exports. False when the active page
+    /// does not exist. Structural, like the icon: it does NOT create a new version.
+    /// </summary>
+    Task<Returning<bool>> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf, AuditStamp audit);
+
+    /// <summary>
     /// Soft-deletes (RowIsActive = false + audit) every page in <paramref name="pagePks"/>.
     /// The subtree is computed by the core. Returns the number of pages actually deactivated.
     /// </summary>

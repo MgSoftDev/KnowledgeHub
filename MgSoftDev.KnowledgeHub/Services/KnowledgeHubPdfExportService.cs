@@ -49,13 +49,23 @@ public sealed class KnowledgeHubPdfExportService : IKnowledgeHubPdfExportService
                 return Returning.Unfinished("La página no existe o no tienes permiso para verla",
                     UnfinishedInfo.NotifyType.Warning);
 
+            // Asked for this page alone, and this page is the one marked: say so. Letting it fall
+            // through to the count below would blame it on not being published, which is a lie and
+            // sends the user to look in the wrong place.
+            if (!includeDescendants && root.ExcludeFromPdf)
+                return Returning.Unfinished(
+                    "Esta página está marcada como no exportable a PDF. Quita la marca en Gestionar " +
+                    "página, o exporta desde la página superior para incluir sus subpáginas.",
+                    UnfinishedInfo.NotifyType.Warning);
+
             var planned = new List<(PageTreeNodeDto Node, int Level)>();
             Collect(root, 1, includeDescendants, planned);
 
             if (planned.Count == 0)
                 return Returning.Unfinished(
                     includeDescendants
-                        ? "Ni esta página ni sus subpáginas están publicadas todavía"
+                        ? "Ni esta página ni sus subpáginas están publicadas todavía, o están marcadas " +
+                          "como no exportables"
                         : "Esta página aún no ha sido publicada",
                     UnfinishedInfo.NotifyType.Warning);
 
@@ -82,6 +92,13 @@ public sealed class KnowledgeHubPdfExportService : IKnowledgeHubPdfExportService
                 if (!readR.OkNotNull) continue;
 
                 var page = readR.Value;
+
+                // A page that was created and published but never written would print as a heading
+                // followed by a blank sheet. This has to happen HERE and not while planning, because
+                // the content is only known once the page is read — the price is that an empty page
+                // still counts towards MaxExportPages, which is not worth a second trip to the store.
+                if (KnowledgeHubHtml.IsVisuallyEmpty(page.ContentHtml)) continue;
+
                 document.Sections.Add(new PdfExportSection
                 {
                     PagePk = node.Pk,
@@ -94,7 +111,8 @@ public sealed class KnowledgeHubPdfExportService : IKnowledgeHubPdfExportService
             }
 
             if (document.Sections.Count == 0)
-                return Returning.Unfinished("No hay contenido publicado que exportar",
+                return Returning.Unfinished(
+                    "No hay contenido que exportar: las páginas están vacías o dejaron de ser visibles",
                     UnfinishedInfo.NotifyType.Warning);
 
             await AttachImagesAsync(document);
@@ -182,11 +200,20 @@ public sealed class KnowledgeHubPdfExportService : IKnowledgeHubPdfExportService
         return null;
     }
 
-    /// <summary>Depth-first in tree order, keeping only what is actually published.</summary>
+    /// <summary>
+    /// Depth-first in tree order, keeping only what is actually published and not marked out of
+    /// exports. Skipping a page does NOT skip its children — a board of links is excluded, the
+    /// manual hanging from it is not. Same shape as the published check right next to it.
+    /// <para>
+    /// The filtering happens HERE, while planning, and not in the read loop: the page limit is
+    /// measured against this list, so a page filtered later would still eat quota from a branch
+    /// its author deliberately left out.
+    /// </para>
+    /// </summary>
     private static void Collect(PageTreeNodeDto node, int level, bool includeDescendants,
         List<(PageTreeNodeDto, int)> into)
     {
-        if (node.HasPublishedVersion) into.Add((node, level));
+        if (node.HasPublishedVersion && !node.ExcludeFromPdf) into.Add((node, level));
         if (!includeDescendants) return;
 
         foreach (var child in node.Children)

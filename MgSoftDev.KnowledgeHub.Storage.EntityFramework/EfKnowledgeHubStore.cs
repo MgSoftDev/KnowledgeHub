@@ -44,6 +44,7 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
                     IsPublic = p.IsPublic,
                     Icon = p.Icon,
                     IconColor = p.IconColor,
+                    ExcludeFromPdf = p.ExcludeFromPdf,
                     HasPublishedVersion = p.Fk_DocPageVersionPublished != null
                 })
                 .ToListAsync();
@@ -304,6 +305,19 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
 
             page.Icon = icon;
             page.IconColor = iconColor;
+            Touch(page, audit);
+            await db.SaveChangesAsync();
+            return true;
+        });
+
+    public Task<Returning<bool>> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf, AuditStamp audit) =>
+        Returning<bool>.TryTask(async () =>
+        {
+            await using var db = await _factory.CreateDbContextAsync();
+            var page = await db.Pages.FirstOrDefaultAsync(p => p.Pk == pagePk && p.RowIsActive);
+            if (page is null) return false;
+
+            page.ExcludeFromPdf = excludeFromPdf;
             Touch(page, audit);
             await db.SaveChangesAsync();
             return true;

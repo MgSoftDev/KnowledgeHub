@@ -103,6 +103,11 @@ public static class KnowledgeHubApiEndpoints
         group.MapPost("/pages/{pagePk:guid}/icon", async (Guid pagePk, SetIconRequest request, IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.SetPageIconAsync(pagePk, request.Icon, request.IconColor)).ToApi()));
 
+        // Not "/pdf": that route is already taken by the GET that returns the file.
+        group.MapPost("/pages/{pagePk:guid}/pdf-export", async (Guid pagePk, SetExcludeFromPdfRequest request,
+            IKnowledgeHubPageService svc) =>
+            Results.Ok((await svc.SetPageExcludeFromPdfAsync(pagePk, request.ExcludeFromPdf)).ToApi()));
+
         group.MapDelete("/pages/{pagePk:guid}", async (Guid pagePk, IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.DeletePageAsync(pagePk)).ToApi()));
 

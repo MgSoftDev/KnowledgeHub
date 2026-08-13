@@ -18,6 +18,8 @@ public sealed record MovePageOrderRequest(PageMoveDirection Direction);
 
 public sealed record SetIconRequest(string? Icon, string? IconColor);
 
+public sealed record SetExcludeFromPdfRequest(bool ExcludeFromPdf);
+
 public sealed record PublishPageRequest(int BaseVersionNumber);
 
 public sealed record SetPermissionsRequest(bool IsPublic, List<string> Permissions);

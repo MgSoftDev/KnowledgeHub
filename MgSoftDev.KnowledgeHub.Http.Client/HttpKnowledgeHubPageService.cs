@@ -65,6 +65,9 @@ public sealed class HttpKnowledgeHubPageService : IKnowledgeHubPageService
     public Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor) =>
         _api.PostPlainAsync($"/pages/{pagePk}/icon", new SetIconRequest(icon, iconColor));
 
+    public Task<Returning> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf) =>
+        _api.PostPlainAsync($"/pages/{pagePk}/pdf-export", new SetExcludeFromPdfRequest(excludeFromPdf));
+
     public Task<Returning> DeletePageAsync(Guid pagePk) =>
         _api.DeleteAsync($"/pages/{pagePk}");
 

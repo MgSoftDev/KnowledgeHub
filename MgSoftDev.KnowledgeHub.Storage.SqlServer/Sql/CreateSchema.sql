@@ -23,6 +23,7 @@ BEGIN
         IconColor                   NVARCHAR(32) NULL,
         SortOrder                   INT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_SortOrder DEFAULT (0),
         IsPublic                    BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_IsPublic DEFAULT (0),
+        ExcludeFromPdf              BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_ExcludeFromPdf DEFAULT (0),
         RowIsActive                 BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_RowIsActive DEFAULT (1),
         RowCreateDate               DATETIME2 NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_RowCreateDate DEFAULT (GETDATE()),
         RowUpdateDate               DATETIME2 NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_RowUpdateDate DEFAULT (GETDATE()),
@@ -44,6 +45,14 @@ IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'Icon') IS NULL
     ALTER TABLE [{{SCHEMA}}].[{{PREFIX}}DocPages] ADD Icon NVARCHAR(64) NULL;
 IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'IconColor') IS NULL
     ALTER TABLE [{{SCHEMA}}].[{{PREFIX}}DocPages] ADD IconColor NVARCHAR(32) NULL;
+
+-- Migration: ExcludeFromPdf added in 0.14.0. Unlike the two above it is NOT NULL, and adding a
+-- NOT NULL column to a table that already has rows REQUIRES a default — hence the named constraint,
+-- same shape as IsPublic in the CREATE above. Naming it matters: an unnamed default gets a random
+-- system name and cannot be dropped by script later.
+IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'ExcludeFromPdf') IS NULL
+    ALTER TABLE [{{SCHEMA}}].[{{PREFIX}}DocPages]
+        ADD ExcludeFromPdf BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_ExcludeFromPdf DEFAULT (0);
 
 -- ---------------------------------------------------------------- DocPageVersions
 IF OBJECT_ID(N'[{{SCHEMA}}].[{{PREFIX}}DocPageVersions]', N'U') IS NULL

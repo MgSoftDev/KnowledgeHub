@@ -338,6 +338,28 @@ Un botón **PDF** en el lector baja la página abierta, o toda su rama como un m
 El PDF lo imprime **Chromium**, así que sale exactamente como se ve en el lector — incluido tu CSS.
 No hay ningún mapeador HTML que mantener: lo que produzca el editor mañana se renderiza solo.
 
+### Qué páginas entran (v0.14.0)
+
+Por defecto entran todas las publicadas y visibles para quien exporta. Quedan fuera dos:
+
+- **Las marcadas como no exportables.** En *Gestionar página* hay una casilla «No exportar esta
+  página a PDF», pensada para las que solo sirven para navegar —un tablero de enlaces—, que impresas
+  serían una hoja de referencias muertas. La marca es **de la página, no de la rama**: sus
+  subpáginas se siguen exportando. Exportar una página marcada *a solas* se rechaza con un mensaje
+  que lo explica; exportarla **«con sus subpáginas»** sí funciona y saca a las hijas.
+- **Las vacías.** Una página creada y publicada sin escribir nada saldría como un título seguido de
+  una hoja en blanco. Cuenta como vacía si no queda texto al quitar las etiquetas; una página cuyo
+  único contenido es una **imagen** (o un `iframe`, `video`, `svg`…) **no** está vacía y sí se
+  exporta.
+
+Dos matices medidos, por si cuadran las cuentas de un manual grande:
+
+- Una página **marcada** no consume cupo de `MaxExportPages`; una **vacía** sí, porque su contenido
+  no se conoce hasta leerla.
+- Una subpágina cuyo padre quedó fuera **conserva su profundidad real**, así que en el índice
+  aparece sangrada como si su padre siguiera ahí. Es el mismo comportamiento que ya tenían las hijas
+  de una página sin publicar.
+
 ### Paso 1 — Instalar y registrar
 
 ```bash

@@ -146,6 +146,17 @@ automático** (v0.8.0-preview.1).
   intactos en el HTML: sin inflar la cadena y dejando que cada motor decida. `MaxExportPages`
   (200) **rechaza**, nunca trunca. El permiso `KnowledgeHub.Export` con `UseFineGrainedExport` cae
   en `IsAuthenticated` —no en `CanEdit`— porque leer y exportar son la misma capacidad.
+- **Qué páginas entran en el PDF (v0.14.0)**: además de publicada + visible, se descartan las
+  marcadas con `DocPage.ExcludeFromPdf` (casilla en Gestionar; estructural, molde de `Icon`) y las
+  **visualmente vacías** (`KnowledgeHubHtml.IsVisuallyEmpty`). La marca filtra en **`Collect`**, no
+  en el bucle de lectura, porque `MaxExportPages` se mide sobre `planned`: filtrando después, una
+  página excluida seguiría gastando cupo. Las vacías **no pueden** filtrarse ahí (su contenido no se
+  conoce hasta leerlas) y sí gastan cupo; asumido para no pagar una segunda ida al store. Excluir
+  una página **no** excluye su rama —el tablero se va, el manual que cuelga de él se queda—, y por
+  eso hay un rechazo explícito para `includeDescendants: false` sobre una página marcada: sin él, el
+  mensaje habría culpado a que no está publicada. Efecto conocido: una hija cuyo padre quedó fuera
+  conserva su `Level` real, así que en el índice sale sangrada como si el padre siguiera ahí (ya
+  pasaba con padres sin publicar).
 - **Motor de PDF = Chromium vía Playwright (v0.12.0)**. PDFsharp se retiró: mantener a mano un
   mapeador HTML→documento no cubría la variedad real de la documentación, y sobre todo **hacía
   imposible el objetivo de temas por empresa** — un tema es CSS y solo un navegador aplica CSS.
@@ -203,10 +214,10 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (133 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (145 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
-  7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0 y 10 de clases del anfitrión en
-  v0.13.0
+  7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
+  v0.13.0 y 12 de páginas excluidas/vacías en v0.14.0
   —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
@@ -483,6 +494,18 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     **objeto** `KnowledgeHubSanitizerOptions` y no una lambda a propósito: un segundo `Action<…>`
     volvería ambigua (CS0121) toda llamada existente, y pasar el MISMO objeto a los dos contenedores
     es justo el hábito que impide que se separen.
+
+29. **«Página vacía» no se puede decidir mirando la cadena** (v0.14.0). Al filtrar del PDF las
+    páginas sin escribir aparecen dos trampas opuestas, las dos reales en este repo:
+    (a) **`<p><br></p>` NO es un marcador de vacío.** `CalloutHtml.Build` lo añade a propósito al
+    final de **cada callout** —para que Enter saque el cursor de la caja— y la guía se lo recomienda
+    al anfitrión. Un `html.Contains("<p><br></p>")` habría borrado del PDF cualquier página cuyo
+    contenido fuera un solo aviso. La pregunta correcta es «¿queda texto al quitar las etiquetas?».
+    (b) **Una página de solo imagen no tiene texto y no está vacía**: `HtmlTagRegex().Replace(...)`
+    la deja en cadena vacía. Por eso `IsVisuallyEmpty` mira primero `docimg://` y los elementos que
+    se ven sin aportar texto (`img`, `iframe`, `video`, `embed`, `object`, `svg`, `canvas`).
+    Y (c) hay que **decodificar entidades** antes de juzgar: los niveles 2 y 3 de limpieza pueden
+    dejar un `<p>` con solo `&nbsp;`, que a una comparación cruda le parece texto.
 
 ## Pendientes / siguientes pasos
 

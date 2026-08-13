@@ -736,6 +736,77 @@ public static class ParityScript
                 overTransport.OkNotNull && IsPdf(overTransport.Value.Content) &&
                 overTransport.Value.FileName == "exportar-raiz.pdf");
 
+            // ---- Páginas excluidas y páginas vacías ------------------------------------------
+            // El caso real: una página que es un tablero de enlaces, útil para navegar e inútil
+            // impresa. La marca excluye ESA página, nunca su rama.
+            var pdfRoot = await pages.CreatePageAsync(null, "PDF Manual", "pdf-manual");
+            var pdfBoard = await pages.CreatePageAsync(pdfRoot.Value, "PDF Tablero", "pdf-tablero");
+            var pdfLeaf = await pages.CreatePageAsync(pdfBoard.Value, "PDF Hoja", "pdf-hoja");
+            var pdfEmpty = await pages.CreatePageAsync(pdfRoot.Value, "PDF Vacia", "pdf-vacia");
+            var pdfImage = await pages.CreatePageAsync(pdfRoot.Value, "PDF Imagen", "pdf-imagen");
+
+            await PublishSimpleAsync(pages, pdfRoot.Value, "<p>Portada del manual</p>");
+            await PublishSimpleAsync(pages, pdfBoard.Value, "<p>Enlaces</p>");
+            await PublishSimpleAsync(pages, pdfLeaf.Value, "<p>Contenido real</p>");
+            // Lo que deja el editor cuando se crea una página y no se escribe nada.
+            await PublishSimpleAsync(pages, pdfEmpty.Value, "<p><br></p>");
+            // Sin una sola letra, pero se ve: no puede tratarse como vacía.
+            await PublishSimpleAsync(pages, pdfImage.Value,
+                "<p><img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\" alt=\"Q\"></p>");
+            foreach (var pk in new[] { pdfRoot.Value, pdfBoard.Value, pdfLeaf.Value, pdfEmpty.Value, pdfImage.Value })
+                await pages.SetPermissionsAsync(pk, true, Array.Empty<string>());
+
+            var beforeMark = await export.BuildAsync(pdfRoot.Value, includeDescendants: true);
+            Check("Sin marcar, el tablero entra en la rama",
+                beforeMark.OkNotNull && beforeMark.Value.Sections.Any(s => s.Title == "PDF Tablero"));
+            Check("Una página vacía NO genera sección",
+                beforeMark.OkNotNull && beforeMark.Value.Sections.All(s => s.Title != "PDF Vacia"));
+            Check("Una página de solo imagen SÍ se exporta",
+                beforeMark.OkNotNull && beforeMark.Value.Sections.Any(s => s.Title == "PDF Imagen"));
+
+            Check("Marcar la página como no exportable",
+                (await pages.SetPageExcludeFromPdfAsync(pdfBoard.Value, true)).Ok);
+            var markedInfo = await pages.GetPageInfoAsync(pdfBoard.Value);
+            Check("La marca se lee de vuelta", markedInfo.OkNotNull && markedInfo.Value.ExcludeFromPdf);
+
+            var branchAfter = await export.BuildAsync(pdfRoot.Value, includeDescendants: true);
+            Check("La rama se salta el tablero pero conserva su hoja",
+                branchAfter.OkNotNull &&
+                branchAfter.Value.Sections.All(s => s.Title != "PDF Tablero") &&
+                branchAfter.Value.Sections.Any(s => s.Title == "PDF Hoja"));
+
+            var boardAlone = await export.BuildAsync(pdfBoard.Value, includeDescendants: false);
+            Check("Exportar solo la página marcada se rechaza diciendo por qué",
+                IsUnfinishedContaining(boardAlone, "no exportable"));
+
+            var boardBranch = await export.BuildAsync(pdfBoard.Value, includeDescendants: true);
+            Check("Desde la marcada, «con sus subpáginas» sí saca a las hijas",
+                boardBranch.OkNotNull && boardBranch.Value.Sections.Count == 1 &&
+                boardBranch.Value.Sections[0].Title == "PDF Hoja");
+
+            // La excluida NO gasta cupo, porque se filtra al planificar; la vacía sí, porque su
+            // contenido no se conoce hasta leerla. Quedan 4 planificadas: sin la marca serían 5 y
+            // este tope las rechazaría.
+            options.MaxExportPages = 4;
+            var quota = await export.BuildAsync(pdfRoot.Value, includeDescendants: true);
+            Check("Una página excluida no consume cupo de MaxExportPages", quota.OkNotNull);
+            options.MaxExportPages = 200;
+
+            // El helper directo, con las dos trampas que hacen que no sea "html vacío".
+            Check("IsVisuallyEmpty: nada, solo etiquetas o solo &nbsp;",
+                KnowledgeHubHtml.IsVisuallyEmpty(null) && KnowledgeHubHtml.IsVisuallyEmpty("") &&
+                KnowledgeHubHtml.IsVisuallyEmpty("<p><br></p>") &&
+                KnowledgeHubHtml.IsVisuallyEmpty("<p>&nbsp;</p>") &&
+                KnowledgeHubHtml.IsVisuallyEmpty("<div><p></p></div>"));
+            // La librería añade <p><br></p> al final de CADA callout: si eso contara como vacío,
+            // un documento que solo tiene un aviso desaparecería del PDF.
+            Check("IsVisuallyEmpty: un callout no está vacío aunque acabe en <p><br></p>",
+                !KnowledgeHubHtml.IsVisuallyEmpty(
+                    "<div class=\"kh-callout\"><p><strong>Nota:</strong> ojo</p></div><p><br></p>"));
+            Check("IsVisuallyEmpty: una imagen sola no está vacía",
+                !KnowledgeHubHtml.IsVisuallyEmpty(
+                    "<p><img src=\"docimg://019f8d8a-f05a-7796-b5bf-ee2e48d67c29\"></p>"));
+
             // Y una pasada con el motor REAL, que sí necesita navegador. Si no lo hay se informa
             // en voz alta: un salto silencioso haría creer que el motor quedó probado.
             await CheckRealPdfEngineAsync(export, expRoot.Value);

@@ -58,6 +58,19 @@ else
         <RadzenButton Text="Guardar icono" Icon="save" Size="ButtonSize.Small" Click="@SaveIconAsync" Disabled="@Wait" class="rz-mt-2 rz-mb-4" />
 
         <hr />
+        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Exportación a PDF</RadzenText>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <RadzenCheckBox @bind-Value="Info.ExcludeFromPdf" Name="khExcludeFromPdf" Disabled="@Wait" />
+            <RadzenLabel Text="No exportar esta página a PDF" Component="khExcludeFromPdf" />
+        </div>
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-1 rz-mb-0">
+            Para páginas que solo sirven para navegar, como un tablero de enlaces. Sus subpáginas
+            se siguen exportando.
+        </RadzenText>
+        <RadzenButton Text="Guardar" Icon="save" Size="ButtonSize.Small" Click="@SaveExcludeFromPdfAsync"
+                      Disabled="@Wait" class="rz-mt-2 rz-mb-4" />
+
+        <hr />
         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Crear subpágina</RadzenText>
         <div style="display:flex;gap:8px;align-items:center;" class="rz-mb-4">
             <RadzenTextBox @bind-Value="NewChildTitle" Placeholder="Título de la subpágina" style="width:320px;" />

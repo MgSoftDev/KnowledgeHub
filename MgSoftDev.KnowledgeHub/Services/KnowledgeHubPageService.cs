@@ -310,7 +310,8 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 Fk_DocPageParent = page.Fk_DocPageParent,
                 SortOrder = page.SortOrder,
                 Icon = page.Icon,
-                IconColor = page.IconColor
+                IconColor = page.IconColor,
+                ExcludeFromPdf = page.ExcludeFromPdf
             };
         }, saveLog: true);
 
@@ -496,6 +497,19 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             return Returning.Success();
 
             static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }, saveLog: true);
+
+    public Task<Returning> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf) =>
+        Returning.TryTask(async () =>
+        {
+            if (!_user.CanEdit())
+                return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
+            var okR = await _store.SetPageExcludeFromPdfAsync(pagePk, excludeFromPdf, Stamp());
+            if (!okR.Ok) okR.Throw();
+            if (!okR.Value)
+                return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+            return Returning.Success();
         }, saveLog: true);
 
     public Task<Returning> DeletePageAsync(Guid pagePk) =>

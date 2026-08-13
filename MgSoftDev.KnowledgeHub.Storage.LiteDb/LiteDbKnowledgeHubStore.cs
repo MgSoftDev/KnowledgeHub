@@ -40,6 +40,7 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
                     IsPublic = p.IsPublic,
                     Icon = p.Icon,
                     IconColor = p.IconColor,
+                    ExcludeFromPdf = p.ExcludeFromPdf,
                     HasPublishedVersion = p.Fk_DocPageVersionPublished != null
                 })
                 .ToList()));
@@ -259,6 +260,20 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
                 if (page is null || !page.RowIsActive) return false;
                 page.Icon = icon;
                 page.IconColor = iconColor;
+                Touch(page, audit);
+                _ctx.Pages.Update(page);
+                return true;
+            }
+        }));
+
+    public Task<Returning<bool>> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf, AuditStamp audit) =>
+        Task.FromResult(Returning<bool>.Try(() =>
+        {
+            lock (_ctx.WriteLock)
+            {
+                var page = _ctx.Pages.FindById(pagePk);
+                if (page is null || !page.RowIsActive) return false;
+                page.ExcludeFromPdf = excludeFromPdf;
                 Touch(page, audit);
                 _ctx.Pages.Update(page);
                 return true;

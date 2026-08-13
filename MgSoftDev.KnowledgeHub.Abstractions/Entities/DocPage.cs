@@ -25,6 +25,13 @@ public class DocPage : EntityBase
     /// <summary>When true, the page is visible to everyone and DocPages_Permissions is ignored.</summary>
     public bool IsPublic { get; set; }
 
+    /// <summary>
+    /// When true, PDF exports skip this page. Structural like <see cref="Icon"/> — it belongs to the
+    /// node, not to a version, so marking a page does not create a new version of it. Stated in the
+    /// negative so the default (false) keeps every page exporting, as it always did.
+    /// </summary>
+    public bool ExcludeFromPdf { get; set; }
+
     public DocPage? Parent { get; set; }
     public ICollection<DocPage> Children { get; set; } = new List<DocPage>();
 

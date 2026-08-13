@@ -131,6 +131,14 @@ public partial class KnowledgeHubPageManage : ComponentBase
             "Icono actualizado", "Error al guardar el icono");
     }
 
+    private async Task SaveExcludeFromPdfAsync()
+    {
+        if (Info is null) return;
+        await Run(() => DocService.SetPageExcludeFromPdfAsync(PagePk, Info.ExcludeFromPdf),
+            Info.ExcludeFromPdf ? "La página ya no se exportará a PDF" : "La página volverá a exportarse a PDF",
+            "Error al guardar la preferencia de exportación");
+    }
+
     private async Task CreateChildAsync()
     {
         if (string.IsNullOrWhiteSpace(NewChildTitle)) return;

@@ -72,6 +72,13 @@ public interface IKnowledgeHubPageService
     /// <summary>Sets the page's icon (Material Symbols name) and icon color; both nullable to clear.</summary>
     Task<Returning> SetPageIconAsync(Guid pagePk, string? icon, string? iconColor);
 
+    /// <summary>
+    /// Leaves the page out of PDF exports, or puts it back in. Meant for pages that only exist to
+    /// navigate — a board of links — which on paper would be a page of dead references. Excluding a
+    /// page does NOT exclude its children.
+    /// </summary>
+    Task<Returning> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf);
+
     /// <summary>Soft delete of the page and its whole subtree.</summary>
     Task<Returning> DeletePageAsync(Guid pagePk);
 

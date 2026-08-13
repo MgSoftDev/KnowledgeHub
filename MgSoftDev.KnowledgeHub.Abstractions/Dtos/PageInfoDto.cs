@@ -14,4 +14,10 @@ public sealed class PageInfoDto
 
     /// <summary>Optional CSS color for the icon.</summary>
     public string? IconColor { get; set; }
+
+    /// <summary>
+    /// When true the page is skipped by PDF exports. Meant for pages that only exist to navigate —
+    /// a board of links — which on paper would be a page of dead references.
+    /// </summary>
+    public bool ExcludeFromPdf { get; set; }
 }

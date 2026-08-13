@@ -42,6 +42,7 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
                         IsPublic = p.IsPublic,
                         Icon = p.Icon,
                         IconColor = p.IconColor,
+                        ExcludeFromPdf = p.ExcludeFromPdf,
                         HasPublishedVersion = p.Fk_DocPageVersionPublished != null
                     })
                     .ToList();
@@ -260,6 +261,19 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
                 if (page is null) return false;
                 page.Icon = icon;
                 page.IconColor = iconColor;
+                Touch(page, audit);
+                return true;
+            }
+        }));
+
+    public Task<Returning<bool>> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf, AuditStamp audit) =>
+        Task.FromResult(Returning<bool>.Try(() =>
+        {
+            lock (_gate)
+            {
+                var page = _pages.Values.FirstOrDefault(p => p.Pk == pagePk && p.RowIsActive);
+                if (page is null) return false;
+                page.ExcludeFromPdf = excludeFromPdf;
                 Touch(page, audit);
                 return true;
             }
