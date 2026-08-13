@@ -51,5 +51,7 @@ public static class KnowledgeHubUserContextExtensions
 
     /// <summary>The store-level visibility filter for this user.</summary>
     public static Store.VisibilityFilter ToVisibilityFilter(this IKnowledgeHubUserContext user) =>
-        user.IsAdmin() ? Store.VisibilityFilter.Admin : new(false, user.Permissions);
+        user.IsAdmin()
+            ? Store.VisibilityFilter.Admin
+            : new(false, user.Permissions, SeesUnconfigured: user.CanEdit());
 }

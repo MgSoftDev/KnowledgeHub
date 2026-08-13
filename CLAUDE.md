@@ -214,10 +214,10 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (153 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (169 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
   7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
-  v0.13.0 , 12 de páginas excluidas/vacías en v0.14.0 y 8 de fugas por Guid en v0.15.0
+  v0.13.0 , 12 de páginas excluidas/vacías en v0.14.0 , 8 de fugas por Guid en v0.15.0 y 16 de creación visible + escalada cerrada en v0.16.0
   —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
@@ -519,14 +519,11 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     versión → página filtrada**. Regla: *todo método que reciba un `versionPk` tiene que resolver su
     página y validarla*.
     **Trampa al cerrarlo, medida con el arnés**: una página recién creada nace `IsPublic = false` y
-    **sin filas de permisos**, y la visibilidad es *admin OR pública OR tienes uno de sus permisos*
-    → **es invisible incluso para quien la crea**. Poner la guarda en las rutas de gestión
-    (`GetPageInfoAsync`, `GetPageForEditAsync`, renombrar, permisos…) **bloquea al creador de su
-    propia página**: 10 checks del arnés en rojo. Por eso la guarda quedó **solo en las rutas de
-    lectura**, y el límite de seguridad de la librería es **lector ↔ editor, no editor ↔ editor**:
-    con `CanManagePermissions` cayendo en `CanEdit`, un editor es de hecho un lector universal.
-    Está documentado en la guía; endurecerlo exige antes resolver que una página nueva sea visible
-    para su autor.
+    **sin filas de permisos**, y la visibilidad era *admin OR pública OR tienes uno de sus permisos*
+    → **era invisible incluso para quien la crea**. Poner la guarda en las rutas de gestión
+    **bloqueaba al creador de su propia página**: 10 checks del arnés en rojo, y por eso la 0.15.0
+    dejó la guarda solo en lectura y la escalada abierta. **Resuelto en la 0.16.0** (gotcha 32), y
+    con el bloqueo fuera las guardas de gestión entraron enteras.
 31. **Lo que NO protege el módulo, y conviene repetir antes de prometer nada**: el **texto de un
     enlace** a una página restringida queda a la vista (nadie toca el cuerpo, solo `docimg://`), y
     viaja también al PDF; las **imágenes** de `/kh/assets` se sirven por hash **sin autenticación**
@@ -534,6 +531,24 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     puede encadenar `.RequireAuthorization()`; y la **herencia de ancestros solo existe en
     `BuildTree`**, así que una página visible con padre invisible no sale en el árbol pero sí se lee
     por pk y sí aparece en la búsqueda.
+
+32. **Una página nueva era invisible para su propio autor** (v0.16.0, reportado probando el demo con
+    `editor1`: crear una página, publicarla y no verla NUNCA en el árbol). `CreatePageAsync` nunca
+    asignó permisos, así que la página nace `IsPublic = false` y sin filas en `DocPagePermission`;
+    publicar no toca la visibilidad. Con un rol Editor **la librería no servía para crear
+    contenido**: todo lo creado desaparecía. Venía de la v0.1 y afectaba a los dos botones que crean
+    páginas (`KnowledgeHubNavTree` para raíces, `KnowledgeHubPageManage` para subpáginas).
+    Arreglado por dos lados: (a) una **subpágina hereda `IsPublic` y los permisos del padre** —con
+    `GetPagePermissionsAsync`/`SetPagePermissionsAsync`, sin tocar el contrato del store—, y (b)
+    `VisibilityFilter` gana **`SeesUnconfigured`** (con valor por defecto, así que ningún store
+    propio se rompe), que enseña las páginas **sin configurar** a quien puede editar: están ocultas
+    para todos, así que mostrarlas no destapa nada y evita que se pierdan.
+    **Consecuencia sobre datos existentes**: al actualizar, las páginas sin configurar pasan a verlas
+    los editores. Esconder por omisión deja de funcionar.
+    Y lo importante de segundo orden: **esto desbloqueó las guardas de gestión** que la 0.15.0 tuvo
+    que dejar fuera, así que la escalada de privilegios quedó cerrada en la misma entrega. La regla
+    de tres casos (pública / concedida / sin configurar) vive en el XML doc de `VisibilityFilter` y
+    hay que replicarla en los 4 proveedores.
 
 ## Pendientes / siguientes pasos
 

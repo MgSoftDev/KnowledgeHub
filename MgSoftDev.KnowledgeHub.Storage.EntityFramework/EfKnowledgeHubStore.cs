@@ -567,16 +567,19 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
     // ---------------------------------------------------------------- Helpers
 
     /// <summary>
-    /// Applies the visibility rule INSIDE the query (public OR any active permission granted
-    /// to the filter). Comparison case-sensitivity follows the database collation.
+    /// Applies the visibility rule INSIDE the query (public OR any active permission granted to the
+    /// filter OR, for users who may edit, a page with no permissions configured at all).
+    /// Comparison case-sensitivity follows the database collation.
     /// </summary>
     private static IQueryable<DocPage> ApplyVisibility(IQueryable<DocPage> query, VisibilityFilter filter)
     {
         if (filter.SeesEverything) return query;
 
         var permissions = filter.Permissions.ToList();
+        var seesUnconfigured = filter.SeesUnconfigured;
         return query.Where(p => p.IsPublic ||
-            p.DocPagePermissions.Any(dp => dp.RowIsActive && permissions.Contains(dp.Permission)));
+            p.DocPagePermissions.Any(dp => dp.RowIsActive && permissions.Contains(dp.Permission)) ||
+            (seesUnconfigured && !p.DocPagePermissions.Any(dp => dp.RowIsActive)));
     }
 
     private static void Touch(EntityBase entity, AuditStamp audit)

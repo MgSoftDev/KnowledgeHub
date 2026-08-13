@@ -140,6 +140,10 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+            // CanEdit says the user may edit SOMETHING, never that they may edit THIS.
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var pageR = await _store.GetPageAsync(pagePk);
             if (!pageR.Ok) pageR.Throw();
             if (pageR.Value is not { } page)
@@ -185,6 +189,11 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (string.IsNullOrWhiteSpace(draft.Title))
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
+            // Also the only place that checks the page EXISTS: without it a made-up Guid left orphan
+            // versions behind in stores with no foreign keys.
+            if (await EnsureVisibleAsync(draft.PagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             // Replace any pasted data-URI images with uploaded docimg:// references before storing.
             // Refuse the save when one could not be processed: storing it would leave the base64
             // blob inline (and duplicated in every later version) without the user noticing.
@@ -234,6 +243,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanPublish(_options))
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var publishR = await _store.TryPublishAsync(pagePk, baseVersionNumber, Stamp());
             if (!publishR.Ok) publishR.Throw();
 
@@ -254,10 +266,8 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
 
-            var oldR = await _store.GetVersionAsync(versionPk);
-            if (!oldR.Ok) oldR.Throw();
-            if (oldR.Value is not { } old)
-                return Returning.Unfinished("Versión no encontrada", UnfinishedInfo.NotifyType.Warning);
+            if (await EnsureVersionVisibleAsync(versionPk) is not { } old)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
 
             var maxR = await _store.GetMaxVersionNumberAsync(old.PagePk);
             if (!maxR.Ok) maxR.Throw();
@@ -311,6 +321,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     public Task<Returning<PageInfoDto>> GetPageInfoAsync(Guid pagePk) =>
         Returning<PageInfoDto>.TryTask(async () =>
         {
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var pageR = await _store.GetPageAsync(pagePk);
             if (!pageR.Ok) pageR.Throw();
             if (pageR.Value is not { } page)
@@ -336,6 +349,11 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (string.IsNullOrWhiteSpace(title))
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
+            // The parent was never validated at all — not even that it existed.
+            if (parentPk is Guid parent && await EnsureVisibleAsync(parent) is null)
+                return Returning.Unfinished("La página superior no existe o no tienes permiso para verla",
+                    UnfinishedInfo.NotifyType.Warning);
+
             var uniqueSlugR = await ResolveFreeSlugAsync(
                 string.IsNullOrWhiteSpace(slug) ? KnowledgeHubSlug.Slugify(title) : slug);
             if (!uniqueSlugR.OkNotNull) uniqueSlugR.Throw();
@@ -356,6 +374,24 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             var insertR = await _store.InsertPageAsync(page);
             if (!insertR.Ok) insertR.Throw();
 
+            // A subpage inherits its parent's audience: a page under "Producción" belongs to
+            // Producción, which is what everyone expects and what stops the new page from being
+            // invisible to the very person who just created it. Two writes, not one transaction —
+            // if this second one fails the page is left UNCONFIGURED, which the visibility rule
+            // still shows to whoever may edit, so nothing is lost.
+            if (parentPk is Guid inheritFrom)
+            {
+                var parentPermsR = await _store.GetPagePermissionsAsync(inheritFrom);
+                if (!parentPermsR.Ok) parentPermsR.Throw();
+                if (parentPermsR.Value is { } parentPerms &&
+                    (parentPerms.IsPublic || parentPerms.Permissions.Count > 0))
+                {
+                    var applyR = await _store.SetPagePermissionsAsync(
+                        page.Pk, parentPerms.IsPublic, parentPerms.Permissions, Stamp());
+                    if (!applyR.Ok) applyR.Throw();
+                }
+            }
+
             // MAX+1 can leave a gap (deleted siblings still count towards the max), so collapse
             // the group to 1..N; the new page keeps the last position.
             await NormalizeSiblingsAsync(await LoadLinksAsync(), parentPk, pinLastPk: page.Pk);
@@ -370,6 +406,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (string.IsNullOrWhiteSpace(title))
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var okR = await _store.RenamePageAsync(pagePk, title, Stamp());
             if (!okR.Ok) okR.Throw();
             if (!okR.Value)
@@ -384,6 +423,14 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
             if (newParentPk == pagePk)
                 return Returning.Unfinished("Una página no puede ser su propio padre", UnfinishedInfo.NotifyType.Warning);
+            // BOTH ends: moving a page you can see UNDER a parent you cannot would park content
+            // inside a branch that does not exist for you.
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+            if (newParentPk is Guid destination && await EnsureVisibleAsync(destination) is null)
+                return Returning.Unfinished("La página destino no existe o no tienes permiso para verla",
+                    UnfinishedInfo.NotifyType.Warning);
+
             var linksBefore = await LoadLinksAsync();
             var current = linksBefore.FirstOrDefault(l => l.Pk == pagePk);
             if (current is null)
@@ -428,6 +475,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
 
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var okR = await _store.SetSortOrderAsync(pagePk, sortOrder, Stamp());
             if (!okR.Ok) okR.Throw();
             if (!okR.Value)
@@ -446,6 +496,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
 
             var linksR = await _store.GetActivePageLinksAsync();
             if (!linksR.Ok) linksR.Throw();
@@ -501,6 +554,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
 
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var okR = await _store.SetPageIconAsync(pagePk, Normalize(icon), Normalize(iconColor), Stamp());
             if (!okR.Ok) okR.Throw();
             if (!okR.Value)
@@ -516,6 +572,9 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
 
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var okR = await _store.SetPageExcludeFromPdfAsync(pagePk, excludeFromPdf, Stamp());
             if (!okR.Ok) okR.Throw();
             if (!okR.Value)
@@ -528,6 +587,12 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
+            // Deleting takes the WHOLE subtree down, descendants this user may not see included, so
+            // this gate is the only thing between an editor and a wholesale deletion of content that
+            // does not exist for them.
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
 
             var linksR = await _store.GetActivePageLinksAsync();
             if (!linksR.Ok) linksR.Throw();
@@ -568,6 +633,11 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanManagePermissions(_options))
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+            // Reading the ACL of a page you cannot see is the reconnaissance step for the escalation:
+            // it tells you exactly which permission to grant yourself.
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
             var permsR = await _store.GetPagePermissionsAsync(pagePk);
             if (!permsR.Ok) permsR.Throw();
             if (permsR.Value is not { } perms)
@@ -580,6 +650,16 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanManagePermissions(_options))
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
+            // PRIVILEGE ESCALATION, closed here. CanManagePermissions falls back to CanEdit unless
+            // the host opts in, so without this any editor could set IsPublic on a branch they
+            // cannot see and then read it through the front door. Granting yourself access to
+            // something you cannot see must not be possible.
+            //
+            // An UNCONFIGURED page does pass, and that is the point: it is visible to every editor
+            // already, so configuring it grants nothing new — it is how a new page gets its audience.
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
 
             var distinct = permissions
                 .Where(p => !string.IsNullOrWhiteSpace(p))

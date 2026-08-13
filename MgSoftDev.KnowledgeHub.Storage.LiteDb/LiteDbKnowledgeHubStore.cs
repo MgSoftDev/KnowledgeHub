@@ -506,20 +506,31 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
         var active = _ctx.Pages.Query().Where(p => p.RowIsActive).ToList();
         if (filter.SeesEverything) return active;
 
-        var granted = _ctx.PagePermissions.Query().ToList()
-            .Where(dp => dp.RowIsActive &&
-                         filter.Permissions.Contains(dp.Permission, StringComparer.OrdinalIgnoreCase))
+        var activePermissions = _ctx.PagePermissions.Query().ToList().Where(dp => dp.RowIsActive).ToList();
+
+        var granted = activePermissions
+            .Where(dp => filter.Permissions.Contains(dp.Permission, StringComparer.OrdinalIgnoreCase))
             .Select(dp => dp.Fk_DocPage)
             .ToHashSet();
 
-        return active.Where(p => p.IsPublic || granted.Contains(p.Pk)).ToList();
+        // Pages nobody was granted anything on: hidden from everyone, so whoever may edit gets to
+        // see them — otherwise a page you just created is lost the moment you navigate away.
+        var configured = activePermissions.Select(dp => dp.Fk_DocPage).ToHashSet();
+
+        return active.Where(p => p.IsPublic || granted.Contains(p.Pk) ||
+                                 (filter.SeesUnconfigured && !configured.Contains(p.Pk))).ToList();
     }
 
-    private bool IsVisible(DocPage page, VisibilityFilter filter) =>
-        filter.SeesEverything || page.IsPublic ||
-        _ctx.PagePermissions.Query().Where(dp => dp.Fk_DocPage == page.Pk).ToList()
-            .Any(dp => dp.RowIsActive &&
-                       filter.Permissions.Contains(dp.Permission, StringComparer.OrdinalIgnoreCase));
+    private bool IsVisible(DocPage page, VisibilityFilter filter)
+    {
+        if (filter.SeesEverything || page.IsPublic) return true;
+
+        var permissions = _ctx.PagePermissions.Query().Where(dp => dp.Fk_DocPage == page.Pk).ToList()
+            .Where(dp => dp.RowIsActive).ToList();
+
+        return permissions.Any(dp => filter.Permissions.Contains(dp.Permission, StringComparer.OrdinalIgnoreCase))
+               || (filter.SeesUnconfigured && permissions.Count == 0);
+    }
 
     private void ReplacePageImageLinks(Guid pagePk, IReadOnlyList<Guid> imagePks, string? userName, DateTime timestamp)
     {

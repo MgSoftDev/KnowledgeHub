@@ -263,10 +263,15 @@ public static class ParityScript
         var missingPk = Guid.NewGuid();
         var readMissing = await pages.GetPageForReadAsync(missingPk);
         Check("Leer página inexistente → Unfinished", IsUnfinishedContaining(readMissing, "no existe"));
+        // Desde la 0.16.0 estas rutas responden el mensaje AMBIGUO: el mismo tanto si la página no
+        // existe como si existe y no la ves. Distinguirlas convertía el rechazo en una forma de
+        // enumerar páginas probando Guids.
         var permsMissing = await pages.GetPermissionsAsync(missingPk);
-        Check("Permisos de página inexistente → Unfinished", IsUnfinishedContaining(permsMissing, "no encontrada"));
+        Check("Permisos de página inexistente → Unfinished",
+            IsUnfinishedContaining(permsMissing, "no existe o no tienes permiso"));
         var editMissing = await pages.GetPageForEditAsync(missingPk);
-        Check("Editar página inexistente → Unfinished", IsUnfinishedContaining(editMissing, "no encontrada"));
+        Check("Editar página inexistente → Unfinished",
+            IsUnfinishedContaining(editMissing, "no existe o no tienes permiso"));
         // Desde la 0.15.0 responde el mensaje AMBIGUO, el mismo que si existiera y no la vieras:
         // distinguir ambos casos convertía el rechazo en una forma de enumerar páginas probando Guids.
         var versionMissing = await pages.GetVersionContentAsync(missingPk);
@@ -860,6 +865,82 @@ public static class ParityScript
             (await pages.GetVersionsAsync(secret.Value)).Ok);
         Check("Editor con visibilidad sigue leyendo la versión",
             (await pages.GetVersionContentAsync(secretVersionPk)).OkNotNull);
+
+        // ---- 27. Una página nueva no se pierde --------------------------------------------------------
+        // Reportado probando el demo: un editor creaba una página, la publicaba y NO la veía nunca
+        // en el árbol. Una página nace sin permisos y no pública, así que bajo la regla vieja era
+        // invisible para todos menos Admin — incluido su propio autor. Publicar no cambia nada de eso.
+        user.SetUser("autor", "Autor sin roles de contenido", KnowledgeHubPermissions.Edit);
+        var suya = await pages.CreatePageAsync(null, "Borrador del autor", "borrador-autor");
+        Check("Crear una página de raíz", suya.Ok);
+
+        var treeAutor = await pages.GetTreeAsync();
+        Check("El autor SÍ ve en su árbol la página que acaba de crear",
+            treeAutor.Ok && FindBySlug(treeAutor.Value!, "borrador-autor") is not null);
+        Check("Y puede gestionarla y editarla",
+            (await pages.GetPageInfoAsync(suya.Value)).OkNotNull &&
+            (await pages.GetPageForEditAsync(suya.Value)).OkNotNull);
+
+        // Sin configurar la ve cualquier editor —está oculta para todos, no protege a nadie— pero
+        // NUNCA un lector.
+        user.SetUser("otro-editor", "Otro editor", KnowledgeHubPermissions.Edit);
+        var treeOtro = await pages.GetTreeAsync();
+        Check("Otro editor también ve la página sin configurar",
+            treeOtro.Ok && FindBySlug(treeOtro.Value!, "borrador-autor") is not null);
+
+        user.SetUser("lector-raso", "Lector");
+        var treeLector = await pages.GetTreeAsync();
+        Check("Un lector NO ve una página sin configurar",
+            treeLector.Ok && FindBySlug(treeLector.Value!, "borrador-autor") is null);
+
+        // En cuanto se configura, manda la regla de siempre: deja de ser «sin configurar».
+        user.SetUser("autor", "Autor sin roles de contenido", KnowledgeHubPermissions.Edit);
+        await pages.SetPermissionsAsync(suya.Value, false, new[] { "Docs.Ofi" });
+        var treeTrasConfigurar = await pages.GetTreeAsync();
+        Check("Configurada para otro rol, el editor deja de verla",
+            treeTrasConfigurar.Ok && FindBySlug(treeTrasConfigurar.Value!, "borrador-autor") is null);
+
+        // Herencia: una subpágina nace con la audiencia de su padre, que es lo que evita el problema
+        // en el caso habitual (crear dentro de una rama ya configurada).
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+        var hijaHeredada = await pages.CreatePageAsync(secret.Value, "Detalle de cifras", "detalle-cifras");
+        Check("Crear subpágina bajo una rama restringida", hijaHeredada.Ok);
+        var permsHeredados = await pages.GetPermissionsAsync(hijaHeredada.Value);
+        Check("La subpágina hereda los permisos del padre",
+            permsHeredados.OkNotNull && permsHeredados.Value.Permissions.Contains("Docs.Tech"));
+
+        user.SetUser("editor-con-acceso", "Editor", KnowledgeHubPermissions.Edit, "Docs.Tech");
+        var treeHeredado = await pages.GetTreeAsync();
+        Check("Quien ve al padre ve la subpágina heredada",
+            treeHeredado.Ok && FindBySlug(treeHeredado.Value!, "detalle-cifras") is not null);
+
+        user.SetUser("editor-otro-rol", "Editor de otra área", KnowledgeHubPermissions.Edit, "Docs.Ofi");
+        var treeAjeno = await pages.GetTreeAsync();
+        Check("Un editor de otra área NO ve la subpágina heredada",
+            treeAjeno.Ok && FindBySlug(treeAjeno.Value!, "detalle-cifras") is null);
+
+        // ---- 28. La escalada de privilegios, cerrada --------------------------------------------------
+        // El editor de otra área no ve «Cifras de dirección». Con CanManagePermissions cayendo en
+        // CanEdit, sin guarda podría hacerse público y leerlo por la puerta de delante.
+        var escalada = await pages.SetPermissionsAsync(secret.Value, true, Array.Empty<string>());
+        Check("Un editor sin visibilidad NO puede auto-concederse permisos",
+            IsUnfinishedContaining(escalada, "no existe o no tienes permiso"));
+        Check("Y la lectura sigue rechazando después del intento",
+            !(await pages.GetPageForReadAsync(secret.Value)).OkNotNull);
+        Check("Tampoco puede leer la ACL para saber qué rol pedirse",
+            IsUnfinishedContaining(await pages.GetPermissionsAsync(secret.Value), "no existe o no tienes permiso"));
+
+        // Gestión sobre una página que no ve: rechazada Y sin efecto (se afirma el efecto, no solo
+        // el Returning).
+        Check("No puede renombrar lo que no ve",
+            IsUnfinishedContaining(await pages.RenamePageAsync(secret.Value, "Secuestrada"), "no existe o no tienes permiso"));
+        Check("No puede borrar lo que no ve",
+            IsUnfinishedContaining(await pages.DeletePageAsync(secret.Value), "no existe o no tienes permiso"));
+
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+        var intacta = await pages.GetPageInfoAsync(secret.Value);
+        Check("La página sigue intacta tras los intentos",
+            intacta.OkNotNull && intacta.Value.Title == "Cifras de dirección");
 
         Console.WriteLine();
         var omitted = _omitted > 0 ? $" / {_omitted} OMIT" : string.Empty;

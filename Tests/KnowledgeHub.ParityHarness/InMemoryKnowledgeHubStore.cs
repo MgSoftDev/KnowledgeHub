@@ -478,7 +478,10 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
     private bool MatchesFilter(DocPage page, VisibilityFilter filter) =>
         filter.SeesEverything || page.IsPublic ||
         _permissions.Any(dp => dp.Fk_DocPage == page.Pk && dp.RowIsActive &&
-            filter.Permissions.Contains(dp.Permission, StringComparer.OrdinalIgnoreCase));
+            filter.Permissions.Contains(dp.Permission, StringComparer.OrdinalIgnoreCase)) ||
+        // Sin configurar: oculta para todos, así que quien pueda editar la ve y no se pierde.
+        (filter.SeesUnconfigured &&
+         !_permissions.Any(dp => dp.Fk_DocPage == page.Pk && dp.RowIsActive));
 
     private void ReplacePageImageLinks(Guid pagePk, IReadOnlyList<Guid> imagePks, string? userName, DateTime timestamp)
     {

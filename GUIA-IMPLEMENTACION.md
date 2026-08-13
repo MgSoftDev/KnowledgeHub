@@ -191,25 +191,52 @@ La librería entiende 4 nombres *well-known* (constantes en `KnowledgeHubPermiss
 | `Publish` | `KnowledgeHub.Publish` | Publicar — **solo se exige** con `UseFineGrainedPublish` (§10) |
 | `ManagePermissions` | `KnowledgeHub.ManagePermissions` | Gestionar visibilidad — solo con `UseFineGrainedManagePermissions` |
 
-**Visibilidad de una página** (para lectura): una página es visible si `IsPublic == true`, o si
-alguno de sus permisos asignados (strings de TU catálogo, p. ej. `Role.Produccion`) está en la
-lista `Permissions` del usuario (comparación case-insensitive). La herencia aplica al árbol: si
-el padre no es visible, los hijos tampoco se muestran. `KnowledgeHub.Admin` ve todo.
+**Visibilidad de una página**. Una página es visible si se cumple **cualquiera** de estas tres:
+
+1. `IsPublic == true`;
+2. alguno de sus permisos asignados (strings de TU catálogo, p. ej. `Role.Produccion`) está en la
+   lista `Permissions` del usuario (comparación case-insensitive);
+3. **la página está sin configurar** —ni pública ni con ningún permiso asignado— **y el usuario puede
+   editar**.
+
+`KnowledgeHub.Admin` ve todo. La herencia aplica al árbol: si el padre no es visible, los hijos
+tampoco se muestran.
+
+El tercer caso existe porque una página **se crea sin permisos y no pública**: con las dos primeras
+reglas a secas, una página recién creada sería invisible **hasta para su propio autor**, que podría
+crearla, publicarla y no volver a encontrarla. Una página sin configurar está oculta para todo el
+mundo, así que enseñársela a quien puede editar no destapa nada — solo le deja volver a ella. En
+cuanto alguien le asigna permisos deja de estar «sin configurar» y mandan las reglas normales.
+
+> ⚠️ Si vienes de la 0.15.0 o anterior: al actualizar, **las páginas que estén sin configurar pasan a
+> verlas los editores**. Eso incluye las que se hubieran perdido por este mismo motivo — aparecerán y
+> podrás arreglarlas — pero también cualquiera que alguien dejara sin permisos a propósito para
+> esconderla. Esconder por omisión deja de funcionar; usa permisos explícitos.
+
+**Al crear una subpágina hereda la visibilidad del padre** (su `IsPublic` y sus permisos): una página
+bajo *Producción* nace siendo de Producción. Una página de raíz nace sin configurar, y entra por el
+caso 3 hasta que la configures.
 
 Los servicios **validan permisos server-side** en cada mutación — la UI solo refleja lo mismo.
 Nunca dependas de esconder botones.
 
 #### Hasta dónde llega la visibilidad, y hasta dónde no
 
-Conviene tenerlo claro antes de prometerle nada a nadie. **El límite de seguridad es lector ↔
-editor**, no editor ↔ editor: en el modo por defecto `Edit` también gestiona visibilidad, así que
-**un editor es, de hecho, un lector universal** — puede darse acceso a cualquier rama. Si necesitas
-separar editores entre sí, enciende `UseFineGrainedManagePermissions` (§10) y reserva
-`ManagePermissions` a quien de verdad deba repartir accesos.
+Conviene tenerlo claro antes de prometerle nada a nadie.
+
+Desde la **0.16.0** un editor **solo puede leer y gestionar lo que ve**: renombrar, mover, borrar,
+publicar, editar y —lo más importante— **cambiar los permisos** exigen visibilidad sobre la página.
+Eso cierra la escalada que existía hasta la 0.15.0, donde `CanManagePermissions` cae en `CanEdit` y
+cualquier editor podía hacerse pública una rama que no veía y leerla acto seguido.
+
+La excepción, deliberada, son las **páginas sin configurar**: como ya las ve cualquier editor
+(caso 3 de arriba), cualquiera de ellos puede configurarlas. Es lo que permite que el autor le dé
+audiencia a la página que acaba de crear, y no concede nada que no estuviera ya a la vista.
 
 Lo que **sí** filtra por visibilidad: el árbol, la búsqueda, la lectura de una página, el historial
 de versiones y el contenido de una versión (desde la 0.15.0; antes eran una puerta trasera que
-devolvía el HTML íntegro a cualquiera con el Guid), y la exportación a PDF página por página.
+devolvía el HTML íntegro a cualquiera con el Guid), la exportación a PDF página por página, y toda
+la gestión (desde la 0.16.0).
 
 Lo que **no**, por diseño y con motivo:
 
@@ -222,9 +249,9 @@ Lo que **no**, por diseño y con motivo:
   `.RequireAuthorization()`.
 - **La herencia de ancestros solo se aplica al construir el árbol.** Una página visible cuyo padre
   no lo es no aparece en el árbol, pero **sí se lee por su Guid y sí sale en la búsqueda**.
-- **Una página recién creada es invisible hasta que le asignas permisos** — incluso para quien la
-  creó, salvo que sea Admin. Es la razón de que la gestión no exija visibilidad: exigirla dejaría al
-  autor sin poder configurar su propia página.
+- **Las páginas sin configurar las ve cualquier editor**, no solo su autor. Es el precio de que una
+  página nueva no se pierda; si necesitas que un borrador sea privado de verdad, asígnale permisos
+  desde el primer momento en vez de dejarlo sin configurar.
 
 ### 3.3 El pipeline de imágenes y `PublicAssetsBaseUrl`
 

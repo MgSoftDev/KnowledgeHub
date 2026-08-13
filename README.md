@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.15.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.16.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -76,7 +76,7 @@ Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.BlazorServer       Blazor Server + LiteDB
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
-Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (153 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (169 checks) sobre 4 modos de store
 ```
 
 ## Compilar y probar
@@ -132,8 +132,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.15.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-153/153 en los 4 modos de store; los demos están verificados end-to-end.
+**v0.16.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+169/169 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia
 
