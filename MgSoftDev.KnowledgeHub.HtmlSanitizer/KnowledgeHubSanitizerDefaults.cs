@@ -57,12 +57,21 @@ public static class KnowledgeHubSanitizerDefaults
     /// <summary>The permissive configuration (<see cref="HtmlCleanupLevel.Standard"/>).</summary>
     public static Ganss.Xss.HtmlSanitizer CreateSanitizer() => CreateSanitizer(HtmlCleanupLevel.Standard);
 
+    /// <inheritdoc cref="CreateSanitizer(HtmlCleanupLevel, KnowledgeHubSanitizerOptions?)"/>
+    public static Ganss.Xss.HtmlSanitizer CreateSanitizer(HtmlCleanupLevel level) =>
+        CreateSanitizer(level, null);
+
     /// <summary>
     /// A sanitizer configured for the given level. All levels keep the three KnowledgeHub-specific
     /// additions (the <c>data</c> and <c>docimg</c> schemes and the <c>zoom</c> CSS property);
     /// without them, cleaning would silently destroy pasted and stored images.
     /// </summary>
-    public static Ganss.Xss.HtmlSanitizer CreateSanitizer(HtmlCleanupLevel level)
+    /// <param name="level">How aggressive the cleaning is.</param>
+    /// <param name="options">
+    /// What the host adds on top. Null keeps the historical behaviour exactly.
+    /// </param>
+    public static Ganss.Xss.HtmlSanitizer CreateSanitizer(HtmlCleanupLevel level,
+        KnowledgeHubSanitizerOptions? options)
     {
         var sanitizer = new Ganss.Xss.HtmlSanitizer();
 
@@ -79,6 +88,30 @@ public static class KnowledgeHubSanitizerDefaults
         //    also removes Word's MsoNormal and friends.
         sanitizer.AllowedAttributes.Add("class");
         sanitizer.AllowedClasses.Add(CalloutClass);
+
+        // 4) The host's own classes, so a documented layout survives being cleaned. They are ADDED
+        //    to the marker above, never replacing it: the set must stay non-empty or the library
+        //    switches to "allow everything" and Word's MsoNormal comes back in.
+        if (options is not null)
+            foreach (var cssClass in options.AllowedClasses)
+                sanitizer.AllowedClasses.Add(cssClass);
+
+        // Prefixes have no equivalent in AllowedClasses, which matches literally. RemovingCssClass
+        // fires once per class about to go and can veto — same shape as the RemovingStyle hooks
+        // below. Only wired when there is something to match, to keep the common case free.
+        if (options is { AllowedClassPrefixes.Count: > 0 })
+        {
+            var prefixes = options.AllowedClassPrefixes.ToArray();
+            sanitizer.RemovingCssClass += (_, e) =>
+            {
+                foreach (var prefix in prefixes)
+                    if (e.CssClass.StartsWith(prefix, StringComparison.Ordinal))
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+            };
+        }
 
         switch (level)
         {
@@ -125,6 +158,11 @@ public static class KnowledgeHubSanitizerDefaults
                 };
                 break;
         }
+
+        // Last word to the host, after every rule above is in place — otherwise Strict and
+        // PlainText would undo it when they REPLACE the allow-lists.
+        if (level == HtmlCleanupLevel.Standard) options?.ConfigureStandard?.Invoke(sanitizer);
+        options?.ConfigureLevel?.Invoke(sanitizer, level);
 
         return sanitizer;
     }

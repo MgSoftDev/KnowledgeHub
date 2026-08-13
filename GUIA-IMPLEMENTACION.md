@@ -453,6 +453,16 @@ Otras dos cosas de este modo: la máquina de **build** necesita internet y **Pow
 Playwright añade **119 caracteres** de ruta hasta el ejecutable, así que una instalación muy anidada
 puede pasar de MAX_PATH y fallar con un `spawn … ENOENT` que no menciona longitudes.
 
+> **Red corporativa con inspección TLS**: si el proxy de la empresa re-firma el tráfico con su
+> propia CA, la descarga del navegador falla con un **error de certificado** — el Node embebido de
+> Playwright usa su propio almacén de CAs y **no lee el de Windows**. Dos salidas, agregando la
+> variable al `EnvironmentVariables` del `Exec` en el target `KhInstallPlaywrightBrowser`:
+>
+> - Estricta: `NODE_EXTRA_CA_CERTS=<ruta al .pem de la CA corporativa>` — confía solo en esa CA.
+> - Expedita: `NODE_TLS_REJECT_UNAUTHORIZED=0` — desactiva la validación TLS **solo para esa
+>   descarga en build** (el equipo de destino no descarga nada). Verificado en una máquina
+>   corporativa real: `EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=0;NODE_TLS_REJECT_UNAUTHORIZED=0"`.
+
 ### El aspecto: temas por empresa
 
 ```csharp
@@ -1549,20 +1559,65 @@ Parte de los valores por defecto y añade lo tuyo:
 services.AddKnowledgeHubHtmlSanitizer(o =>
 {
     o.AllowedTags.Add("iframe");            // por ejemplo, vídeo incrustado
-    o.AllowedAttributes.Add("class");       // NO permitido de fábrica
     o.AllowedAttributes.Add("allowfullscreen");
     o.AllowedCssProperties.Add("filter");
     o.AllowedSchemes.Add("mailto");
 });
 ```
 
-**Tres ajustes ya vienen puestos y no debes quitarlos:**
+Esta sobrecarga **solo configura el nivel 1** —el que usa guardar—; los niveles 2 y 3 se derivan de
+los valores por defecto para que ampliar uno no amplíe todos.
+
+**Cuatro ajustes ya vienen puestos y no debes quitarlos:**
 
 | Ajuste | Por qué |
 |---|---|
 | `AllowedSchemes.Add("data")` | Las imágenes pegadas viajan como `data:` hasta que se guardan; sin esto se borrarían antes de poder subirse. |
 | `AllowedSchemes.Add("docimg")` | `docimg://{pk}` es la referencia almacenada; sin esto, limpiar al guardar borraría **todas** las imágenes existentes. |
 | `AllowedCssProperties.Add("zoom")` | `zoom` no es estándar y no está en la lista de fábrica, pero es lo que escribe la herramienta de tamaño de imagen. |
+| `AllowedAttributes.Add("class")` + `AllowedClasses.Add("kh-callout")` | Marca los avisos para que el nivel 2 les respete el color. Al sembrar `AllowedClasses` el filtro queda **activo**: de fábrica **solo sobrevive `kh-callout`** y las demás clases se borran, incluidas las `MsoNormal` de Word. |
+
+### Paso 3.1 (opcional) — Conservar tus propias clases CSS
+
+Si maquetas dentro de la documentación con clases tuyas (un índice de módulos, unas fichas…),
+**decláralas** o el guardado se las lleva por delante:
+
+```csharp
+public static class MiSaneador
+{
+    public static KnowledgeHubSanitizerOptions Options { get; } = new()
+    {
+        AllowedClasses = { "mi-indice" },              // por nombre
+        AllowedClassPrefixes = { "mi-tarjeta-" },      // la familia entera, presente y futura
+        ConfigureStandard = s => s.AllowCssCustomProperties = true
+    };
+}
+
+// en TODOS los contenedores que limpien
+services.AddKnowledgeHubHtmlSanitizer(MiSaneador.Options);
+```
+
+- **Prefiere los prefijos** si la familia crece con el diseño: una clase que nadie se acordó de
+  registrar es indistinguible de basura pegada, y se pierde al guardar.
+- Declarar clases **no** reabre la puerta a Word: la lista es de **inclusión**, así que `MsoNormal`
+  sigue cayendo por no estar en ella.
+- Llegan a los **niveles 1 y 2**. El nivel 2 salva la clase pero **no** la cosmética en línea: tu
+  aspecto debe venir de tu CSS. El **nivel 3 quita todas las clases** a propósito; si necesitas otra
+  cosa, tienes `ConfigureLevel`.
+- En el **PDF** tus clases llegan intactas, pero el CSS del lector no viaja: mete tus reglas en
+  `AdditionalCss` o `CssFilePath` de `AddKnowledgeHubPdf` (§8.2).
+
+> ⚠️ **Configúralo en todos los contenedores, no solo en uno.** La escoba del editor usa el
+> sanitizador de la **UI** y el guardado usa el del **core**. En WASM son dos procesos: si declaras
+> tus clases solo en el cliente, el editor se ve perfecto y el servidor —con las reglas de fábrica—
+> te las borra al guardar. Declara las opciones **una vez** en código compartido y pásalas a los dos
+> `Program.cs`; así lo hace el demo WASM (`Demos/KnowledgeHub.Demo.Wasm/DemoSanitizer.cs`).
+>
+> Y ojo con `TryAddSingleton`: una llamada **sin configurar hecha antes** gana sobre la tuya y tu
+> configuración se pierde sin decir nada.
+
+Si sospechas que te está pasando, la prueba está en el log del **servidor**: `SanitizeForSave`
+registra `HTML saneado al guardar` con los caracteres antes → después cada vez que recorta algo.
 
 ### Paso 4 (opcional) — Implementación propia
 
@@ -1590,7 +1645,7 @@ public sealed class MiSanitizador : IKnowledgeHubHtmlSanitizer
         // Al guardar: más permisivo, porque el contenido ya pasó por el editor.
         _guardado = KnowledgeHubSanitizerDefaults.CreateSanitizer();
         _guardado.AllowedTags.Add("iframe");
-        _guardado.AllowedAttributes.Add("class");
+        _guardado.AllowedClasses.Add("mi-indice");   // 'class' ya viene permitido
     }
 
     public string Sanitize(string html, HtmlSanitizeContext context) =>
@@ -1723,6 +1778,7 @@ anchas se reducen al ingresarlas).
 | El `zoom` de una imagen se pierde al guardar | `zoom` no está en la allow-list de fábrica de HtmlSanitizer | `AllowedCssProperties.Add("zoom")` — ya incluido en los defaults del paquete (§8.1) |
 | El botón de tamaño de imagen dice «Selecciona una imagen» | No hay ninguna `<img>` seleccionada en el editor | Haz clic sobre la imagen (queda marcada) y vuelve a pulsar el botón (§8) |
 | Tu herramienta con diálogo inserta al final en vez de reemplazar la selección | Falta `RestoreSelectionAsync()` tras cerrar el diálogo | Llámalo antes de devolver el HTML (§8, «herramientas sobre la selección») |
+| La descarga del navegador empaquetado (PDF) falla con error de certificado en la máquina de build | Proxy corporativo con inspección TLS: el Node de Playwright no lee el almacén de certificados de Windows | `NODE_EXTRA_CA_CERTS=<CA corporativa .pem>` o `NODE_TLS_REJECT_UNAUTHORIZED=0` en el `EnvironmentVariables` del target (§8.2, «Empaquetar el navegador») |
 
 ---
 

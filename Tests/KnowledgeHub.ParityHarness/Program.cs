@@ -42,7 +42,9 @@ if (mode == "http")
     serverBuilder.Services.AddKnowledgeHubLiteDbStore(liteDbPath);
     serverBuilder.Services.AddKnowledgeHubCore(o => o.PublicAssetsBaseUrl = "/kh/assets");
     serverBuilder.Services.AddKnowledgeHubFileImageCache(cacheFolder);
-    serverBuilder.Services.AddKnowledgeHubHtmlSanitizer();
+    // Las MISMAS opciones que el contenedor local: en http hay dos contenedores, igual que en WASM,
+    // y si divergen el editor limpia con unas reglas y el guardado con otras.
+    serverBuilder.Services.AddKnowledgeHubHtmlSanitizer(HarnessSanitizer.Options);
     // Renderer FALSO: el motor real es Chromium y dependería de que la máquina tenga navegador,
     // cuando el arnés debe dar lo mismo en los cuatro modos y en cualquier equipo. Va ANTES porque
     // AddKnowledgeHubPdf usa TryAdd. El motor real se prueba aparte y avisa si no puede ejecutarse.
@@ -131,7 +133,7 @@ else
 
     services.AddKnowledgeHubCore(o => o.PublicAssetsBaseUrl = "/kh/assets");
     services.AddKnowledgeHubFileImageCache(cacheFolder);
-    services.AddKnowledgeHubHtmlSanitizer();
+    services.AddKnowledgeHubHtmlSanitizer(HarnessSanitizer.Options);
     services.AddSingleton<IKnowledgeHubPdfRenderer, FakePdfRenderer>();
     services.AddKnowledgeHubPdf();
 

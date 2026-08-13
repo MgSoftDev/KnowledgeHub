@@ -29,6 +29,18 @@ public sealed class DefaultKnowledgeHubHtmlSanitizer : IKnowledgeHubHtmlSanitize
         _plainText = KnowledgeHubSanitizerDefaults.CreateSanitizer(HtmlCleanupLevel.PlainText);
     }
 
+    /// <summary>
+    /// Builds the three levels from the same options, which is the only way the host reaches levels
+    /// 2 and 3 — the constructor above can only ever customise level 1, so a layout declared there
+    /// still vanished the moment someone pressed the cleanup button at level 2.
+    /// </summary>
+    public DefaultKnowledgeHubHtmlSanitizer(KnowledgeHubSanitizerOptions options)
+    {
+        _standard = KnowledgeHubSanitizerDefaults.CreateSanitizer(HtmlCleanupLevel.Standard, options);
+        _strict = KnowledgeHubSanitizerDefaults.CreateSanitizer(HtmlCleanupLevel.Strict, options);
+        _plainText = KnowledgeHubSanitizerDefaults.CreateSanitizer(HtmlCleanupLevel.PlainText, options);
+    }
+
     /// <summary>Creates one with the KnowledgeHub defaults.</summary>
     public DefaultKnowledgeHubHtmlSanitizer() : this(KnowledgeHubSanitizerDefaults.CreateSanitizer()) { }
 

@@ -29,8 +29,10 @@ builder.Services.AddSingleton<IKnowledgeHubUserContext>(sp => sp.GetRequiredServ
 builder.Services.AddKnowledgeHubHttpClient();
 
 // WASM needs it on BOTH sides: here it cleans what the user pastes into the editor, and the API
-// server registers it too so the html is checked again before it is stored.
-builder.Services.AddKnowledgeHubHtmlSanitizer();
+// server registers it too so the html is checked again before it is stored. Both take the SAME
+// options object (see DemoSanitizer) — two lists that drift apart look fine in the editor and lose
+// the markup on save.
+builder.Services.AddKnowledgeHubHtmlSanitizer(DemoSanitizer.Options);
 
 builder.Services.AddKnowledgeHubBlazor(o =>
 {

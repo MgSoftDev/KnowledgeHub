@@ -114,6 +114,14 @@ automático** (v0.8.0-preview.1).
   rewrites de imagen y antes de `GetExistingImagePksAsync`) y el botón manual. Al guardar limpia y
   **loguea** (Information) sin molestar al usuario; el pase es idempotente. La allow-list DEBE
   incluir los esquemas `data` y `docimg` y el CSS `zoom` (gotcha 16).
+- **Clases del anfitrión (v0.13.0)**: `KnowledgeHubSanitizerOptions` con `AllowedClasses` y
+  `AllowedClassPrefixes`, que llegan a los **niveles 1 y 2** — antes el `Action<HtmlSanitizer>` solo
+  alcanzaba el 1, así que una maquetación propia sobrevivía al guardado pero moría con la escoba en
+  nivel 2. Los prefijos existen porque enumerar una familia que crece es una lista que alguien
+  olvidará, y la clase no registrada es indistinguible de basura. El nivel 3 las quita igualmente
+  (es «solo texto»). Se pasa el **objeto**, no una lambda: un segundo `Action<…>` haría ambigua
+  (CS0121) toda llamada existente, y compartir el mismo objeto entre contenedores es lo que evita
+  la gotcha 28.
 - **Niveles de limpieza (v0.7.0)**: `HtmlCleanupLevel { Standard, Strict, PlainText }` y una
   sobrecarga `Sanitize(html, context, level)` con **implementación por defecto en la interfaz**
   (delega en la de dos argumentos) → los anfitriones que ya implementaban el contrato no se rompen.
@@ -195,10 +203,11 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (99 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
-  v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1
-  y 7 de slug en v0.8.0
-  —estos últimos llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
+- **Guion de paridad** (133 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+  v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
+  7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0 y 10 de clases del anfitrión en
+  v0.13.0
+  —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
@@ -346,7 +355,11 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     `background-position: initial; background-size: initial; …` → hay que quitar **todos** los
     `background-*`. Para preservar lo propio (imágenes y callouts) el evento **`RemovingStyle`**,
     que se dispara por CADA propiedad y admite `Cancel`, es el gancho correcto; `AllowedClasses`
-    filtra clase a clase, así que `class` puede permitirse dejando solo `kh-callout`.
+    filtra clase a clase, así que `class` puede permitirse dejando solo `kh-callout` — **con la
+    trampa de que un `AllowedClasses` VACÍO permite TODAS** (su doc: *"If the set is empty, all
+    classes will be allowed"*), así que sembrarlo es lo que ACTIVA el filtro y nunca hay que
+    vaciarlo. Desde v0.13.0 el anfitrión suma ahí las suyas, y los prefijos van por el evento
+    **`RemovingCssClass`** (su EventArgs hereda de `CancelEventArgs`, así que tiene `Cancel`).
     **Corolario (v0.7.1, tras un bug real):** las trampas (c) y (d) son síntomas de lo mismo —
     quitar de las listas es una estrategia que **falla abierta**. El primer intento listaba las
     propiedades a quitar y un pegado real de una web coló `orphans: 4` entero, porque a nadie se le
@@ -451,6 +464,25 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
       aplicación** antes de lanzar el navegador (así el equipo del cliente no configura nada).
     Y lo que SÍ sale gratis: el índice con anclas `#id` produce enlaces reales del PDF (`/Annots`),
     el WebP se incrusta sin transcodificar, y `Channel="msedge"` usa el Edge instalado sin descargar.
+
+28. **El mismo documento lo limpian DOS sanitizadores distintos, y nada avisa cuando divergen**
+    (v0.13.0, a partir de un caso real). Síntoma reportado: pegar HTML con clases propias en la
+    vista código → se ve bien; darle a la escoba → no quita nada; **guardar → las clases desaparecen**.
+    La escoba resuelve el sanitizador del contenedor de la **UI**
+    (`BuiltInEditorTools.cs`, `ctx.Services.GetService<IKnowledgeHubHtmlSanitizer>()`) y el guardado
+    usa el inyectado en el **core** (`KnowledgeHubPageService.SanitizeForSave`). Las reglas son las
+    mismas —los dos van a nivel Standard—, así que **si el resultado difiere es que son instancias
+    distintas**. En WASM son dos procesos: se había configurado el cliente y no el servidor de la
+    API, que es quien decide lo que se almacena. Regla de diagnóstico: cuando pegar/limpiar y
+    guardar no coinciden, no busques en las reglas, busca en el registro. La pista está en el log
+    del servidor (`HTML saneado al guardar`, con los caracteres antes → después).
+    Dos agravantes de diseño, ya cerrados: la sobrecarga `Action<HtmlSanitizer>` **solo alcanzaba el
+    nivel 1** (los niveles 2 y 3 se construían dentro de `DefaultKnowledgeHubHtmlSanitizer` sin nada
+    del anfitrión), y `AddKnowledgeHubHtmlSanitizer` usa **`TryAddSingleton`**, así que una llamada
+    sin configurar hecha antes anula la configurada **sin decir nada**. La sobrecarga nueva recibe el
+    **objeto** `KnowledgeHubSanitizerOptions` y no una lambda a propósito: un segundo `Action<…>`
+    volvería ambigua (CS0121) toda llamada existente, y pasar el MISMO objeto a los dos contenedores
+    es justo el hábito que impide que se separen.
 
 ## Pendientes / siguientes pasos
 

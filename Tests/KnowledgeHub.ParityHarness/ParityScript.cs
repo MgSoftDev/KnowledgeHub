@@ -588,6 +588,53 @@ public static class ParityScript
                 if (Clean(once, level) != once) idempotent = false;
             }
             Check("Los tres niveles son idempotentes", idempotent);
+
+            // ---- Clases declaradas por el anfitrión ------------------------------------------
+            // El caso real: una maquetación propia del anfitrión (un índice de módulos con sus
+            // tarjetas) marcada con clases suyas. Antes solo sobrevivía kh-callout, así que el
+            // guardado se llevaba la maquetación por delante sin decir nada.
+            foreach (var level in new[] { HtmlCleanupLevel.Standard, HtmlCleanupLevel.Strict })
+            {
+                Check($"Nivel {(level == HtmlCleanupLevel.Standard ? 1 : 2)}: sobrevive la clase declarada por nombre",
+                    Clean($"<div class=\"{HarnessSanitizer.NamedClass}\">x</div>", level)
+                        .Contains(HarnessSanitizer.NamedClass));
+
+                // El prefijo existe porque enumerar una familia que crece es una lista que alguien
+                // olvidará: la clase nueva es indistinguible de basura y muere al guardar.
+                Check($"Nivel {(level == HtmlCleanupLevel.Standard ? 1 : 2)}: sobrevive la familia declarada por prefijo",
+                    Clean($"<div class=\"{HarnessSanitizer.Prefix}icon--orders\">x</div>", level)
+                        .Contains($"{HarnessSanitizer.Prefix}icon--orders"));
+
+                // Igualdad EXACTA: comprobar qué etiquetas sobreviven no dice nada de los
+                // atributos, que es justo donde se escondió el fallo del nivel 3 en la 0.7.0.
+                Check($"Nivel {(level == HtmlCleanupLevel.Standard ? 1 : 2)}: de la mezcla queda la mía y muere la de Word",
+                    Clean($"<p class=\"{HarnessSanitizer.Prefix}card MsoNormal\">Texto</p>", level) ==
+                    $"<p class=\"{HarnessSanitizer.Prefix}card\">Texto</p>");
+            }
+
+            // La regresión que importa: declarar clases propias NO reabre la puerta a Word, porque
+            // AllowedClasses es una lista de INCLUSIÓN. Si algún día se vaciara, pasaría todo.
+            Check("Declarar clases propias no deja pasar la basura de Word",
+                Clean("<p class=\"MsoNormal\">Texto</p>", HtmlCleanupLevel.Standard) == "<p>Texto</p>");
+
+            // El prefijo compara literal: 'kh-mi' no es 'kh-mi-'.
+            Check("El prefijo no cuela clases que solo se le parecen",
+                Clean("<p class=\"kh-mi\">x</p>", HtmlCleanupLevel.Standard) == "<p>x</p>");
+
+            // El nivel 2 salva la clase, no la cosmética: el aspecto debe venir del CSS del
+            // anfitrión, que es lo que hace que el nivel 2 siga sirviendo para algo.
+            var declaredStrict = Clean(
+                $"<div class=\"{HarnessSanitizer.Prefix}card\" style=\"background:#1e1e1e;color:#fff;\">x</div>",
+                HtmlCleanupLevel.Strict);
+            Check("Nivel 2: la clase declarada se salva pero su cosmética en línea no",
+                declaredStrict.Contains($"{HarnessSanitizer.Prefix}card") &&
+                !declaredStrict.Contains("background"));
+
+            // El nivel 3 es «solo texto» y eso incluye las clases del anfitrión: ahí el atributo
+            // cae entero porque AllowedAttributes se sustituye, no por la lista de clases.
+            Check("Nivel 3 sigue quitando TODAS las clases, también las declaradas",
+                Clean($"<p class=\"{HarnessSanitizer.NamedClass} {HarnessSanitizer.Prefix}card\">Texto</p>",
+                    HtmlCleanupLevel.PlainText) == "<p>Texto</p>");
         }
 
         // ---- 25. Exportación a PDF ------------------------------------------------------------------------

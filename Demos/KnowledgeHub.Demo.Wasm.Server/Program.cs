@@ -1,4 +1,5 @@
 using KnowledgeHub.Demo.SharedAuth;
+using KnowledgeHub.Demo.Wasm;
 using KnowledgeHub.Demo.Wasm.Server.Auth;
 using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.AspNetCore;
@@ -45,7 +46,10 @@ builder.Services.AddKnowledgeHubFileImageCache(Path.Combine(dataFolder, "cache")
 
 // Server side of the WASM pair: the last checkpoint before the html reaches the database. The
 // client registers it too, but never trust the client — this is the one that actually protects.
-builder.Services.AddKnowledgeHubHtmlSanitizer();
+// It takes the SAME options as the client, from the shared class, because THIS is the container
+// that decides what gets stored: leave it on the factory rules and the host's own classes are
+// stripped on save, however well the editor behaved.
+builder.Services.AddKnowledgeHubHtmlSanitizer(DemoSanitizer.Options);
 builder.Services.AddKnowledgeHubPdf();
 
 var app = builder.Build();

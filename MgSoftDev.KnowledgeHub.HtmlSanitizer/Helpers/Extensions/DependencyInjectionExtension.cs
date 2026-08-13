@@ -29,7 +29,32 @@ public static class DependencyInjectionExtension
         configure?.Invoke(sanitizer);
 
         // TryAdd: a host that registered its own IKnowledgeHubHtmlSanitizer beforehand wins.
+        // Careful: it also means an EARLIER plain AddKnowledgeHubHtmlSanitizer() call wins over
+        // this one, and your configuration is dropped without a word. Register it once.
         services.TryAddSingleton<IKnowledgeHubHtmlSanitizer>(new DefaultKnowledgeHubHtmlSanitizer(sanitizer));
+        return services;
+    }
+
+    /// <summary>
+    /// Same, configured through <see cref="KnowledgeHubSanitizerOptions"/>, which reaches ALL THREE
+    /// cleanup levels — the overload above only ever reaches level 1, so classes declared there
+    /// still disappeared when the user pressed the cleanup button at level 2.
+    ///
+    /// Apply the SAME options in every container that cleans. In a WASM setup the client cleans on
+    /// paste and the API server cleans on save, so configuring only the client looks perfect in the
+    /// editor and then strips the markup on the way to the database.
+    ///
+    /// It takes the options INSTANCE rather than a configuration lambda for two reasons: a second
+    /// <c>Action&lt;…&gt;</c> overload would make every existing call ambiguous (CS0121), and passing
+    /// the same object to both containers is precisely the habit that prevents the two of them from
+    /// drifting apart.
+    /// </summary>
+    public static IServiceCollection AddKnowledgeHubHtmlSanitizer(this IServiceCollection services,
+        KnowledgeHubSanitizerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        services.TryAddSingleton<IKnowledgeHubHtmlSanitizer>(new DefaultKnowledgeHubHtmlSanitizer(options));
         return services;
     }
 }
