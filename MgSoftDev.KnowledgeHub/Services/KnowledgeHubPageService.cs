@@ -588,9 +588,8 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             if (!_user.CanEdit())
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
 
-            // Deleting takes the WHOLE subtree down, descendants this user may not see included, so
-            // this gate is the only thing between an editor and a wholesale deletion of content that
-            // does not exist for them.
+            // Deleting takes the WHOLE subtree down. This gate covers the page itself; the subtree
+            // is checked below, once it is known.
             if (await EnsureVisibleAsync(pagePk) is null)
                 return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
 
@@ -608,6 +607,24 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                     if (link.ParentPk is Guid parent && toDelete.Contains(parent) && toDelete.Add(link.Pk))
                         added = true;
             } while (added);
+
+            // The subtree came from the UNFILTERED link list —it has to, or the cascade would leave
+            // orphans— which is precisely why it has to be checked against what this user can see.
+            // Without this an editor deleting a branch destroys restricted pages underneath it
+            // silently: pages they cannot see, cannot list, and are never told about.
+            var hidden = await CountHiddenAsync(toDelete);
+            if (hidden > 0)
+            {
+                var title = links.FirstOrDefault(l => l.Pk == pagePk)?.Title;
+                return Returning.Unfinished(
+                    title is null ? "No se puede eliminar la página" : $"No se puede eliminar «{title}»",
+                    hidden == 1
+                        ? "Contiene 1 subpágina que no tienes permiso para ver. Pide a un administrador " +
+                          "que la elimine o que te dé acceso a ella."
+                        : $"Contiene {hidden} subpáginas que no tienes permiso para ver. Pide a un " +
+                          "administrador que las elimine o que te dé acceso a ellas.",
+                    UnfinishedInfo.NotifyType.Warning);
+            }
 
             // Remember the parent BEFORE deleting: afterwards the row is no longer active and
             // would not come back in the links.
@@ -781,6 +798,24 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         var headerR = await _store.GetVisiblePageHeaderAsync(pagePk, _user.ToVisibilityFilter());
         if (!headerR.Ok) headerR.Throw();
         return headerR.Value;
+    }
+
+    /// <summary>
+    /// How many of these pages the user cannot see. For cascades: the subtree is necessarily built
+    /// from the UNFILTERED link list, so the only way to know whether an operation would reach
+    /// content the user has no business touching is to compare it against the visible set.
+    /// Admins short-circuit without asking the store, so the ordinary case pays nothing.
+    /// </summary>
+    private async Task<int> CountHiddenAsync(IReadOnlyCollection<Guid> pagePks)
+    {
+        var filter = _user.ToVisibilityFilter();
+        if (filter.SeesEverything || pagePks.Count == 0) return 0;
+
+        var visibleR = await _store.GetVisiblePagesAsync(filter);
+        if (!visibleR.Ok) visibleR.Throw();
+
+        var visible = visibleR.Value!.Select(p => p.Pk).ToHashSet();
+        return pagePks.Count(pk => !visible.Contains(pk));
     }
 
     /// <summary>

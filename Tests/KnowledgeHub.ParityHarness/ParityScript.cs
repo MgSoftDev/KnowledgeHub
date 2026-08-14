@@ -942,6 +942,65 @@ public static class ParityScript
         Check("La página sigue intacta tras los intentos",
             intacta.OkNotNull && intacta.Value.Title == "Cifras de dirección");
 
+        // ---- 29. Borrar en cascada no puede llevarse lo que no se ve ----------------------------------
+        // El subárbol se calcula sobre la lista de enlaces SIN filtrar —tiene que ser así, o la
+        // cascada dejaría huérfanos—, así que sin este chequeo un editor borra una rama y destruye
+        // las páginas restringidas de debajo en silencio: no las ve, no puede enumerarlas y nadie
+        // se lo dice. Es pérdida de datos, no un detalle de UX.
+        var planta = await pages.CreatePageAsync(null, "Manual de Planta");
+        await pages.SetPermissionsAsync(planta.Value, true, Array.Empty<string>());
+        var costes = await pages.CreatePageAsync(planta.Value, "Costes internos");
+        await pages.SetPermissionsAsync(costes.Value, false, new[] { "Docs.Dir" });
+
+        user.SetUser("editor-otro-rol", "Editor de otra área", KnowledgeHubPermissions.Edit, "Docs.Ofi");
+        var borradoCiego = await pages.DeletePageAsync(planta.Value);
+        Check("No puede borrar una rama que esconde páginas que no ve",
+            IsUnfinishedContaining(borradoCiego, "no tienes permiso para ver"));
+        Check("El aviso nombra la página en el título",
+            borradoCiego.UnfinishedInfo?.Title?.Contains("Manual de Planta") == true);
+        // Primer uso en la librería de la sobrecarga de 3 argumentos de Unfinished: hasta ahora el
+        // Mensaje viajaba vacío, así que se afirma sobre él y no solo sobre el título.
+        Check("Y el mensaje dice CUÁNTAS son, en singular",
+            borradoCiego.UnfinishedInfo?.Mensaje?.Contains("1 subpágina que no tienes permiso") == true);
+
+        var ventas = await pages.CreatePageAsync(planta.Value, "Márgenes");
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+        await pages.SetPermissionsAsync(ventas.Value, false, new[] { "Docs.Dir" });
+        user.SetUser("editor-otro-rol", "Editor de otra área", KnowledgeHubPermissions.Edit, "Docs.Ofi");
+        Check("Con dos escondidas el mensaje va en plural",
+            (await pages.DeletePageAsync(planta.Value)).UnfinishedInfo?.Mensaje
+                ?.Contains("2 subpáginas que no tienes permiso") == true);
+
+        // Lo que de verdad importa no es el rechazo, sino que NO se borró nada.
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+        Check("Tras el rechazo, la rama sigue entera",
+            (await pages.GetPageInfoAsync(planta.Value)).OkNotNull &&
+            (await pages.GetPageInfoAsync(costes.Value)).OkNotNull &&
+            (await pages.GetPageInfoAsync(ventas.Value)).OkNotNull);
+
+        // Que el chequeo no dé falsos positivos importa tanto como el bloqueo.
+        var abierta = await pages.CreatePageAsync(null, "Rama abierta");
+        await pages.SetPermissionsAsync(abierta.Value, true, Array.Empty<string>());
+        var abiertaHija = await pages.CreatePageAsync(abierta.Value, "Hija heredada");
+        var sinConfigurar = await pages.CreatePageAsync(abierta.Value, "Sin configurar");
+        await pages.SetPermissionsAsync(sinConfigurar.Value, false, Array.Empty<string>());
+
+        user.SetUser("editor-otro-rol", "Editor de otra área", KnowledgeHubPermissions.Edit, "Docs.Ofi");
+        Check("Sí borra una rama cuyos descendientes ve todos, sin configurar incluida",
+            (await pages.DeletePageAsync(abierta.Value)).Ok);
+
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+        Check("Y esa rama desapareció entera",
+            !(await pages.GetPageInfoAsync(abierta.Value)).OkNotNull &&
+            !(await pages.GetPageInfoAsync(abiertaHija.Value)).OkNotNull &&
+            !(await pages.GetPageInfoAsync(sinConfigurar.Value)).OkNotNull);
+
+        Check("El admin sí puede borrar la rama con páginas restringidas",
+            (await pages.DeletePageAsync(planta.Value)).Ok);
+        Check("Y se llevó también las restringidas",
+            !(await pages.GetPageInfoAsync(costes.Value)).OkNotNull &&
+            !(await pages.GetPageInfoAsync(ventas.Value)).OkNotNull);
+
         Console.WriteLine();
         var omitted = _omitted > 0 ? $" / {_omitted} OMIT" : string.Empty;
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL{omitted} =====");

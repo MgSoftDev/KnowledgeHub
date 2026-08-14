@@ -214,7 +214,7 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (169 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (178 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
   7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
   v0.13.0 , 12 de páginas excluidas/vacías en v0.14.0 , 8 de fugas por Guid en v0.15.0 y 16 de creación visible + escalada cerrada en v0.16.0
@@ -549,6 +549,26 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     que dejar fuera, así que la escalada de privilegios quedó cerrada en la misma entrega. La regla
     de tres casos (pública / concedida / sin configurar) vive en el XML doc de `VisibilityFilter` y
     hay que replicarla en los 4 proveedores.
+
+33. **Un recorrido de subárbol nace inseguro: `GetActivePageLinksAsync` NO filtra por visibilidad**
+    (v0.17.0, salió de preguntar «¿se bloquea el borrado si hay descendientes que no veo?» dando por
+    hecho que sí). No se bloqueaba: **se borraban**. `DeletePageAsync` validaba con
+    `EnsureVisibleAsync` **solo la pk que recibe**, y el subárbol lo calculaba sobre la lista cruda
+    de enlaces —que no recibe `VisibilityFilter` y no puede recibirlo, porque si filtrara la cascada
+    dejaría huérfanos—, así que un editor borraba una rama y destruía las páginas restringidas de
+    debajo **en silencio**. El propio comentario del método lo admitía por escrito.
+    Regla general: **`EnsureVisibleAsync` protege la pk de entrada, no la operación**. Cualquier cosa
+    en cascada (borrar, y en su día mover o exportar en masa) tiene que comparar el conjunto
+    resultante contra `GetVisiblePagesAsync` — para eso está `CountHiddenAsync`, que además
+    cortocircuita para admin y no paga la consulta en el caso normal.
+    **Limitación aceptada a propósito**: `MovePageAsync` sigue arrastrando descendientes invisibles
+    (valida los dos extremos, y el subárbol cuelga por `ParentPk` sin enumerarse). No destruye nada y
+    es reversible, pero puede reubicar contenido que no ves y, por la herencia de ancestros, cambiar
+    a quién le aparece.
+    De paso, **primer uso de la sobrecarga de 3 argumentos de `Returning.Unfinished(título, mensaje,
+    tipo)`**: hasta la v0.17.0 todos los rechazos usaban la de 2 y el `Mensaje` viajaba vacío. No hay
+    que tocar nada de UI —`NotifyExtensions` ya mapea `Title → Summary` y `Mensaje → Detail`— y el
+    modo `http` del arnés confirma que el texto sobrevive el transporte.
 
 ## Pendientes / siguientes pasos
 

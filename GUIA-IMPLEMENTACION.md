@@ -238,6 +238,18 @@ de versiones y el contenido de una versión (desde la 0.15.0; antes eran una pue
 devolvía el HTML íntegro a cualquiera con el Guid), la exportación a PDF página por página, y toda
 la gestión (desde la 0.16.0).
 
+**Borrar una rama que esconde páginas se rechaza** (desde la 0.17.0). Borrar arrastra el subárbol
+entero, así que hasta entonces un editor podía llevarse por delante páginas restringidas que ni veía
+ni podía enumerar, sin que nada se lo dijera. Ahora sale un aviso:
+
+> **No se puede eliminar «Manual de Planta»**
+> Contiene 3 subpáginas que no tienes permiso para ver. Pide a un administrador que las elimine o
+> que te dé acceso a ellas.
+
+Se dice cuántas son, nunca cuáles: sin el número el aviso no sirve para nada, y quien lo lee ya es un
+editor con acceso a esa rama. Un admin no lo ve nunca, porque para él no hay nada invisible. Y una
+descendiente **sin configurar** no bloquea, porque el editor ya la ve.
+
 Lo que **no**, por diseño y con motivo:
 
 - **El texto de un enlace.** Nadie reescribe los `<a href>` del contenido, así que si una página
@@ -252,6 +264,10 @@ Lo que **no**, por diseño y con motivo:
 - **Las páginas sin configurar las ve cualquier editor**, no solo su autor. Es el precio de que una
   página nueva no se pierda; si necesitas que un borrador sea privado de verdad, asígnale permisos
   desde el primer momento en vez de dejarlo sin configurar.
+- **Mover una rama sí arrastra descendientes invisibles.** A diferencia de borrar, mover no destruye
+  nada y se deshace, así que no se bloquea; pero al mover reubicas contenido que no ves y, como la
+  herencia de ancestros se aplica al construir el árbol, puedes hacer que deje de aparecerle a quien
+  sí lo veía.
 
 ### 3.3 El pipeline de imágenes y `PublicAssetsBaseUrl`
 
