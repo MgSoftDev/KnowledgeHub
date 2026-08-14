@@ -64,6 +64,14 @@ automático** (v0.8.0-preview.1).
     (`TreeSize`/`TreeMinSize`/`TreeMaxSize`/`TreeCollapsible`/`TreeWidthStorageKey`), overridables
     por instancia en el Browser. `.kh-portal` sobrevive como rejilla simple porque la guía la
     documenta para composición manual. Ver gotcha 23.
+  - **El árbol recuerda lo que cierras (v0.18.0)**: `KnowledgeHubUiState.CollapsedPages` (Scoped) +
+    persistencia en localStorage bajo `Options.TreeExpansionStorageKey`. Se guardan las ramas
+    **CERRADAS**, no las abiertas: así el defecto histórico (todo abierto) se mantiene, una página
+    nueva nace abierta como sus hermanas y lo almacenado crece con lo que el usuario cambia, no con
+    el tamaño del árbol. El estado **no puede vivir en el componente**: el `@key` del splitter lo
+    remonta en el primer render cuando hay ancho guardado, y cada acción de gestión lo recarga.
+    `CurrentPagePk` (o la URL, en modo enrutado) abre la cadena de ancestros de la página abierta y
+    la marca con `RadzenTreeLevel.Selected`, sin tocar el resto. Ver gotcha 32.
   - CSS: alturas por variables `--kh-portal-height` / `--kh-editor-height` (default `100vh`);
     `KnowledgeHubBrowser` usa `.kh-embedded` (100% del contenedor).
   - **Pantalla de bienvenida sustituible (v0.10.0)**: `Options.HomeComponent` (`Type?`, mismo patrón
@@ -569,6 +577,25 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     tipo)`**: hasta la v0.17.0 todos los rechazos usaban la de 2 y el `Mensaje` viajaba vacío. No hay
     que tocar nada de UI —`NotifyExtensions` ya mapea `Title → Summary` y `Mensaje → Detail`— y el
     modo `http` del arnés confirma que el texto sobrevive el transporte.
+
+32. **`RadzenTree` no tiene API pública de expansión, y su estado se destruye con los datos**
+    (v0.18.0, medido sobre el paquete 11.1.5). Síntoma reportado: gestionar cualquier página
+    reabría el árbol entero y el usuario perdía el sitio.
+    - El único control soportado es **`RadzenTreeLevel.Expanded`**, un `Func<object,bool>` que se
+      evalúa al **crear** cada `RadzenTreeItem`. Aquí estaba fijado a `_ => true`, así que no es que
+      se «perdiera» el estado: es que **se reexpandía todo**.
+    - `RadzenTree` **no** expone `ExpandAll`, `ExpandedItems` ni métodos de expansión;
+      `ExpandItem`/`ExpandCollapse` son `internal`. `Reload()` **no expande**: solo rehidrata hijos
+      perezosos. Los eventos `Expand`/`Collapse` son la ÚNICA forma de saber qué toca el usuario.
+    - El estado vive en campos privados del `RadzenTreeItem` (`expanded`/`clientExpanded`), y el
+      render **keyea cada item por la instancia de datos** (`builder.SetKey(data)`). Como
+      `GetTreeAsync` devuelve DTOs nuevos en cada carga, las keys cambian, los items se destruyen y
+      el estado se va con ellos. Ni un `@key` por `Pk` lo salvaría: el key lo pone Radzen.
+    - Conclusión general: con este árbol, **cualquier estado de UI por nodo hay que mantenerlo
+      fuera del componente** y devolverlo por los `Func<object,bool>` de `RadzenTreeLevel`.
+    Y un bug en dirección contraria que salió al mirarlo: la pantalla de permisos **no llamaba a
+    `NotifyPageTreeChanged`**, así que cambiar la visibilidad dejaba el árbol desactualizado hasta
+    pulsar 🔄.
 
 ## Pendientes / siguientes pasos
 

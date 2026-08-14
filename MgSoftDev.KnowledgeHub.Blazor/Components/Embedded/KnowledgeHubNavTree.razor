@@ -37,10 +37,15 @@
         }
         else
         {
-            <RadzenTree Data="@Roots" Change="@OnNodeSelect" Style="width:100%">
+            @* Expand/Collapse son la ÚNICA forma de saber lo que abre y cierra el usuario: Radzen no
+               expone ni API pública de expansión ni un binding, y el estado vive dentro de cada
+               RadzenTreeItem, que se destruye en cuanto se reasigna Data. *@
+            <RadzenTree Data="@Roots" Change="@OnNodeSelect" Style="width:100%"
+                        Expand="@OnNodeExpand" Collapse="@OnNodeCollapse">
                 <RadzenTreeLevel ChildrenProperty="@nameof(PageTreeNodeDto.Children)"
                                  HasChildren="@(o => ((PageTreeNodeDto)o).Children.Count > 0)"
-                                 Expanded="@(_ => true)">
+                                 Selected="@(o => ((PageTreeNodeDto)o).Pk == CurrentPagePk)"
+                                 Expanded="@(o => !UiState.CollapsedPages.Contains(((PageTreeNodeDto)o).Pk))">
                     <Template Context="data">
                         @{ var node = (PageTreeNodeDto)data.Value!; }
                         <KnowledgeHubPageIcon Icon="@node.Icon" IconColor="@node.IconColor" ShowFallback="false" />

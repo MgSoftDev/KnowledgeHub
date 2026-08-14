@@ -68,4 +68,12 @@ public sealed class KnowledgeHubBlazorOptions
     /// the same origin hosts two modules whose trees should size independently.
     /// </summary>
     public string? TreeWidthStorageKey { get; set; } = "kh.treeWidth";
+
+    /// <summary>
+    /// localStorage key under which the branches the user collapsed are remembered, so managing a
+    /// page no longer reopens the whole tree. Set it to null or empty to stop remembering (the tree
+    /// then starts fully expanded on every visit, as it did before). Change it if the same origin
+    /// hosts two modules whose trees should be remembered independently.
+    /// </summary>
+    public string? TreeExpansionStorageKey { get; set; } = "kh.treeCollapsed";
 }

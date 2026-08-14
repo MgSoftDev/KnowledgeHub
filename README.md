@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.17.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.18.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -50,7 +50,7 @@ en tu contenido, el editor en una pestaña…). Ver la
 | `MgSoftDev.KnowledgeHub.Storage.LiteDb` | Provider LiteDB (persistencia en archivo, sin servidor) |
 | `MgSoftDev.KnowledgeHub.Storage.EntityFramework` | Base EF neutral (para providers relacionales) |
 | `MgSoftDev.KnowledgeHub.Storage.SqlServer` | Provider SQL Server + script DDL (esquema/prefijo configurable) |
-| `MgSoftDev.KnowledgeHub.Blazor` | La UI: Razor Class Library (11 componentes + editor con herramientas inyectables) |
+| `MgSoftDev.KnowledgeHub.Blazor` | La UI: Razor Class Library (11 componentes + editor con herramientas inyectables). El árbol recuerda qué ramas cierras y señala la página abierta |
 | `MgSoftDev.KnowledgeHub.AspNetCore` | Endpoint de imágenes `/kh/assets` (caché `immutable`) |
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos (para clientes WASM) |
 | `MgSoftDev.KnowledgeHub.Http.Client` | Implementaciones `HttpClient` de los contratos (WASM-safe) |
@@ -132,7 +132,7 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.17.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+**v0.18.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
 178/178 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia

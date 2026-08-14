@@ -1,9 +1,12 @@
+using System.Text.Json;
 using MgSoftDev.KnowledgeHub.Blazor.Helpers;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
 using MgSoftDev.KnowledgeHub.Security;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using Radzen;
 
 namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
@@ -15,8 +18,10 @@ namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 /// Navigation model: when a callback is supplied the component delegates the action to the
 /// host; otherwise it falls back to URL navigation over the built-in /kh routes.
 /// </summary>
-public partial class KnowledgeHubNavTree : ComponentBase, IDisposable
+public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDisposable
 {
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+
     [Inject] private IKnowledgeHubPageService DocService { get; set; } = null!;
     [Inject] private IKnowledgeHubUserContext User { get; set; } = null!;
     [Inject] private KnowledgeHubBlazorOptions Options { get; set; } = null!;
@@ -51,17 +56,41 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable
     /// <summary>Raised on Enter in the search box. Without a handler, navigates to /kh/search?q=…</summary>
     [Parameter] public EventCallback<string> OnSearchRequested { get; set; }
 
+    /// <summary>
+    /// Page currently open, so the tree can highlight it and open the branch leading to it. Hosts
+    /// that navigate internally (the Browser) pass it; in routed mode it is read off the URL.
+    /// </summary>
+    [Parameter] public Guid? CurrentPagePk { get; set; }
+
     protected List<PageTreeNodeDto> Roots { get; private set; } = new();
     protected bool Loading { get; private set; } = true;
     public bool Wait { get; private set; }
     protected string SearchTerm { get; set; } = string.Empty;
+
+    private IJSObjectReference? _module;
+    private Guid? _openedBranchFor;
 
     protected override async Task OnInitializedAsync()
     {
         // Keeps the tree in sync when a page is renamed, moved, reordered, re-iconed, created,
         // deleted or published from any other screen of the module.
         UiState.PageTreeChanged += OnPageTreeChanged;
+        Nav.LocationChanged += OnLocationChanged;
         await LoadTreeAsync();
+    }
+
+    /// <summary>
+    /// Opens the branch of whichever page is open, without touching the rest. Arriving through a
+    /// deep link to a page inside a branch the user had collapsed would otherwise leave it selected
+    /// but out of sight.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        var current = CurrentPagePk ?? PageFromUrl();
+        if (current is not Guid pagePk || _openedBranchFor == pagePk) return;
+
+        _openedBranchFor = pagePk;
+        if (OpenAncestorsOf(pagePk)) _ = PersistCollapsedAsync();
     }
 
     /// <summary>
@@ -70,7 +99,158 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable
     /// </summary>
     private void OnPageTreeChanged() => _ = InvokeAsync(RefreshAsync);
 
-    public void Dispose() => UiState.PageTreeChanged -= OnPageTreeChanged;
+    public void Dispose()
+    {
+        UiState.PageTreeChanged -= OnPageTreeChanged;
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    /// <summary>
+    /// In routed mode the tree lives in the layout and survives navigation, so no parameter ever
+    /// changes when the user opens another page — the URL is the only signal that the current page
+    /// moved.
+    /// </summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
+        _ = InvokeAsync(() =>
+        {
+            OnParametersSet();
+            StateHasChanged();
+        });
+
+    // ---------------------------------------------------------------- expansión recordada
+
+    /// <summary>
+    /// Reads back the collapsed branches. It has to happen after the first render: under Blazor
+    /// Server the component is prerendered on the server, where there is no browser storage to ask.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || UiState.CollapsedPagesRestored ||
+            string.IsNullOrEmpty(Options.TreeExpansionStorageKey)) return;
+
+        UiState.CollapsedPagesRestored = true;
+        try
+        {
+            var module = await GetModuleAsync();
+            var stored = await module.InvokeAsync<string?>("readSetting", Options.TreeExpansionStorageKey);
+            if (string.IsNullOrWhiteSpace(stored)) return;
+
+            var pks = JsonSerializer.Deserialize<List<Guid>>(stored);
+            if (pks is null || pks.Count == 0) return;
+
+            foreach (var pk in pks) UiState.CollapsedPages.Add(pk);
+
+            // The branch of the page being viewed wins over what was stored, or a deep link into a
+            // collapsed branch would restore it closed right after we opened it.
+            if ((CurrentPagePk ?? PageFromUrl()) is Guid pagePk) OpenAncestorsOf(pagePk);
+
+            StateHasChanged();
+        }
+        catch (JsonException)
+        {
+            // Someone else wrote under our key, or the format changed: start over rather than fail.
+        }
+        catch (JSException)
+        {
+            // Storage disabled (private window, some WebView2 origins): the tree still works.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering, or the circuit went away mid-call.
+        }
+    }
+
+    private Task OnNodeExpand(TreeExpandEventArgs args) => ToggleCollapsedAsync(args.Value, collapsed: false);
+
+    private Task OnNodeCollapse(TreeEventArgs args) => ToggleCollapsedAsync(args.Value, collapsed: true);
+
+    private Task ToggleCollapsedAsync(object? value, bool collapsed)
+    {
+        if (value is not PageTreeNodeDto node) return Task.CompletedTask;
+
+        var changed = collapsed
+            ? UiState.CollapsedPages.Add(node.Pk)
+            : UiState.CollapsedPages.Remove(node.Pk);
+
+        return changed ? PersistCollapsedAsync() : Task.CompletedTask;
+    }
+
+    /// <summary>Clears the collapsed flag off every ancestor of the page. True when something changed.</summary>
+    private bool OpenAncestorsOf(Guid pagePk)
+    {
+        var chain = new List<Guid>();
+        if (!FindChain(Roots, pagePk, chain)) return false;
+
+        var changed = false;
+        // The page itself stays as the user left it: opening a page says nothing about whether you
+        // want to see its subpages.
+        foreach (var pk in chain.Where(pk => pk != pagePk))
+            changed |= UiState.CollapsedPages.Remove(pk);
+        return changed;
+    }
+
+    private static bool FindChain(IEnumerable<PageTreeNodeDto> nodes, Guid pagePk, List<Guid> chain)
+    {
+        foreach (var node in nodes)
+        {
+            chain.Add(node.Pk);
+            if (node.Pk == pagePk || FindChain(node.Children, pagePk, chain)) return true;
+            chain.RemoveAt(chain.Count - 1);
+        }
+        return false;
+    }
+
+    /// <summary>Page pk in the current URL, for the routed mode (/kh/page/{pk}, /kh/edit/{pk}…).</summary>
+    private Guid? PageFromUrl()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var query = path.IndexOf('?');
+        if (query >= 0) path = path[..query];
+
+        foreach (var segment in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            if (Guid.TryParse(segment, out var pk)) return pk;
+        return null;
+    }
+
+    private async Task PersistCollapsedAsync()
+    {
+        if (string.IsNullOrEmpty(Options.TreeExpansionStorageKey)) return;
+
+        try
+        {
+            var module = await GetModuleAsync();
+            await module.InvokeAsync<bool>("writeSetting", Options.TreeExpansionStorageKey,
+                JsonSerializer.Serialize(UiState.CollapsedPages));
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task<IJSObjectReference> GetModuleAsync() =>
+        _module ??= await JS.InvokeAsync<IJSObjectReference>(
+            "import", "./_content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.js");
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null) return;
+
+        try
+        {
+            await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+
+        _module = null;
+    }
 
     /// <summary>Reloads the tree. Public so hosts can refresh after their own changes.</summary>
     public async Task RefreshAsync()

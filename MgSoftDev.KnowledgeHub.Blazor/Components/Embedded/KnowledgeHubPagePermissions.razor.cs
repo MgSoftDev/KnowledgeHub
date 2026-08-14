@@ -24,6 +24,7 @@ public partial class KnowledgeHubPagePermissions : ComponentBase
     [Inject] private KnowledgeHubOptions CoreOptions { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
+    [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
 
     protected List<PermissionInfo> Catalog { get; private set; } = new();
     protected IEnumerable<string> SelectedPermissions { get; set; } = new List<string>();
@@ -63,6 +64,9 @@ public partial class KnowledgeHubPagePermissions : ComponentBase
             if (!result.Ok) return result;
 
             Notify.ShowSuccess("Visibilidad actualizada");
+            // Changing visibility can add or remove pages from the tree — including this one, for
+            // the user doing it. Without this the tree stayed stale until someone pressed refresh.
+            UiState.NotifyPageTreeChanged();
             return Returning.Success();
         }, () => !Wait)
         .StartAction(() => Wait = true)

@@ -17,6 +17,9 @@
                                  ShowUser="@ShowUser"
                                  AllowCreate="@AllowCreate"
                                  FooterContent="@TreeFooterContent"
+                                 @* Navegación INTERNA: la URL no cambia, así que el árbol no puede
+                                    deducir por su cuenta qué página está abierta. *@
+                                 CurrentPagePk="@SelectedPagePk"
                                  OnPageSelected="@SelectPageAsync"
                                  OnCreatePageRequested="@EditPageAsync"
                                  OnSearchRequested="@SearchAsync" />

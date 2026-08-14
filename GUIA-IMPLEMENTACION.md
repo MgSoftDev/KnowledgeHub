@@ -718,8 +718,26 @@ services.AddKnowledgeHubBlazor(o =>
     o.TreeMaxSize = "50%";
     o.TreeCollapsible = true;   // flechas para plegar el árbol de un clic; por defecto NO salen
     o.TreeWidthStorageKey = null;   // null o "" → arranca siempre en TreeSize, sin recordar
+    o.TreeExpansionStorageKey = null;   // null o "" → el árbol vuelve a abrirse entero en cada visita
 });
 ```
+
+### El árbol recuerda las ramas que cierras
+
+Desde la v0.18.0, contraer una rama es una decisión que se respeta: gestionar una página, reordenarla,
+cambiarle los permisos o publicarla recarga el árbol, pero ya **no lo vuelve a abrir entero**. Antes
+sí, y en una documentación grande eso significaba perder el sitio en cada acción.
+
+Lo que se guarda son las ramas **cerradas**, no las abiertas. Así el comportamiento de siempre —todo
+abierto— sigue siendo el punto de partida, una página nueva aparece abierta como sus hermanas, y lo
+almacenado crece con lo que el usuario cambia y no con el tamaño del árbol. Va en `localStorage`,
+bajo `TreeExpansionStorageKey`, así que sobrevive a recargar el navegador; ponla a `null` para
+volver al comportamiento anterior.
+
+Además, el árbol **abre la rama de la página que estés viendo y la marca**, sin tocar el resto: si
+llegas por un enlace directo a una página metida en una rama que tenías cerrada, la ves señalada en
+su sitio. En modo enrutado la página actual se deduce de la URL; si navegas por tu cuenta (o embebes
+el `KnowledgeHubBrowser`), pásala con `CurrentPagePk`.
 
 En el modo embebido puedes además afinarlo por instancia, útil si la misma app embebe el módulo en
 dos pantallas de distinto tamaño:
@@ -756,6 +774,7 @@ configuras un `TreeMaxSize` mayor.
 |---|---|---|
 | `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `TreeFooterContent`, `@bind-SelectedPagePk`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible` | — (navega internamente) |
 | `KnowledgeHubSplitLayout` | `TreeContent`, `MainContent`, `ShowTree`, `Embedded`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible`, `TreeWidthStorageKey` | — (el divisor de los dos shells, por si quieres el mismo split con tu contenido) |
+| `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent`, `CurrentPagePk` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
 | `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
 | `KnowledgeHubPageView` | `PagePk`, `ShowActions` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
 | `KnowledgeHubPageEditor` | `PagePk` | `OnPublished`, `OnDiscarded` |
