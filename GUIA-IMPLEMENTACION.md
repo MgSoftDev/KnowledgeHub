@@ -1858,6 +1858,110 @@ Recuerda entonces incluir esos permisos en `Permissions` de los usuarios que cor
 Otra opción de `KnowledgeHubOptions`: `MaxImageWidth` (default 1600 px — las imágenes más
 anchas se reducen al ingresarlas).
 
+**`KnowledgeHub.Templates` es la excepción**: no tiene modo grueso, se exige **siempre**, y tener
+`Edit` no basta. Ver §10.1.
+
+---
+
+## 10.1 Datos vivos en las páginas (v0.19.0)
+
+Documentación que **miente porque nadie se acuerda de actualizarla**: la lista de roles del sistema,
+los equipos de planta con su IP y su PLC. Con esto la página se rellena sola al abrirse.
+
+```bash
+dotnet add package MgSoftDev.KnowledgeHub.Templating
+```
+
+```csharp
+services.AddKnowledgeHubTemplating();
+```
+
+Va **donde corre el core**: el mismo contenedor que `AddKnowledgeHubCore`. En WASM eso es el
+servidor de la API, no el cliente — el navegador recibe la página ya renderizada y Scriban nunca
+se compila a WebAssembly.
+
+### Qué hay sin escribir una línea
+
+| Expresión | Qué da |
+|---|---|
+| `{{ kh.roles }}` | El catálogo de roles **que tu app ya le pasa a la librería** (`name`, `display_name`) |
+| `{{ kh.user.name }}` · `.display_name` · `.permissions` | Quién está leyendo |
+| `{{ kh.user.has "Role.X" }}` | Si tiene ese permiso — para mostrar un bloque solo a quien toca |
+| `{{ kh.page.title }}` · `.slug` · `.pk` | La página |
+| `{{ kh.is_pdf }}` | **Verdadero solo al exportar**: `{{ if !kh.is_pdf }}…{{ end }}` |
+
+Tu caso de «listar los roles del sistema» sale gratis:
+
+```html
+<ul>{{ for r in kh.roles }}<li>{{ r.display_name }}</li>{{ end }}</ul>
+```
+
+### Tus propios datos
+
+```csharp
+public sealed class EquiposProvider : IKnowledgeHubTemplateModelProvider
+{
+    public string Name => "equipos";                  // {{ for e in equipos }}
+
+    public TemplateModelInfoDto Describe() => new()
+    {
+        Name = Name,
+        Description = "Equipos de planta",
+        Properties = [ new() { Name = "[].ip", Type = "texto" } ]
+    };
+
+    public async Task<object?> GetModelAsync(TemplateModelContext ctx) =>
+        await _db.Equipos
+            .Select(e => new { e.Linea, e.Pc, e.Ip, e.Plc })   // proyecta: NO devuelvas la entidad
+            .ToListAsync(ctx.CancellationToken);
+}
+
+services.AddScoped<IKnowledgeHubTemplateModelProvider, EquiposProvider>();
+```
+
+> ⚠️ **No devuelvas objetos ricos.** Una plantilla puede leer **todas** las propiedades públicas de
+> lo que le entregues, recursivamente. Devolver una entidad de EF arrastra sus navegaciones; devolver
+> algo como un `DbContext` o un `HttpContext` expone muchísimo más de lo que pretendías. Proyecta a
+> un tipo anónimo pequeño con exactamente los campos que la documentación enseña.
+
+Se llama en **cada vista** de una página que lo use, a propósito: de eso va la feature. Si tu fuente
+es cara, **cachea dentro de tu proveedor**, que es donde se conoce el coste real y cuánto puede
+envejecer el dato.
+
+### Activarlo por página
+
+En **Gestionar página** hay una casilla «Rellenar los `{{ }}` de esta página con datos en vivo».
+Solo aparece activa para quien tenga **`KnowledgeHub.Templates`**.
+
+Es opt-in por página **a propósito**: las llaves son contenido normal en cualquier página que
+documente Angular, Vue o Handlebars, y procesarlas ahí borraría los ejemplos en silencio. Todo lo
+que ya tengas escrito se queda como está.
+
+Al **desmarcarla**, el contenido guardado se vuelve a limpiar. Es necesario: mientras estuvo
+marcada, las regiones `{{ }}` pasaron el saneador sin inspeccionarse.
+
+### Qué se puede escribir y qué no
+
+- **Sí**: en el texto, en listas y **en tablas** (`{{ for }}` envolviendo `<tr>` funciona).
+- **No**: dentro de un atributo (`class="{{ x }}"`). El saneador se lo lleva, y no hay forma de
+  evitarlo. Ponlo en el contenido.
+
+### Errores
+
+Publicar una plantilla rota se **rechaza**, con la línea. Guardar el borrador **sí** funciona y solo
+avisa: un borrador no lo ve nadie, y bloquearlo te dejaría tirado a mitad de escribir el `{{ for }}`.
+
+Si algo falla al mostrar la página, el bloque roto se sustituye por un aviso y **el resto de la
+página se sigue viendo**. Quien puede editar ve el motivo con la línea; el lector, un aviso genérico.
+
+### Lo que NO hace
+
+- **La búsqueda indexa la plantilla, no el resultado**: el fragmento muestra `{{ }}` literal, y
+  buscar un valor generado no encuentra la página.
+- **El historial no renderiza**, a propósito: es la herramienta de auditoría, y renderizar con los
+  datos de hoy haría que dos versiones distintas se vieran iguales.
+- Una plantilla que no produzca nada hace que la página **desaparezca del PDF** (se considera vacía).
+
 ---
 
 ## 11. Solución de problemas (gotchas)

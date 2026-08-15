@@ -37,7 +37,11 @@ public static class DependencyInjectionExtension
             sp.GetRequiredService<IKnowledgeHubUserContext>(),
             sp.GetRequiredService<IKnowledgeHubImageService>(),
             sp.GetRequiredService<KnowledgeHubOptions>(),
-            sp.GetService<IKnowledgeHubHtmlSanitizer>()));
+            sp.GetService<IKnowledgeHubHtmlSanitizer>(),
+            sp.GetService<IKnowledgeHubTemplateRenderer>(),
+            // GetServices (plural) and never Required: a host with no data providers is the normal
+            // case — the built-in kh model alone already covers listing roles.
+            sp.GetServices<IKnowledgeHubTemplateModelProvider>()));
         services.AddScoped<IKnowledgeHubImageService, KnowledgeHubImageService>();
         services.AddScoped<IKnowledgeHubHtmlImageRewriter>(sp => new KnowledgeHubHtmlImageRewriter(
             sp.GetRequiredService<IKnowledgeHubStore>(),

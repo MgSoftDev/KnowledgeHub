@@ -32,6 +32,15 @@ public class DocPage : EntityBase
     /// </summary>
     public bool ExcludeFromPdf { get; set; }
 
+    /// <summary>
+    /// When true, the page's <c>{{ … }}</c> placeholders are filled with live data every time it is
+    /// displayed. Off by default, and deliberately opt-in per page: braces are ordinary content in
+    /// any page documenting Angular, Vue or Handlebars, and processing those would silently blank
+    /// the examples. Setting it requires
+    /// <see cref="Security.KnowledgeHubPermissions.Templates"/>.
+    /// </summary>
+    public bool UsesTemplates { get; set; }
+
     public DocPage? Parent { get; set; }
     public ICollection<DocPage> Children { get; set; } = new List<DocPage>();
 

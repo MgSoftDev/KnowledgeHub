@@ -35,6 +35,31 @@ public interface IKnowledgeHubHtmlSanitizer
     /// </summary>
     string Sanitize(string html, HtmlSanitizeContext context, HtmlCleanupLevel level) =>
         Sanitize(html, context);
+
+    /// <summary>
+    /// Same, but keeping <c>{{ … }}</c> template expressions intact.
+    ///
+    /// <para>
+    /// It exists because cleaning is a DOM round-trip, and a template is not markup. Measured: a
+    /// <c>{{ for }}</c> wrapping table rows is hoisted OUT of the table by the HTML table parsing
+    /// rules — the loop survives but no longer wraps anything — and <c>&lt;</c> inside an expression
+    /// comes back escaped. Implementations should protect those regions (turning each one into an
+    /// HTML comment before cleaning and restoring it afterwards works, because comments are not
+    /// hoisted) and then clean normally.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Only pass true for pages that really are templates.</b> A protected region is not
+    /// inspected, so <c>{{ &lt;script&gt;… }}</c> would survive; that is harmless when a template
+    /// engine consumes it and never emits it, and an injection when it is just text. This is also
+    /// why turning a page's template flag OFF has to clean the stored content again.
+    /// </para>
+    ///
+    /// Default implementation ignores the flag, so hosts that implemented this interface earlier
+    /// keep compiling and behaving exactly as they did.
+    /// </summary>
+    string Sanitize(string html, HtmlSanitizeContext context, HtmlCleanupLevel level,
+        bool preserveTemplateSyntax) => Sanitize(html, context, level);
 }
 
 /// <summary>How aggressively to clean. Chosen per editor from the toolbar.</summary>
@@ -69,5 +94,11 @@ public enum HtmlSanitizeContext
     Save,
 
     /// <summary>The user pressed the editor's cleanup button.</summary>
-    Manual
+    Manual,
+
+    /// <summary>
+    /// Output of a template, on its way to the screen. It is not the author's markup any more: it
+    /// carries whatever the host's data contained, which may come from an API nobody controls.
+    /// </summary>
+    Render
 }

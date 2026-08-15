@@ -1,4 +1,6 @@
+using System.Net;
 using System.Text;
+using System.Text.Json;
 using MgSoftDev.KnowledgeHub.Contracts;
 using MgSoftDev.KnowledgeHub.Dtos;
 using MgSoftDev.KnowledgeHub.Entities;
@@ -29,24 +31,33 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     /// </summary>
     private const string NotVisibleMessage = "La página no existe o no tienes permiso para verla";
 
+    /// <summary>Class on the notice that replaces a block whose template failed.</summary>
+    private const string TemplateErrorClass = "kh-template-error";
+
     private readonly IKnowledgeHubStore _store;
     private readonly IKnowledgeHubUserContext _user;
     private readonly IKnowledgeHubImageService _imageService;
     private readonly KnowledgeHubOptions _options;
     private readonly IKnowledgeHubHtmlSanitizer? _sanitizer;
+    private readonly IKnowledgeHubTemplateRenderer? _templates;
+    private readonly IReadOnlyList<IKnowledgeHubTemplateModelProvider> _modelProviders;
 
-    // sanitizer is OPTIONAL: absent unless the host registers one (see the
-    // MgSoftDev.KnowledgeHub.HtmlSanitizer package). When null nothing is cleaned and saving
-    // behaves exactly as before.
+    // sanitizer and templates are OPTIONAL: absent unless the host registers them (see the
+    // MgSoftDev.KnowledgeHub.HtmlSanitizer and .Templating packages). When null nothing is cleaned
+    // and nothing is rendered, and everything behaves exactly as before.
     public KnowledgeHubPageService(IKnowledgeHubStore store, IKnowledgeHubUserContext user,
         IKnowledgeHubImageService imageService, KnowledgeHubOptions options,
-        IKnowledgeHubHtmlSanitizer? sanitizer = null)
+        IKnowledgeHubHtmlSanitizer? sanitizer = null,
+        IKnowledgeHubTemplateRenderer? templates = null,
+        IEnumerable<IKnowledgeHubTemplateModelProvider>? modelProviders = null)
     {
         _store = store;
         _user = user;
         _imageService = imageService;
         _options = options;
         _sanitizer = sanitizer;
+        _templates = templates;
+        _modelProviders = modelProviders?.ToList() ?? [];
     }
 
     #region Tree & reading
@@ -97,6 +108,12 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     }
 
     public Task<Returning<PageReadDto>> GetPageForReadAsync(Guid pagePk) =>
+        ReadAsync(pagePk, forPdfExport: false);
+
+    public Task<Returning<PageReadDto>> GetPageForExportAsync(Guid pagePk) =>
+        ReadAsync(pagePk, forPdfExport: true);
+
+    private Task<Returning<PageReadDto>> ReadAsync(Guid pagePk, bool forPdfExport) =>
         Returning<PageReadDto>.TryTask(async () =>
         {
             var headerR = await _store.GetVisiblePageHeaderAsync(pagePk, _user.ToVisibilityFilter());
@@ -117,8 +134,162 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             var read = ToReadDto(version);
             read.Icon = header.Icon;
             read.IconColor = header.IconColor;
+
+            // Rendering hooks HERE and not in ToReadDto on purpose: GetVersionContentAsync shares
+            // that helper, and the history must show what was WRITTEN. Rendering it with today's
+            // data would make two different versions look identical, and RestoreVersionAsync
+            // restores the raw text — so what you saw would not be what you got back.
+            //
+            // Being here also means the PDF export inherits it for free (it reads page by page
+            // through this method) and so does WASM (the client is a proxy; the server renders
+            // before serialising, so Scriban never reaches the browser).
+            read.ContentHtml = await RenderTemplateAsync(read.ContentHtml, header, forPdfExport);
             return read;
         }, saveLog: true);
+
+    /// <summary>
+    /// Fills the page's placeholders with live data, when the page asked for it and an engine is
+    /// registered. Never throws and never returns half a page: any failure comes back as the page
+    /// with a notice in place of the broken block.
+    /// </summary>
+    private async Task<string> RenderTemplateAsync(string html, PageHeaderDto header, bool isPdfExport)
+    {
+        if (!header.UsesTemplates || _templates is null || string.IsNullOrEmpty(html)) return html;
+
+        var context = new TemplateRenderContext
+        {
+            PagePk = header.Pk,
+            PageTitle = header.Title,
+            PageSlug = header.Slug ?? string.Empty,
+            IsPdfExport = isPdfExport,
+            CanEdit = _user.CanEdit(),
+            UserName = _user.UserName,
+            DisplayName = _user.DisplayName,
+            IsAuthenticated = _user.IsAuthenticated,
+            Permissions = _user.Permissions
+        };
+
+        // kh.roles comes from the catalog the host already provides for the visibility picker, so
+        // "list the system's roles" needs no provider at all.
+        var catalogR = await _user.GetPermissionCatalogAsync();
+        if (catalogR.OkNotNull)
+            context.Roles = catalogR.Value
+                .Select(p => new TemplateRoleDto { Name = p.Name, DisplayName = p.DisplayName })
+                .ToList();
+
+        var modelContext = new TemplateModelContext
+        {
+            PagePk = header.Pk,
+            PageSlug = context.PageSlug,
+            IsPdfExport = isPdfExport,
+            UserName = _user.UserName,
+            Permissions = _user.Permissions
+        };
+
+        foreach (var provider in _modelProviders)
+        {
+            try
+            {
+                context.Models[provider.Name] = await provider.GetModelAsync(modelContext);
+            }
+            catch (Exception ex)
+            {
+                // A provider that throws — an API down, a table renamed — must cost its own
+                // variable and nothing else. The page still renders, with that block empty.
+                context.Models[provider.Name] = null;
+                LogTemplateIssue(header.Pk, $"El proveedor '{provider.Name}' falló: {ex.Message}");
+            }
+        }
+
+        var rendered = await _templates.RenderAsync(html, context);
+        if (rendered.OkNotNull) return SanitizeRendered(rendered.Value, header.Pk);
+
+        LogTemplateIssue(header.Pk, rendered.UnfinishedInfo?.Mensaje ?? rendered.UnfinishedInfo?.Title);
+
+        // The reader is told something is missing without being handed the internals; whoever may
+        // edit gets the line and the reason, because they are the one who can fix it.
+        var detail = _user.CanEdit()
+            ? WebUtility.HtmlEncode(
+                $"{rendered.UnfinishedInfo?.Title}. {rendered.UnfinishedInfo?.Mensaje}".Trim())
+            : "Contenido no disponible en este momento.";
+
+        return html + $"<div class=\"{TemplateErrorClass}\">⚠️ {detail}</div>";
+    }
+
+    /// <summary>
+    /// Cleans what the template produced. Scriban does not escape anything, so a value coming from
+    /// a host's API lands in the page exactly as it arrived — this is the only thing between that
+    /// and the browser.
+    /// </summary>
+    private string SanitizeRendered(string html, Guid pagePk)
+    {
+        if (_sanitizer is not null)
+            return _sanitizer.Sanitize(html, HtmlSanitizeContext.Render);
+
+        LogTemplateIssue(pagePk,
+            "La página usa datos dinámicos y no hay ningún saneador registrado: lo que devuelvan " +
+            "los proveedores entra en la página sin limpiar. Añade MgSoftDev.KnowledgeHub.HtmlSanitizer.");
+        return html;
+    }
+
+    /// <inheritdoc />
+    public Task<ReturningList<TemplateErrorDto>> ValidateTemplateAsync(string html) =>
+        Task.FromResult(_templates?.Validate(html)
+                        ?? ReturningList<TemplateErrorDto>.Try(() => new List<TemplateErrorDto>()));
+
+    /// <inheritdoc />
+    public Task<Returning<TemplateCatalogDto>> GetTemplateCatalogAsync() =>
+        Returning<TemplateCatalogDto>.TryTask(async () =>
+        {
+            // Same permission that lets you write a template: the catalog shows the very data those
+            // pages may render, so anyone who can render it may look at it.
+            if (!_user.CanUseTemplates())
+                return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
+
+            var catalog = new TemplateCatalogDto();
+            var sample = new Dictionary<string, object?>();
+
+            foreach (var provider in _modelProviders)
+            {
+                catalog.Models.Add(provider.Describe());
+                try
+                {
+                    sample[provider.Name] = await provider.GetModelAsync(new TemplateModelContext
+                    {
+                        UserName = _user.UserName,
+                        Permissions = _user.Permissions
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // The explorer is a help screen: one broken provider must not hide the rest.
+                    sample[provider.Name] = $"(el proveedor falló: {ex.Message})";
+                }
+            }
+
+            catalog.SampleJson = JsonSerializer.Serialize(sample,
+                new JsonSerializerOptions { WriteIndented = true });
+            return catalog;
+        }, saveLog: true);
+
+    /// <summary>Errors of a template, as one readable line. Null when there are none.</summary>
+    private string? DescribeTemplateErrors(string html)
+    {
+        if (_templates is null) return null;
+
+        var errors = _templates.Validate(html);
+        return errors is { OkNotNull: true, Value.Count: > 0 }
+            ? string.Join("; ", errors.Value.Select(e => e.ToString()))
+            : null;
+    }
+
+    private void LogTemplateIssue(Guid pagePk, string? message)
+    {
+        if (ReturningLogger.LoggerService is null || string.IsNullOrWhiteSpace(message)) return;
+
+        new UnfinishedInfo("Plantilla de página", $"Página {pagePk}: {message}",
+            UnfinishedInfo.NotifyType.Warning).SaveLog(this, nameof(KnowledgeHubPageService));
+    }
 
     public Task<Returning<PageReadDto>> GetVersionContentAsync(Guid versionPk) =>
         Returning<PageReadDto>.TryTask(async () =>
@@ -160,6 +331,7 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 IsPublic = page.IsPublic,
                 Icon = page.Icon,
                 IconColor = page.IconColor,
+                UsesTemplates = page.UsesTemplates,
                 // Fall back to the page title for a brand-new page that has no versions yet.
                 Title = latest?.Title ?? page.Title,
                 ContentHtml = latest?.ContentHtml ?? string.Empty,
@@ -191,7 +363,7 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 return Returning.Unfinished("El título es requerido", UnfinishedInfo.NotifyType.Warning);
             // Also the only place that checks the page EXISTS: without it a made-up Guid left orphan
             // versions behind in stores with no foreign keys.
-            if (await EnsureVisibleAsync(draft.PagePk) is null)
+            if (await EnsureVisibleAsync(draft.PagePk) is not { } page)
                 return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
 
             // Replace any pasted data-URI images with uploaded docimg:// references before storing.
@@ -214,7 +386,7 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             // in its canonical stored form (every image is docimg://, no host-specific URLs), and
             // still before GetExistingImagePksAsync below, so removing an <img> keeps the
             // page↔image links consistent with what actually gets stored.
-            html = SanitizeForSave(html, draft.PagePk);
+            html = SanitizeForSave(html, draft.PagePk, page.UsesTemplates);
 
             var maxR = await _store.GetMaxVersionNumberAsync(draft.PagePk);
             if (!maxR.Ok) maxR.Throw();
@@ -243,8 +415,23 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
         {
             if (!_user.CanPublish(_options))
                 return Returning.Unfinished(NoPermissionMessage, UnfinishedInfo.NotifyType.Warning);
-            if (await EnsureVisibleAsync(pagePk) is null)
+            if (await EnsureVisibleAsync(pagePk) is not { } page)
                 return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
+            // Publishing is where a broken template is REFUSED — saving only warns. From here on
+            // readers see it, and a page whose loop never closes would greet them with a notice
+            // instead of the manual. Checked in the CORE, not in the editor: the UI can be skipped
+            // by calling the endpoint directly.
+            if (page.UsesTemplates)
+            {
+                var latestR = await _store.GetLatestVersionAsync(pagePk);
+                if (!latestR.Ok) latestR.Throw();
+
+                if (DescribeTemplateErrors(latestR.Value?.ContentHtml ?? string.Empty) is { } errors)
+                    return Returning.Unfinished("No se puede publicar: la plantilla tiene errores",
+                        $"{errors}. Corrígelos y vuelve a guardar antes de publicar.",
+                        UnfinishedInfo.NotifyType.Warning);
+            }
 
             var publishR = await _store.TryPublishAsync(pagePk, baseVersionNumber, Stamp());
             if (!publishR.Ok) publishR.Throw();
@@ -582,6 +769,68 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
             return Returning.Success();
         }, saveLog: true);
 
+    public Task<Returning> SetPageUsesTemplatesAsync(Guid pagePk, bool usesTemplates) =>
+        Returning.TryTask(async () =>
+        {
+            // NOT CanEdit: writing a template walks the host's data and runs loops on the server,
+            // on every view. That is a different capability from writing prose.
+            if (!_user.CanUseTemplates())
+                return Returning.Unfinished(
+                    "No tienes permiso para marcar páginas con datos dinámicos",
+                    $"Hace falta el permiso {KnowledgeHubPermissions.Templates}.",
+                    UnfinishedInfo.NotifyType.Warning);
+
+            if (await EnsureVisibleAsync(pagePk) is null)
+                return Returning.Unfinished(NotVisibleMessage, UnfinishedInfo.NotifyType.Warning);
+
+            var okR = await _store.SetPageUsesTemplatesAsync(pagePk, usesTemplates, Stamp());
+            if (!okR.Ok) okR.Throw();
+            if (!okR.Value)
+                return Returning.Unfinished("Página no encontrada", UnfinishedInfo.NotifyType.Warning);
+
+            // Turning it OFF has to clean the stored content again. While the flag was on, the
+            // {{ … }} regions rode across the sanitizer unexamined — safe only because a template
+            // engine consumed them. With the flag off nobody consumes them any more, so anything
+            // that was hiding inside would go straight to the browser as markup.
+            if (!usesTemplates) await ResanitizeLatestAsync(pagePk);
+
+            return Returning.Success();
+        }, saveLog: true);
+
+    /// <summary>
+    /// Cleans the latest version again, without template protection, and stores the result as a new
+    /// version when it actually changed. Insert-only is respected: the old text stays in history.
+    /// </summary>
+    private async Task ResanitizeLatestAsync(Guid pagePk)
+    {
+        if (_sanitizer is null) return;
+
+        var latestR = await _store.GetLatestVersionAsync(pagePk);
+        if (!latestR.Ok || latestR.Value is not { } latest) return;
+
+        var clean = _sanitizer.Sanitize(latest.ContentHtml ?? string.Empty, HtmlSanitizeContext.Save);
+        if (clean == latest.ContentHtml) return;
+
+        var version = new DocPageVersion
+        {
+            Fk_DocPage = pagePk,
+            VersionNumber = latest.VersionNumber + 1,
+            Title = latest.Title,
+            ContentHtml = clean,
+            Status = DocPageStatus.Draft,
+            ChangeNote = "Limpieza automática al desactivar los datos dinámicos"
+        };
+        EntityStamp.PrepareNew(version, _user.UserName, DateTime.Now);
+
+        var imagePks = await GetExistingImagePksAsync(clean);
+        var insertR = await _store.InsertVersionAsync(version, imagePks);
+        if (!insertR.Ok) insertR.Throw();
+
+        LogTemplateIssue(pagePk,
+            "Se desactivaron los datos dinámicos y el contenido se volvió a limpiar; " +
+            $"quedó como borrador en la versión {version.VersionNumber}.");
+    }
+
     public Task<Returning> DeletePageAsync(Guid pagePk) =>
         Returning.TryTask(async () =>
         {
@@ -847,11 +1096,15 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
     /// the log instead of surfacing to the user. The sanitizer pass is idempotent, so a document
     /// that is already clean logs nothing on later saves.
     /// </summary>
-    private string SanitizeForSave(string html, Guid pagePk)
+    private string SanitizeForSave(string html, Guid pagePk, bool usesTemplates = false)
     {
         if (_sanitizer is null || string.IsNullOrEmpty(html)) return html;
 
-        var clean = _sanitizer.Sanitize(html, HtmlSanitizeContext.Save);
+        // On a template page the {{ … }} regions are carried across untouched. Measured: without
+        // it, a {{ for }} wrapping table rows is hoisted OUT of the table by the HTML table parsing
+        // rules and stops wrapping anything, and < > && inside an expression come back escaped.
+        var clean = _sanitizer.Sanitize(html, HtmlSanitizeContext.Save, HtmlCleanupLevel.Standard,
+            preserveTemplateSyntax: usesTemplates);
         if (clean == html) return html;
 
         if (ReturningLogger.LoggerService is not null)

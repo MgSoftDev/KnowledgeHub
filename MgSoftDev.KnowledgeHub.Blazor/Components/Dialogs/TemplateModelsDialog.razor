@@ -1,0 +1,61 @@
+@* Qué puede escribir el editor en una página dinámica: lo que el anfitrión declara y lo que sus
+   proveedores devuelven AHORA MISMO. Las dos cosas, porque la estructura declarada dice lo que
+   debería haber y los valores dicen lo que hay — y para escribir la expresión hace falta lo segundo. *@
+
+<div style="display:flex;flex-direction:column;gap:12px;min-width:560px;max-height:70vh;overflow:auto;">
+
+    @if (Loading)
+    {
+        <RadzenProgressBarCircular Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+    }
+    else if (ErrorMessage is not null)
+    {
+        <RadzenText TextStyle="TextStyle.Body2" style="color:#c62828;">@ErrorMessage</RadzenText>
+    }
+    else
+    {
+        <RadzenText TextStyle="TextStyle.Subtitle2">Siempre disponible</RadzenText>
+        <div class="kh-tpl-grid">
+            @foreach (var (expression, description) in BuiltIns)
+            {
+                <code class="kh-tpl-expr" @onclick="@(() => CopyAsync(expression))" title="Clic para copiar">@expression</code>
+                <span>@description</span>
+            }
+        </div>
+
+        @if (Catalog is { Models.Count: > 0 })
+        {
+            <hr />
+            <RadzenText TextStyle="TextStyle.Subtitle2">Del anfitrión</RadzenText>
+            @foreach (var model in Catalog.Models)
+            {
+                <div>
+                    <code class="kh-tpl-expr" @onclick="@(() => CopyAsync(model.Name))">@model.Name</code>
+                    @if (!string.IsNullOrWhiteSpace(model.Description))
+                    {
+                        <span> — @model.Description</span>
+                    }
+                </div>
+                <div class="kh-tpl-grid" style="margin-left:16px;">
+                    @foreach (var property in model.Properties)
+                    {
+                        <code class="kh-tpl-expr"
+                              @onclick="@(() => CopyAsync($"{model.Name}.{property.Name}"))">@model.Name.@property.Name</code>
+                        <span>@property.Type @(string.IsNullOrWhiteSpace(property.Description) ? "" : $"— {property.Description}")</span>
+                    }
+                </div>
+            }
+        }
+
+        <hr />
+        <RadzenText TextStyle="TextStyle.Subtitle2">Valores ahora mismo</RadzenText>
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-0">
+            Lo que devuelven los proveedores en este momento, con tus permisos.
+        </RadzenText>
+        <pre class="kh-tpl-json">@(Catalog?.SampleJson ?? "{}")</pre>
+    }
+
+    <div style="display:flex;justify-content:flex-end;">
+        <RadzenButton Text="Cerrar" Icon="close" ButtonStyle="ButtonStyle.Light" Click="@(() => Dialog.Close(null))" />
+    </div>
+</div>

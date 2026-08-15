@@ -110,6 +110,18 @@ public static class KnowledgeHubApiEndpoints
             IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.SetPageExcludeFromPdfAsync(pagePk, request.ExcludeFromPdf)).ToApi()));
 
+        group.MapPost("/pages/{pagePk:guid}/templates", async (Guid pagePk, SetUsesTemplatesRequest request,
+            IKnowledgeHubPageService svc) =>
+            Results.Ok((await svc.SetPageUsesTemplatesAsync(pagePk, request.UsesTemplates)).ToApi()));
+
+        // POST, not GET: what travels is a whole document, which has no business in a query string.
+        group.MapPost("/templates/validate", async (ValidateTemplateRequest request,
+            IKnowledgeHubPageService svc) =>
+            Results.Ok((await svc.ValidateTemplateAsync(request.Html)).ToApi()));
+
+        group.MapGet("/templates/catalog", async (IKnowledgeHubPageService svc) =>
+            Results.Ok((await svc.GetTemplateCatalogAsync()).ToApi()));
+
         group.MapDelete("/pages/{pagePk:guid}", async (Guid pagePk, IKnowledgeHubPageService svc) =>
             Results.Ok((await svc.DeletePageAsync(pagePk)).ToApi()));
 

@@ -79,6 +79,46 @@ public interface IKnowledgeHubPageService
     /// </summary>
     Task<Returning> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf);
 
+    /// <summary>
+    /// Turns live data on or off for a page. Requires <c>KnowledgeHub.Templates</c> (or Admin), not
+    /// merely Edit.
+    /// <para>
+    /// Turning it OFF also cleans the stored content again: while the flag was on, the template
+    /// expressions were preserved through the sanitizer untouched, which is safe only as long as a
+    /// template engine consumes them instead of the browser.
+    /// </para>
+    /// </summary>
+    Task<Returning> SetPageUsesTemplatesAsync(Guid pagePk, bool usesTemplates);
+
+    /// <summary>
+    /// What the host's providers expose, plus their current values, for the editor's model
+    /// explorer. Requires the Templates permission — it is the same data those pages may render.
+    /// </summary>
+    Task<Returning<TemplateCatalogDto>> GetTemplateCatalogAsync();
+
+    /// <summary>
+    /// Checks a page's template syntax without running it, so the editor can warn right after
+    /// saving instead of letting the author find out when publishing is refused. An empty list
+    /// means it is fine.
+    /// <para>
+    /// It lives on the service, not on the engine, because the editor runs in the browser under
+    /// WASM while the engine runs on the server. Publishing does NOT rely on this: it validates on
+    /// its own, in the core, so skipping the UI changes nothing.
+    /// </para>
+    /// </summary>
+    Task<ReturningList<TemplateErrorDto>> ValidateTemplateAsync(string html);
+
+    /// <summary>
+    /// Same as <c>GetPageForReadAsync</c>, but telling the page it is being printed — templates see
+    /// <c>kh.is_pdf</c> as true, so a block that only makes sense on screen can leave itself out.
+    /// <para>
+    /// A separate method rather than a flag on the read method: the read path is called from
+    /// everywhere, and an optional parameter there would be silently wrong in every caller that
+    /// forgot it. Only the exporter has any business calling this one.
+    /// </para>
+    /// </summary>
+    Task<Returning<PageReadDto>> GetPageForExportAsync(Guid pagePk);
+
     /// <summary>Soft delete of the page and its whole subtree.</summary>
     Task<Returning> DeletePageAsync(Guid pagePk);
 

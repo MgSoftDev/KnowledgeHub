@@ -6,6 +6,7 @@ using MgSoftDev.KnowledgeHub.Pdf;
 using MgSoftDev.KnowledgeHub.Http.Client;
 using MgSoftDev.KnowledgeHub.Http.Server;
 using MgSoftDev.KnowledgeHub.Storage.LiteDb;
+using MgSoftDev.KnowledgeHub.Templating;
 using MgSoftDev.KnowledgeHub.Storage.SqlServer;
 using MgSoftDev.ReturningCore.Logger;
 using Microsoft.AspNetCore.Builder;
@@ -50,6 +51,10 @@ if (mode == "http")
     // AddKnowledgeHubPdf usa TryAdd. El motor real se prueba aparte y avisa si no puede ejecutarse.
     serverBuilder.Services.AddSingleton<IKnowledgeHubPdfRenderer, FakePdfRenderer>();
     serverBuilder.Services.AddKnowledgeHubPdf();
+    // El motor de plantillas SÍ es el real: es determinista, no depende de la máquina y sin él los
+    // checks de datos vivos no probarían nada.
+    serverBuilder.Services.AddKnowledgeHubTemplating();
+    serverBuilder.Services.AddScoped<IKnowledgeHubTemplateModelProvider, HarnessTemplateModelProvider>();
 
     var server = serverBuilder.Build();
     server.MapKnowledgeHubApi();
@@ -136,6 +141,8 @@ else
     services.AddKnowledgeHubHtmlSanitizer(HarnessSanitizer.Options);
     services.AddSingleton<IKnowledgeHubPdfRenderer, FakePdfRenderer>();
     services.AddKnowledgeHubPdf();
+    services.AddKnowledgeHubTemplating();
+    services.AddScoped<IKnowledgeHubTemplateModelProvider, HarnessTemplateModelProvider>();
 
     var provider = services.BuildServiceProvider();
     try

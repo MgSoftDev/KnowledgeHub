@@ -139,6 +139,19 @@ public partial class KnowledgeHubPageManage : ComponentBase
             "Error al guardar la preferencia de exportación");
     }
 
+    /// <summary>Whether this user may mark pages as dynamic. Gates the checkbox, not just the button.</summary>
+    protected bool CanUseTemplates => User.CanUseTemplates();
+
+    private async Task SaveUsesTemplatesAsync()
+    {
+        if (Info is null) return;
+        await Run(() => DocService.SetPageUsesTemplatesAsync(PagePk, Info.UsesTemplates),
+            Info.UsesTemplates
+                ? "La página ya usa datos dinámicos"
+                : "La página deja de usar datos dinámicos y su contenido se limpió de nuevo",
+            "Error al guardar los datos dinámicos");
+    }
+
     private async Task CreateChildAsync()
     {
         if (string.IsNullOrWhiteSpace(NewChildTitle)) return;

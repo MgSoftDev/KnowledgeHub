@@ -52,6 +52,19 @@ public sealed class KnowledgeHubApiClient
             return api.ToReturning();
         }, saveLog: true);
 
+    /// <summary>
+    /// POST that answers with a list. Needed when the REQUEST is too big for a query string — a
+    /// whole page of html on its way to be validated — so it cannot be a GET.
+    /// </summary>
+    public Task<ReturningList<T>> PostListAsync<T>(string relative, object? body) =>
+        ReturningList<T>.TryTask(async () =>
+        {
+            var response = await _http.PostAsJsonAsync(_basePath + relative, body);
+            response.EnsureSuccessStatusCode();
+            var api = await response.Content.ReadFromJsonAsync<ApiResult<List<T>>>();
+            return api.ToReturningList();
+        }, saveLog: true);
+
     public Task<Returning> PostPlainAsync(string relative, object? body) =>
         Returning.TryTask(async () =>
         {

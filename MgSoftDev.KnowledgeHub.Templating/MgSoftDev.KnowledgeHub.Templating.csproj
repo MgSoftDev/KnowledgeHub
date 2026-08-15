@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MgSoftDev.KnowledgeHub.Templating</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <Description>Live data in MgSoftDev.KnowledgeHub pages, powered by Scriban. Pages marked as dynamic get their {{ … }} placeholders filled when displayed, so documentation that lists things which change — system roles, plant equipment, anything behind an API — stops being a copy somebody has to remember to update. Runs in a hardened sandbox with loop, recursion, output and time limits. Optional: register it to enable templates, or implement IKnowledgeHubTemplateRenderer yourself.</Description>
+    <PackageTags>knowledgehub;templates;scriban;documentation;mgsoftdev</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Scriban" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

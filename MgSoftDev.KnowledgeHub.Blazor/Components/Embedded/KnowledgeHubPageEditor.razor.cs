@@ -75,6 +75,10 @@ public partial class KnowledgeHubPageEditor : ComponentBase
             if (!result.Ok) return result;
 
             Notify.ShowSuccess("Borrador guardado");
+
+            // Saving a broken template is allowed on purpose — you may be mid-loop — but you get
+            // told now, with the line, instead of finding out when publishing is refused.
+            await WarnAboutTemplateAsync();
             return Returning.Success();
         }, () => !Wait && SelectItem is not null)
         .StartAction(() => Wait = true)
@@ -84,6 +88,27 @@ public partial class KnowledgeHubPageEditor : ComponentBase
             r.SendNotifyIfNotOk(Notify, "Error al guardar el borrador");
             StateHasChanged();
         });
+
+    /// <summary>
+    /// Shows the template's syntax errors after a save, if the page uses templates. Silent when it
+    /// does not, or when no engine is registered — the service answers "no errors" then.
+    /// </summary>
+    private async Task WarnAboutTemplateAsync()
+    {
+        if (SelectItem is not { UsesTemplates: true }) return;
+
+        var errors = await DocService.ValidateTemplateAsync(SelectItem.ContentHtml ?? string.Empty);
+        if (errors is not { OkNotNull: true, Value.Count: > 0 }) return;
+
+        Notify.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Warning,
+            Summary = "La plantilla tiene errores",
+            Detail = string.Join("; ", errors.Value.Select(e => e.ToString())) +
+                     ". Se guardó el borrador, pero no podrás publicarlo así.",
+            Duration = 8000
+        });
+    }
 
     public AsyncReturningCommand PublishCommand =>
         field ??= new AsyncReturningCommand(async () =>

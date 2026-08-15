@@ -52,7 +52,8 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
             // The null must be TYPED: a bare "return null" in a Returning-targeted lambda yields
             // a null Returning reference instead of Ok-with-null-Value.
             if (page is null || !page.RowIsActive || !IsVisible(page, filter)) return (PageHeaderDto?)null;
-            return new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon, page.IconColor);
+            return new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon,
+                page.IconColor, page.Slug, page.UsesTemplates);
         }));
 
     public Task<Returning<DocPage?>> GetPageAsync(Guid pagePk) =>
@@ -274,6 +275,20 @@ public sealed class LiteDbKnowledgeHubStore : IKnowledgeHubStore
                 var page = _ctx.Pages.FindById(pagePk);
                 if (page is null || !page.RowIsActive) return false;
                 page.ExcludeFromPdf = excludeFromPdf;
+                Touch(page, audit);
+                _ctx.Pages.Update(page);
+                return true;
+            }
+        }));
+
+    public Task<Returning<bool>> SetPageUsesTemplatesAsync(Guid pagePk, bool usesTemplates, AuditStamp audit) =>
+        Task.FromResult(Returning<bool>.Try(() =>
+        {
+            lock (_ctx.WriteLock)
+            {
+                var page = _ctx.Pages.FindById(pagePk);
+                if (page is null || !page.RowIsActive) return false;
+                page.UsesTemplates = usesTemplates;
                 Touch(page, audit);
                 _ctx.Pages.Update(page);
                 return true;

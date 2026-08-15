@@ -70,6 +70,41 @@ else
         <RadzenButton Text="Guardar" Icon="save" Size="ButtonSize.Small" Click="@SaveExcludeFromPdfAsync"
                       Disabled="@Wait" class="rz-mt-2 rz-mb-4" />
 
+        @* Marcar una página como dinámica NO es editar: recorre datos del anfitrión y ejecuta
+           bucles en el servidor, en cada visita. Por eso pide su propio permiso y la casilla se
+           deshabilita —con el motivo— en vez de desaparecer, que dejaría al editor sin saber
+           por qué no puede. *@
+        <hr />
+        <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Datos dinámicos</RadzenText>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <RadzenCheckBox @bind-Value="Info.UsesTemplates" Name="khUsesTemplates"
+                            Disabled="@(Wait || !CanUseTemplates)" />
+            <RadzenLabel Text="Rellenar los {{ }} de esta página con datos en vivo"
+                         Component="khUsesTemplates" />
+        </div>
+        <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-1 rz-mb-0">
+            @if (CanUseTemplates)
+            {
+                <text>
+                    Para listas que cambian solas: los roles del sistema, equipos con su IP…
+                    Actívalo solo aquí: en el resto de páginas las llaves se dejan tal cual, para no
+                    romper los ejemplos de código que las usan.
+                </text>
+            }
+            else
+            {
+                <text>
+                    No tienes el permiso <strong>@KnowledgeHubPermissions.Templates</strong>, que es
+                    el que permite marcar una página como dinámica.
+                </text>
+            }
+        </RadzenText>
+        @if (CanUseTemplates)
+        {
+            <RadzenButton Text="Guardar" Icon="save" Size="ButtonSize.Small" Click="@SaveUsesTemplatesAsync"
+                          Disabled="@Wait" class="rz-mt-2 rz-mb-4" />
+        }
+
         <hr />
         <RadzenText TextStyle="TextStyle.Subtitle2" class="rz-mb-2">Crear subpágina</RadzenText>
         <div style="display:flex;gap:8px;align-items:center;" class="rz-mb-4">

@@ -88,7 +88,9 @@ public sealed class KnowledgeHubPdfExportService : IKnowledgeHubPdfExportService
                 // Defence in depth: the tree said this page is visible and published, but the read
                 // path is the authority. A page that is rejected here is SKIPPED, not fatal — the
                 // tree may have gone stale between the two calls.
-                var readR = await _pages.GetPageForReadAsync(node.Pk);
+                // For EXPORT, not for reading: same security, but the page is told it is being printed
+            // so {{ if !kh.is_pdf }} blocks can leave themselves out of the manual.
+            var readR = await _pages.GetPageForExportAsync(node.Pk);
                 if (!readR.OkNotNull) continue;
 
                 var page = readR.Value;

@@ -1,5 +1,6 @@
 using MgSoftDev.KnowledgeHub.Blazor.Components.Dialogs;
 using MgSoftDev.KnowledgeHub.Contracts;
+using MgSoftDev.KnowledgeHub.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Radzen;
 
@@ -116,6 +117,26 @@ public static class BuiltInEditorTools
                 });
 
                 // The whole document was replaced already; nothing to insert at the caret.
+                return null;
+            }
+        },
+
+        new EditorToolDescriptor
+        {
+            CommandName = "TemplateModels",
+            Icon = "data_object",
+            Title = "Datos disponibles para esta página…",
+            // Only for those who may make a page dynamic: to anyone else the dialog would list data
+            // they can never use.
+            IsVisible = services =>
+                services.GetService<IKnowledgeHubUserContext>()?.CanUseTemplates() ?? false,
+            ExecuteAsync = async ctx =>
+            {
+                await ctx.Dialog.OpenAsync<TemplateModelsDialog>("Datos disponibles",
+                    parameters: null,
+                    new DialogOptions { Width = "640px", Resizable = true });
+
+                // A reference dialog: it copies to the clipboard, it never inserts at the caret.
                 return null;
             }
         }

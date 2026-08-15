@@ -175,6 +175,24 @@ automático** (v0.8.0-preview.1).
   exportación / Factory) y hay `Css`/`AdditionalCss`/`CssFilePath` para el tema. El paquete ships un
   `.props` que fija `PlaywrightPlatform` al SO actual: sin él cada app consumidora se llevaría
   **548 MB** de driver a su salida en vez de 87.
+- **Datos vivos en las páginas (v0.19.0)**: paquete opcional `MgSoftDev.KnowledgeHub.Templating`
+  (Scriban **7.2.6**; BSD-2 y **cero dependencias** en net8.0+). **Dos contratos**, como el PDF:
+  `IKnowledgeHubTemplateRenderer` (motor: `Validate` sin ejecutar + `RenderAsync`) e
+  `IKnowledgeHubTemplateModelProvider` (los datos del anfitrión; se registran VARIOS, cada uno aporta
+  una variable raíz). Modelo `kh` de fábrica: `kh.roles` sale del catálogo que el anfitrión **ya**
+  pasa (`GetPermissionCatalogAsync`), más `kh.user.has`, `kh.page` y **`kh.is_pdf`**.
+  **Se renderiza en `GetPageForReadAsync`** (no en `ToReadDto`, para que el **historial NO renderice**:
+  es auditoría, y con datos de hoy dos versiones distintas se verían iguales). De ahí sale gratis el
+  PDF y el WASM (el cliente es un proxy: el servidor renderiza antes de serializar, y Scriban no se
+  compila al navegador). El **editor** está a salvo por construcción: usa `GetPageForEditAsync`, que
+  arma otro DTO. **Nunca enganchar en el rewriter de imágenes** — lo comparte el editor.
+  **Opt-in por página** (`DocPage.UsesTemplates`, molde de `ExcludeFromPdf`) porque las llaves son
+  contenido normal en cualquier página que documente Angular o Handlebars, y **permiso propio**
+  `KnowledgeHub.Templates`, el único **sin modo grueso**: recorre datos del anfitrión y ejecuta
+  bucles en el servidor en cada visita. Scriban **no escapa nada**, así que la salida renderizada se
+  sanea con `HtmlSanitizeContext.Render`. Publicar una plantilla rota **rechaza**; guardar el
+  borrador solo **avisa** (un borrador no lo ve nadie, y bloquearlo deja al autor a medio `{{ for }}`).
+  Ver gotcha 33.
 - **Icono + color por página (v0.3.0)**: propiedad ESTRUCTURAL del nodo (`DocPage.Icon`,
   `DocPage.IconColor`, NVARCHAR 64/32), no versionada. Se propaga por todos los DTOs donde
   aparece el título (`PageTreeNodeDto`, `PageInfoDto`, `PageReadDto`, `PageEditDto`,
@@ -200,6 +218,7 @@ AspNetCore/      MapKnowledgeHubAssets (immutable + cache-aside)
 Http.Server/     MapKnowledgeHubApi (minimal API, auth del anfitrión vía configureGroup)
 Http.Client/     impls HttpClient de los contratos (WASM-safe)
 HtmlSanitizer/   impl por defecto de IKnowledgeHubHtmlSanitizer sobre Ganss.Xss (OPCIONAL, dep: +HtmlSanitizer 9.1.x-beta)
+Templating/      motor de datos vivos sobre Scriban 7.2.6 (OPCIONAL, cero deps transitivas)
 Demos/SharedAuth/     auth de demo compartida (users/roles LiteDB propio + AdminUsers/HostLinks/RootRedirect + SerilogReturningLoggerService)
 Demos/Wpf/            anfitrión WPF+LiteDB (TFM net10.0-windows10.0.19041.0, virtual host docs-assets)
 Demos/BlazorServer/   anfitrión Server+LiteDB (cookie auth, patrón AcceptsInteractiveRouting, puerto 5210)
@@ -222,10 +241,12 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (178 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (196 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
   7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
-  v0.13.0 , 12 de páginas excluidas/vacías en v0.14.0 , 8 de fugas por Guid en v0.15.0 y 16 de creación visible + escalada cerrada en v0.16.0
+  v0.13.0, 12 de páginas excluidas/vacías en v0.14.0, 8 de fugas por Guid en v0.15.0, 16 de creación
+  visible + escalada cerrada en v0.16.0, 9 de borrado en cascada en v0.17.0 y 18 de datos vivos en
+  v0.19.0
   —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
@@ -596,6 +617,33 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     Y un bug en dirección contraria que salió al mirarlo: la pantalla de permisos **no llamaba a
     `NotifyPageTreeChanged`**, así que cambiar la visibilidad dejaba el árbol desactualizado hasta
     pulsar 🔄.
+
+33. **Meter un motor de plantillas dentro de HTML saneado: cuatro cosas medidas** (v0.19.0).
+    - **El saneador destrozaba las TABLAS, no el `<`.** AngleSharp aplica las reglas de parseo de
+      tabla y **expulsa fuera** cualquier texto que no esté en una celda: un `{{ for }}` envolviendo
+      `<tr>` salía de la tabla y dejaba de envolver nada. Era el caso de uso principal (equipos con
+      IP, roles en tabla) y el spike lo cazó antes de escribir el motor.
+    - **Solución: convertir cada `{{ … }}` en un COMENTARIO HTML antes de sanear y restaurarlo
+      después.** Los comentarios no se expulsan de una tabla. Medido: tabla con bucle, `< 5`, `<b`
+      pegado y `&&` quedan **intactos**, y `<script>`/`onclick` **siguen muriendo**. Con esto
+      sobraron la decodificación de entidades y las funciones `lt`/`gt` que el plan preveía.
+    - **La protección NO puede ser ciega.** Protegiendo siempre, un `{{ <script>alert(1)</script> }}`
+      en una página SIN plantillas sobreviviría al saneado y se ejecutaría al mostrarla. Por eso la
+      sobrecarga lleva `preserveTemplateSyntax` y **solo se activa en páginas marcadas**, donde
+      Scriban consume ese texto y jamás lo emite. Y **al desmarcar hay que volver a sanear** el
+      contenido guardado, o quedaría almacenado sin sanear y ya sin nadie que lo renderice.
+    - **Scriban ≤ 7.1.0 tiene 2 avisos de gravedad ALTA**, y uno es directamente relevante:
+      `array.insert_at` **ignora `LoopLimit` y `LimitToString`** → OOM del proceso pese al contexto
+      endurecido. Corregido en 7.2.0; se usa la **7.2.6**. Con `TreatWarningsAsErrors` la 7.1.0 ni
+      compila, así que el aviso NU1903 es la red de seguridad.
+    - Del propio Scriban, verificado leyendo su fuente (viene en el paquete): **no expone métodos de
+      instancia** (solo campos y propiedades públicas), `include` es inerte sin `TemplateLoader`,
+      `CancellationToken` se comprueba **en cada sentencia** (funciona en render síncrono), y
+      `LimitToString` es un presupuesto **acumulativo** que solo se reinicia con `Reset()` → hay que
+      crear un `TemplateContext` NUEVO por render o la segunda página sale truncada en silencio.
+    - **`kh.is_pdf` no se puede resolver con un parámetro opcional en la lectura**: esa la llama
+      todo el mundo y el que lo olvide produce un fallo silencioso. Va en un método aparte,
+      `GetPageForExportAsync`, que solo usa el exportador. El arnés cazó justo ese bug.
 
 ## Pendientes / siguientes pasos
 

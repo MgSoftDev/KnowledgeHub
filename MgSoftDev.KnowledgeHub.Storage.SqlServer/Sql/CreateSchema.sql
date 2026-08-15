@@ -24,6 +24,7 @@ BEGIN
         SortOrder                   INT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_SortOrder DEFAULT (0),
         IsPublic                    BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_IsPublic DEFAULT (0),
         ExcludeFromPdf              BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_ExcludeFromPdf DEFAULT (0),
+        UsesTemplates               BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_UsesTemplates DEFAULT (0),
         RowIsActive                 BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_RowIsActive DEFAULT (1),
         RowCreateDate               DATETIME2 NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_RowCreateDate DEFAULT (GETDATE()),
         RowUpdateDate               DATETIME2 NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_RowUpdateDate DEFAULT (GETDATE()),
@@ -53,6 +54,12 @@ IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'IconColor') IS NULL
 IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'ExcludeFromPdf') IS NULL
     ALTER TABLE [{{SCHEMA}}].[{{PREFIX}}DocPages]
         ADD ExcludeFromPdf BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_ExcludeFromPdf DEFAULT (0);
+
+-- Migration: UsesTemplates added in 0.19.0. Same shape as ExcludeFromPdf: NOT NULL needs a named
+-- DEFAULT to be added to a table that already has rows.
+IF COL_LENGTH(N'[{{SCHEMA}}].[{{PREFIX}}DocPages]', N'UsesTemplates') IS NULL
+    ALTER TABLE [{{SCHEMA}}].[{{PREFIX}}DocPages]
+        ADD UsesTemplates BIT NOT NULL CONSTRAINT DF_{{PREFIX}}DocPages_UsesTemplates DEFAULT (0);
 
 -- ---------------------------------------------------------------- DocPageVersions
 IF OBJECT_ID(N'[{{SCHEMA}}].[{{PREFIX}}DocPageVersions]', N'U') IS NULL

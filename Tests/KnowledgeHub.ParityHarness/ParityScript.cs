@@ -819,6 +819,131 @@ public static class ParityScript
             await CheckRealPdfEngineAsync(export, expRoot.Value);
         }
 
+        // ---- 26. Datos vivos en las páginas -------------------------------------------------------------
+        // Lo que se comprueba: que solo se procesen las páginas marcadas (o se romperían los
+        // ejemplos de código que usan llaves), que el resultado se sanee (Scriban no escapa nada),
+        // y que un bloque condicionado por rol no se filtre a quien no lo tiene.
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+
+        var tplRoot = await pages.CreatePageAsync(null, "Plantillas");
+        await pages.SetPermissionsAsync(tplRoot.Value, true, Array.Empty<string>());
+
+        var marcada = await pages.CreatePageAsync(tplRoot.Value, "Con datos vivos");
+        var sinMarcar = await pages.CreatePageAsync(tplRoot.Value, "Sin datos vivos");
+        foreach (var pk in new[] { marcada.Value, sinMarcar.Value })
+            await pages.SetPermissionsAsync(pk, true, Array.Empty<string>());
+
+        var marcarR = await pages.SetPageUsesTemplatesAsync(marcada.Value, true);
+        Check("Un admin puede marcar la página como dinámica", marcarR.Ok);
+
+        const string plantilla = "<ul>{{ for e in equipos }}<li>{{ e.nombre }} {{ e.ip }}</li>{{ end }}</ul>";
+        await PublishSimpleAsync(pages, marcada.Value, plantilla);
+        await PublishSimpleAsync(pages, sinMarcar.Value, plantilla);
+
+        var renderizada = await pages.GetPageForReadAsync(marcada.Value);
+        Check("La página marcada se rellena con los datos del proveedor",
+            renderizada.OkNotNull && renderizada.Value.ContentHtml.Contains("PC-1") &&
+            renderizada.Value.ContentHtml.Contains("10.0.0.2") &&
+            !renderizada.Value.ContentHtml.Contains("{{"),
+            renderizada.OkNotNull ? renderizada.Value.ContentHtml : "no se pudo leer");
+
+        // La regresión que protege todo lo ya escrito: sin marcar, las llaves se quedan como están.
+        var literal = await pages.GetPageForReadAsync(sinMarcar.Value);
+        Check("Sin marcar, las llaves salen literales y no se procesa nada",
+            literal.OkNotNull && literal.Value.ContentHtml.Contains("{{ for e in equipos }}"));
+
+        // El editor SIEMPRE ve la plantilla, nunca su resultado: si no, editar la destruiría.
+        var paraEditar = await pages.GetPageForEditAsync(marcada.Value);
+        Check("El editor recibe la plantilla sin renderizar",
+            paraEditar.OkNotNull && paraEditar.Value.ContentHtml.Contains("{{ for e in equipos }}"));
+
+        // Scriban no escapa nada, así que esto es lo único entre una API ajena y el navegador.
+        await PublishSimpleAsync(pages, marcada.Value,
+            "<p>{{ for e in equipos }}{{ e.peligroso }}{{ end }}</p>");
+        var saneada = await pages.GetPageForReadAsync(marcada.Value);
+        Check("La salida renderizada se sanea (el script del dato no sobrevive)",
+            saneada.OkNotNull && !saneada.Value.ContentHtml.Contains("<script"),
+            saneada.OkNotNull ? saneada.Value.ContentHtml : "no se pudo leer");
+
+        // kh.is_pdf: el MISMO contenido tiene que dar dos resultados distintos.
+        await PublishSimpleAsync(pages, marcada.Value,
+            "<p>Siempre</p>{{ if !kh.is_pdf }}<p>SOLO-PANTALLA</p>{{ end }}");
+        var enPantalla = await pages.GetPageForReadAsync(marcada.Value);
+        Check("kh.is_pdf es falso en el lector",
+            enPantalla.OkNotNull && enPantalla.Value.ContentHtml.Contains("SOLO-PANTALLA"));
+
+        if (export is not null)
+        {
+            var enPdf = await export.BuildAsync(marcada.Value, includeDescendants: false);
+            Check("kh.is_pdf es verdadero al exportar: el bloque desaparece del PDF",
+                enPdf.OkNotNull && enPdf.Value.Sections.Count == 1 &&
+                !enPdf.Value.Sections[0].ContentHtml.Contains("SOLO-PANTALLA") &&
+                enPdf.Value.Sections[0].ContentHtml.Contains("Siempre"),
+                enPdf.OkNotNull ? enPdf.Value.Sections[0].ContentHtml : "no se pudo construir");
+        }
+
+        // Un bloque por rol: la misma página, dos usuarios, dos salidas. Es un check de FUGA.
+        await PublishSimpleAsync(pages, marcada.Value,
+            "<p>Público</p>{{ if kh.user.has \"Docs.Tech\" }}<p>SECRETO</p>{{ end }}");
+
+        // Con el rol de contenido, NO con Admin: kh.user.has mira los permisos del anfitrión, y ser
+        // administrador no te mete en Docs.Tech.
+        user.SetUser("tecnico", "Técnico", KnowledgeHubPermissions.Edit, "Docs.Tech");
+        var conRol = await pages.GetPageForReadAsync(marcada.Value);
+        Check("Con el rol, el bloque condicionado se ve",
+            conRol.OkNotNull && conRol.Value.ContentHtml.Contains("SECRETO"),
+            conRol.OkNotNull ? conRol.Value.ContentHtml : "no se pudo leer");
+
+        user.SetUser("lector", "Lector sin permisos");
+        var sinRol = await pages.GetPageForReadAsync(marcada.Value);
+        Check("Sin el rol, el bloque condicionado NO llega al usuario",
+            sinRol.OkNotNull && !sinRol.Value.ContentHtml.Contains("SECRETO") &&
+            sinRol.Value.ContentHtml.Contains("Público"));
+
+        // Sin el permiso no se marca, aunque se pueda editar.
+        user.SetUser("editor", "Editor", KnowledgeHubPermissions.Edit);
+        var sinPermiso = await pages.SetPageUsesTemplatesAsync(sinMarcar.Value, true);
+        Check("Sin el permiso Templates no se puede marcar una página",
+            IsUnfinishedContaining(sinPermiso, "permiso"));
+
+        user.SetUser("admin", "Administrador", KnowledgeHubPermissions.Admin);
+
+        // Publicar RECHAZA una plantilla rota; guardar el borrador SÍ funciona. La asimetría es
+        // deliberada: un borrador no lo ve nadie, y bloquearlo dejaría al autor a media plantilla.
+        var editRota = await pages.GetPageForEditAsync(marcada.Value);
+        editRota.Value.ContentHtml = "<p>{{ for e in equipos }}</p>";
+        var guardadaRota = await pages.SaveDraftAsync(editRota.Value);
+        Check("Guardar una plantilla rota SÍ funciona (es un borrador)", guardadaRota.OkNotNull);
+
+        var publicarRota = await pages.PublishAsync(marcada.Value, guardadaRota.Value);
+        Check("Publicar una plantilla rota se RECHAZA",
+            IsUnfinishedContaining(publicarRota, "plantilla"));
+        Check("El rechazo al publicar dice la línea",
+            !publicarRota.Ok && (publicarRota.UnfinishedInfo?.Mensaje ?? "").Contains("línea"));
+
+        var validada = await pages.ValidateTemplateAsync("<p>{{ for e in equipos }}</p>");
+        Check("La validación devuelve el error con su línea",
+            validada.OkNotNull && validada.Value.Count > 0 && validada.Value[0].Line >= 1);
+        Check("Una plantilla correcta valida sin errores",
+            await pages.ValidateTemplateAsync(plantilla) is { OkNotNull: true, Value.Count: 0 });
+
+        // Un proveedor que revienta cuesta su variable, no la página.
+        await PublishSimpleAsync(pages, marcada.Value, "<p>Antes</p>" + plantilla + "<p>Después</p>");
+        HarnessTemplateModelProvider.Fallar = true;
+        var conProveedorRoto = await pages.GetPageForReadAsync(marcada.Value);
+        HarnessTemplateModelProvider.Fallar = false;
+        Check("Un proveedor que falla no tumba la página",
+            conProveedorRoto.OkNotNull && conProveedorRoto.Value.ContentHtml.Contains("Antes") &&
+            conProveedorRoto.Value.ContentHtml.Contains("Después"));
+
+        // Al desmarcar hay que volver a limpiar: mientras estuvo marcada, las regiones {{ }} pasaron
+        // el saneador sin mirarse, y ya no queda nadie que las consuma.
+        var desmarcar = await pages.SetPageUsesTemplatesAsync(marcada.Value, false);
+        Check("Se puede desmarcar la página", desmarcar.Ok);
+        var trasDesmarcar = await pages.GetPageForReadAsync(marcada.Value);
+        Check("Tras desmarcar, ya no se renderiza",
+            trasDesmarcar.OkNotNull && trasDesmarcar.Value.ContentHtml.Contains("{{"));
+
         // ---- 26. El historial ya no es una puerta trasera ------------------------------------------------
         // Salió de una pregunta sobre enlaces: el cuerpo de una página deja a la vista el Guid de la
         // página enlazada, y con ese Guid se podía pedir la lista de versiones y luego el HTML de
@@ -1009,7 +1134,10 @@ public static class ParityScript
 
     // ---------------------------------------------------------------- Helpers
 
-    private static void Check(string name, bool condition)
+    // 'detail' se imprime SOLO al fallar. Merece la pena pasar lo que el check comparó —el html que
+    // recibió, el mensaje que leyó—, porque una línea roja que solo dice lo que se esperaba te
+    // obliga a volver a ejecutar el arnés con prints añadidos.
+    private static void Check(string name, bool condition, string? detail = null)
     {
         if (condition)
         {
@@ -1020,6 +1148,7 @@ public static class ParityScript
         {
             _failed++;
             Console.WriteLine($"  [FAIL] {name}");
+            if (!string.IsNullOrWhiteSpace(detail)) Console.WriteLine($"         → {detail}");
         }
     }
 

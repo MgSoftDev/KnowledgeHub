@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Http.Client\MgSoftDev.KnowledgeHub.Http.Client.csproj" />
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.HtmlSanitizer\MgSoftDev.KnowledgeHub.HtmlSanitizer.csproj" />
     <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Pdf\MgSoftDev.KnowledgeHub.Pdf.csproj" />
+    <ProjectReference Include="..\..\MgSoftDev.KnowledgeHub.Templating\MgSoftDev.KnowledgeHub.Templating.csproj" />
   </ItemGroup>
 
 </Project>

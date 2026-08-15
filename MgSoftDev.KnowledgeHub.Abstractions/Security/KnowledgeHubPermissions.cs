@@ -25,4 +25,15 @@ public static class KnowledgeHubPermissions
     /// user sees: the export still goes page by page through the visibility filter.
     /// </summary>
     public const string Export = "KnowledgeHub.Export";
+
+    /// <summary>
+    /// Mark a page as dynamic, so its placeholders are filled with live data when it is displayed.
+    /// <para>
+    /// Unlike Publish, ManagePermissions and Export, this one has NO coarse mode: it is always
+    /// required, and holding Edit is not enough. Writing a template is not one more editing act —
+    /// it walks the host's data and runs loops on the server, on every view, for every reader. The
+    /// checkbox is shown disabled, with the reason, to editors who lack it.
+    /// </para>
+    /// </summary>
+    public const string Templates = "KnowledgeHub.Templates";
 }

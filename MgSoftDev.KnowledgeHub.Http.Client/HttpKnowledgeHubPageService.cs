@@ -59,6 +59,26 @@ public sealed class HttpKnowledgeHubPageService : IKnowledgeHubPageService
     public Task<Returning> MovePageOrderAsync(Guid pagePk, PageMoveDirection direction) =>
         _api.PostPlainAsync($"/pages/{pagePk}/order", new MovePageOrderRequest(direction));
 
+    /// <summary>
+    /// Exporting runs entirely on the server, so a client never needs this — and must not be able to
+    /// ask for the printed variant of a page just by choosing a method.
+    /// </summary>
+    public Task<Returning<PageReadDto>> GetPageForExportAsync(Guid pagePk) =>
+        Task.FromResult<Returning<PageReadDto>>(Returning.Unfinished(
+            "La lectura para exportación solo está disponible en el servidor",
+            UnfinishedInfo.NotifyType.Warning));
+
+    public Task<Returning> SetPageUsesTemplatesAsync(Guid pagePk, bool usesTemplates) =>
+        _api.PostPlainAsync($"/pages/{pagePk}/templates", new SetUsesTemplatesRequest(usesTemplates));
+
+    // The engine lives where the core runs, so under WASM these two are the only way the editor
+    // reaches it — and the reason Scriban never has to be compiled to the browser.
+    public Task<ReturningList<TemplateErrorDto>> ValidateTemplateAsync(string html) =>
+        _api.PostListAsync<TemplateErrorDto>("/templates/validate", new ValidateTemplateRequest(html));
+
+    public Task<Returning<TemplateCatalogDto>> GetTemplateCatalogAsync() =>
+        _api.GetAsync<TemplateCatalogDto>("/templates/catalog");
+
     public Task<Returning<int>> NormalizeAllPageOrdersAsync() =>
         _api.PostAsync<int>("/pages/normalize-order", body: null);
 

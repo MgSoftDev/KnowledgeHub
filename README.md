@@ -3,16 +3,16 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.18.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.19.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
 KnowledgeHub empaqueta un portal de documentación colaborativa —árbol jerárquico de páginas con
 visibilidad por permisos y herencia, icono + color por página (Material Symbols), editor HTML con
 herramientas personalizables y limpieza del HTML pegado, versionado insert-only con historial y
-publicación atómica (con detección de conflictos entre usuarios), búsqueda, e imágenes WebP
-deduplicadas por hash con caché— como una **familia de paquetes NuGet embebibles** en aplicaciones
-anfitrionas.
+publicación atómica (con detección de conflictos entre usuarios), búsqueda, imágenes WebP
+deduplicadas por hash con caché, y páginas que se rellenan solas con datos vivos del anfitrión—
+como una **familia de paquetes NuGet embebibles** en aplicaciones anfitrionas.
 
 Fue extraído del demo de referencia `DocsPortal` a una librería desacoplada que corre igual en
 **WPF (BlazorWebView)**, **Blazor Server** y **Blazor WebAssembly + Web API**, sobre **SQL
@@ -56,6 +56,7 @@ en tu contenido, el editor en una pestaña…). Ver la
 | `MgSoftDev.KnowledgeHub.Http.Client` | Implementaciones `HttpClient` de los contratos (WASM-safe) |
 | `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (pegado desde Word, guardado y botón manual), con 3 niveles seleccionables y clases CSS propias del anfitrión declarables por nombre o prefijo |
 | `MgSoftDev.KnowledgeHub.Pdf` | Exportación a PDF impresa por Chromium vía Playwright: sale igual que el lector, con temas CSS, portada/cabecera/pie propios y marcadores. Se pueden marcar páginas como no exportables, y las vacías se saltan solas |
+| `MgSoftDev.KnowledgeHub.Templating` | Datos vivos en las páginas (Scriban): listas que se actualizan solas, bloques según el rol de quien lee, y contenido que se omite al exportar a PDF. Opt-in por página y con permiso propio |
 
 ### Qué instalar según el hosting
 
@@ -70,13 +71,13 @@ en tu contenido, el editor en una pestaña…). Ver la
 
 ```
 MgSoftDev.KnowledgeHub.slnx        Solución (.NET 10, Central Package Management)
-MgSoftDev.KnowledgeHub.*/          Los 11 proyectos de librería
+MgSoftDev.KnowledgeHub.*/          Los 12 proyectos de librería
 Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.Wpf                WPF + LiteDB
   KnowledgeHub.Demo.BlazorServer       Blazor Server + LiteDB
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
-Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (178 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (196 checks) sobre 4 modos de store
 ```
 
 ## Compilar y probar
@@ -121,7 +122,7 @@ dotnet add package MgSoftDev.KnowledgeHub.Blazor
 
 La publicación a nuget.org es automática vía GitHub Actions con **Trusted Publishing (OIDC)** —
 sin API keys. Se dispara al pushear un tag `v*`, y la versión sale del tag (`v1.2.3` → `1.2.3`,
-misma versión para los 11 paquetes):
+misma versión para los 12 paquetes):
 
 ```bash
 git tag v1.2.3
@@ -132,8 +133,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.18.0-preview.1**. Las 11 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-178/178 en los 4 modos de store; los demos están verificados end-to-end.
+**v0.19.0-preview.1**. Las 12 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+196/196 en los 4 modos de store; los demos están verificados end-to-end.
 
 ## Licencia
 

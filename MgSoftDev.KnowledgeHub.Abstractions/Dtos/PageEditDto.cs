@@ -21,6 +21,14 @@ public sealed class PageEditDto
     /// <summary>Optional CSS color for the icon.</summary>
     public string? IconColor { get; set; }
 
+    /// <summary>
+    /// Whether this page's <c>{{ … }}</c> are filled with live data. Read-only here — it is changed
+    /// from the management screen — and the editor uses it to decide whether to check the template
+    /// after saving. The content itself always arrives RAW: the editor shows the template, never
+    /// its result.
+    /// </summary>
+    public bool UsesTemplates { get; set; }
+
     /// <summary>Version number this draft was branched from (concurrency baseline).</summary>
     public int BaseVersionNumber { get; set; }
 }

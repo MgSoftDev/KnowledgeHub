@@ -12,6 +12,10 @@
     <!-- Motor de PDF: Chromium. Subir esta versión CAMBIA el navegador que se descarga, así que en
          despliegues con el navegador empaquetado hay que rehacer el instalador. -->
     <PackageVersion Include="Microsoft.Playwright" Version="1.59.0" />
+    <!-- Motor de plantillas. NO bajar de 7.2.0: hasta la 7.1.0 inclusive, array.insert_at ignora
+         LoopLimit y LimitToString y tumba el proceso por OOM (GHSA-24c8-4792-22hx y 3 avisos más),
+         que es justo lo que el contexto endurecido intenta impedir. -->
+    <PackageVersion Include="Scriban" Version="7.2.6" />
 
     <!-- Imaging / storage engines -->
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />

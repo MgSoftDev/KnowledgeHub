@@ -20,4 +20,7 @@ public sealed class PageInfoDto
     /// a board of links — which on paper would be a page of dead references.
     /// </summary>
     public bool ExcludeFromPdf { get; set; }
+
+    /// <summary>When true, the page's <c>{{ … }}</c> placeholders are filled with live data.</summary>
+    public bool UsesTemplates { get; set; }
 }

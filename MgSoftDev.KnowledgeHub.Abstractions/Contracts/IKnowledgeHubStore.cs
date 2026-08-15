@@ -117,6 +117,12 @@ public interface IKnowledgeHubStore
     Task<Returning<bool>> SetPageExcludeFromPdfAsync(Guid pagePk, bool excludeFromPdf, AuditStamp audit);
 
     /// <summary>
+    /// Marks whether the page's placeholders are filled with live data when displayed. False when
+    /// the active page does not exist. Structural, like the icon: it does NOT create a new version.
+    /// </summary>
+    Task<Returning<bool>> SetPageUsesTemplatesAsync(Guid pagePk, bool usesTemplates, AuditStamp audit);
+
+    /// <summary>
     /// Soft-deletes (RowIsActive = false + audit) every page in <paramref name="pagePks"/>.
     /// The subtree is computed by the core. Returns the number of pages actually deactivated.
     /// </summary>

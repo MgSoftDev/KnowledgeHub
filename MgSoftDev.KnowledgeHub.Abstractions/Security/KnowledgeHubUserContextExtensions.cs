@@ -49,6 +49,14 @@ public static class KnowledgeHubUserContextExtensions
             ? user.IsAdmin() || user.HasPermission(KnowledgeHubPermissions.Export)
             : user.IsAuthenticated;
 
+    /// <summary>
+    /// May mark pages as dynamic. Always requires Admin or the Templates permission — there is no
+    /// coarse fallback to <see cref="CanEdit"/> on purpose: see
+    /// <see cref="KnowledgeHubPermissions.Templates"/>.
+    /// </summary>
+    public static bool CanUseTemplates(this IKnowledgeHubUserContext user) =>
+        user.IsAdmin() || user.HasPermission(KnowledgeHubPermissions.Templates);
+
     /// <summary>The store-level visibility filter for this user.</summary>
     public static Store.VisibilityFilter ToVisibilityFilter(this IKnowledgeHubUserContext user) =>
         user.IsAdmin()

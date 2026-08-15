@@ -89,7 +89,14 @@ public static class KnowledgeHubSanitizerDefaults
         sanitizer.AllowedAttributes.Add("class");
         sanitizer.AllowedClasses.Add(CalloutClass);
 
-        // 4) The host's own classes, so a documented layout survives being cleaned. They are ADDED
+        // 4) Comments are stripped by default, and the template shield rides in comments. Only its
+        //    own markers are spared — every other comment (Word's conditionals included) still goes.
+        sanitizer.RemovingComment += (_, e) =>
+        {
+            if (TemplateSyntaxShield.IsPlaceholder(e.Comment.TextContent)) e.Cancel = true;
+        };
+
+        // 5) The host's own classes, so a documented layout survives being cleaned. They are ADDED
         //    to the marker above, never replacing it: the set must stay non-empty or the library
         //    switches to "allow everything" and Word's MsoNormal comes back in.
         if (options is not null)

@@ -54,7 +54,10 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
             lock (_gate)
             {
                 var page = _pages.Values.FirstOrDefault(p => p.Pk == pagePk && p.RowIsActive && MatchesFilter(p, filter));
-                return page is null ? null : new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon, page.IconColor);
+                return page is null
+                    ? null
+                    : new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon,
+                        page.IconColor, page.Slug, page.UsesTemplates);
             }
         }));
 
@@ -274,6 +277,19 @@ public sealed class InMemoryKnowledgeHubStore : IKnowledgeHubStore
                 var page = _pages.Values.FirstOrDefault(p => p.Pk == pagePk && p.RowIsActive);
                 if (page is null) return false;
                 page.ExcludeFromPdf = excludeFromPdf;
+                Touch(page, audit);
+                return true;
+            }
+        }));
+
+    public Task<Returning<bool>> SetPageUsesTemplatesAsync(Guid pagePk, bool usesTemplates, AuditStamp audit) =>
+        Task.FromResult(Returning<bool>.Try(() =>
+        {
+            lock (_gate)
+            {
+                var page = _pages.Values.FirstOrDefault(p => p.Pk == pagePk && p.RowIsActive);
+                if (page is null) return false;
+                page.UsesTemplates = usesTemplates;
                 Touch(page, audit);
                 return true;
             }

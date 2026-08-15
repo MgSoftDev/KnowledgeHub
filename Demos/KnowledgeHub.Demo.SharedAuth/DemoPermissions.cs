@@ -25,7 +25,13 @@ public static class DemoPermissions
             if (string.Equals(role, AdminRole, StringComparison.OrdinalIgnoreCase))
                 permissions.Add(KnowledgeHubPermissions.Admin);
             if (string.Equals(role, EditorRole, StringComparison.OrdinalIgnoreCase))
+            {
                 permissions.Add(KnowledgeHubPermissions.Edit);
+                // Deliberately granted to the Editor in this demo so the feature can be tried
+                // without being admin. In a real app, think twice: it lets its holder run loops
+                // over the host's data on the server, on every page view.
+                permissions.Add(KnowledgeHubPermissions.Templates);
+            }
         }
         return permissions;
     }

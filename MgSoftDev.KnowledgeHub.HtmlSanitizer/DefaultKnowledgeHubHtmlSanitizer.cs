@@ -49,19 +49,32 @@ public sealed class DefaultKnowledgeHubHtmlSanitizer : IKnowledgeHubHtmlSanitize
         Sanitize(html, context, HtmlCleanupLevel.Standard);
 
     /// <inheritdoc />
-    public string Sanitize(string html, HtmlSanitizeContext context, HtmlCleanupLevel level)
+    public string Sanitize(string html, HtmlSanitizeContext context, HtmlCleanupLevel level) =>
+        Sanitize(html, context, level, preserveTemplateSyntax: false);
+
+    /// <inheritdoc />
+    public string Sanitize(string html, HtmlSanitizeContext context, HtmlCleanupLevel level,
+        bool preserveTemplateSyntax)
     {
         if (string.IsNullOrEmpty(html)) return html;
 
+        // Template expressions are swapped for comments BEFORE anything looks at the markup —
+        // including the pre-process, which flattens blocks and would move a {{ for }} around just
+        // as the table rules do. See TemplateSyntaxShield for what was measured.
+        var expressions = preserveTemplateSyntax ? new List<string>() : null;
+        var working = expressions is null ? html : TemplateSyntaxShield.Protect(html, expressions);
+
         // The pre-process is what keeps script/style text out and stops paragraphs from being
         // glued together; the sanitizer's own hooks run too late to do either.
-        var prepared = HtmlPreProcessor.Prepare(html, level);
+        var prepared = HtmlPreProcessor.Prepare(working, level);
 
-        return level switch
+        var clean = level switch
         {
             HtmlCleanupLevel.Strict => _strict.Sanitize(prepared),
             HtmlCleanupLevel.PlainText => _plainText.Sanitize(prepared),
             _ => _standard.Sanitize(prepared)
         };
+
+        return expressions is null ? clean : TemplateSyntaxShield.Restore(clean, expressions);
     }
 }

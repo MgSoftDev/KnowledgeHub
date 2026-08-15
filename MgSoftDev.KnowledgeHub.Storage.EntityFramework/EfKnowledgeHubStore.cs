@@ -57,12 +57,14 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
 
             var query = ApplyVisibility(db.Pages.AsNoTracking().Where(p => p.Pk == pagePk && p.RowIsActive), filter);
             var page = await query
-                .Select(p => new { p.Pk, p.Title, p.Fk_DocPageVersionPublished, p.Icon, p.IconColor })
+                .Select(p => new { p.Pk, p.Title, p.Fk_DocPageVersionPublished, p.Icon, p.IconColor,
+                    p.Slug, p.UsesTemplates })
                 .FirstOrDefaultAsync();
 
             return page is null
                 ? null
-                : new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon, page.IconColor);
+                : new PageHeaderDto(page.Pk, page.Title, page.Fk_DocPageVersionPublished, page.Icon,
+                    page.IconColor, page.Slug, page.UsesTemplates);
         });
 
     public Task<Returning<DocPage?>> GetPageAsync(Guid pagePk) =>
@@ -318,6 +320,19 @@ public sealed class EfKnowledgeHubStore : IKnowledgeHubStore
             if (page is null) return false;
 
             page.ExcludeFromPdf = excludeFromPdf;
+            Touch(page, audit);
+            await db.SaveChangesAsync();
+            return true;
+        });
+
+    public Task<Returning<bool>> SetPageUsesTemplatesAsync(Guid pagePk, bool usesTemplates, AuditStamp audit) =>
+        Returning<bool>.TryTask(async () =>
+        {
+            await using var db = await _factory.CreateDbContextAsync();
+            var page = await db.Pages.FirstOrDefaultAsync(p => p.Pk == pagePk && p.RowIsActive);
+            if (page is null) return false;
+
+            page.UsesTemplates = usesTemplates;
             Touch(page, audit);
             await db.SaveChangesAsync();
             return true;

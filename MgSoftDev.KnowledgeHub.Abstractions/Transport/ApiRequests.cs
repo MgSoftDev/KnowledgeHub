@@ -20,6 +20,11 @@ public sealed record SetIconRequest(string? Icon, string? IconColor);
 
 public sealed record SetExcludeFromPdfRequest(bool ExcludeFromPdf);
 
+public sealed record SetUsesTemplatesRequest(bool UsesTemplates);
+
+/// <summary>Body of the template syntax check; the html travels in a POST because it is a document.</summary>
+public sealed record ValidateTemplateRequest(string Html);
+
 public sealed record PublishPageRequest(int BaseVersionNumber);
 
 public sealed record SetPermissionsRequest(bool IsPublic, List<string> Permissions);

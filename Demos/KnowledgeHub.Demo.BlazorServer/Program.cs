@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using KnowledgeHub.Demo.BlazorServer.Auth;
 using KnowledgeHub.Demo.BlazorServer.Components;
+using KnowledgeHub.Demo.BlazorServer.Templates;
 using KnowledgeHub.Demo.SharedAuth;
 using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.AspNetCore;
@@ -11,6 +12,7 @@ using MgSoftDev.KnowledgeHub.HtmlSanitizer;
 using MgSoftDev.KnowledgeHub.Pdf;
 using MgSoftDev.KnowledgeHub.Seeding;
 using MgSoftDev.KnowledgeHub.Storage.LiteDb;
+using MgSoftDev.KnowledgeHub.Templating;
 using MgSoftDev.ReturningCore.Logger;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -64,6 +66,13 @@ builder.Services.AddKnowledgeHubFileImageCache(Path.Combine(dataFolder, "cache")
 // One registration covers both, because the UI and the core share this container.
 builder.Services.AddKnowledgeHubHtmlSanitizer();
 builder.Services.AddKnowledgeHubPdf();
+
+// Live data in pages marked as dynamic. The engine plus the host's own data:
+//   - kh.roles comes for free, from the permission catalog this app already provides;
+//   - "equipos" is this app's own, and shows the shape a real provider should have.
+// Both go WHERE THE CORE RUNS. Here that is the same container; in WASM it would be the API server.
+builder.Services.AddKnowledgeHubTemplating();
+builder.Services.AddScoped<IKnowledgeHubTemplateModelProvider, EquiposTemplateModelProvider>();
 
 builder.Services.AddKnowledgeHubBlazor(o =>
 {
