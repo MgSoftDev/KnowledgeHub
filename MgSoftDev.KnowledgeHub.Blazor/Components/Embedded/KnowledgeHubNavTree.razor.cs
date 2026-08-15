@@ -271,6 +271,13 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
     {
         if (args.Value is not PageTreeNodeDto node) return;
 
+        // Reloading the tree re-applies the highlight, and RadzenTree raises Change for it exactly
+        // as if the user had clicked. Reporting that as a selection dragged the host back to the
+        // reader: pressing Edit switched to the editor, the tree refreshed, and the echo pulled the
+        // view straight back to the page — with no error anywhere. An echo names the page that is
+        // ALREADY current, so that is the one case to ignore.
+        if (node.Pk == CurrentPagePk) return;
+
         if (OnPageSelected.HasDelegate) await OnPageSelected.InvokeAsync(node.Pk);
         else Nav.NavigateTo(KnowledgeHubRoutes.Page(node.Pk));
     }

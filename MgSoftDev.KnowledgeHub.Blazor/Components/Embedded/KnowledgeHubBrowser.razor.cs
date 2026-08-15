@@ -134,7 +134,8 @@ public partial class KnowledgeHubBrowser : ComponentBase
         _lastAppliedSelection = pagePk;
         View = BrowserView.Edit;
         await SelectedPagePkChanged.InvokeAsync(pagePk);
-        await RefreshTreeAsync();
+        // No se refresca el árbol aquí: editar no lo cambia, y cuando se llega desde "Nueva página"
+        // el propio árbol ya se recargó antes de avisar (NavTree.CreateRootPageAsync).
         StateHasChanged();
     }
 
