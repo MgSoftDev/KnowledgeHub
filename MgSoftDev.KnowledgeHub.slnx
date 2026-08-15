@@ -20,5 +20,6 @@
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/KnowledgeHub.ParityHarness/KnowledgeHub.ParityHarness.csproj" />
+    <Project Path="Tests/KnowledgeHub.ComponentTests/KnowledgeHub.ComponentTests.csproj" />
   </Folder>
 </Solution>

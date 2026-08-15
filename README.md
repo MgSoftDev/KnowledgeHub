@@ -78,6 +78,7 @@ Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
 Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (198 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ComponentTests/ Pruebas de componentes con bUnit (17: humo + flujos del Browser)
 ```
 
 ## Compilar y probar
@@ -92,9 +93,16 @@ dotnet run --project Tests/KnowledgeHub.ParityHarness -- litedb
 # sqlserver: requiere env KH_SQLSERVER_CS y una BD vacía
 # http:      levanta un Kestrel real y prueba a través de Http.Client
 
+# Pruebas de componentes (bUnit, sin navegador)
+dotnet test Tests/KnowledgeHub.ComponentTests
+
 # Empaquetar al feed local (carpeta artifacts/)
 dotnet pack -c Release -o artifacts
 ```
+
+Todo esto lo ejecuta también GitHub Actions en cada push
+([`ci.yml`](.github/workflows/ci.yml)), salvo el modo `sqlserver` del arnés, que necesita una
+instancia.
 
 Cada demo se ejecuta con `dotnet run --project Demos/<nombre>` (el WASM se sirve desde su
 proyecto `.Server`).

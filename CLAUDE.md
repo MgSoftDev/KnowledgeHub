@@ -253,6 +253,19 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
   127.0.0.1:5599. El ALTER-ADD del icono se verificó además creando una tabla `DocPages` v0.2
   vacía y confirmando la migración en caliente.
+- **Pruebas de componentes** (17, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
+  componente embebible se monta una vez— y 4 de flujo del `KnowledgeHubBrowser`. Cubren lo que ni el
+  compilador ni el arnés ven: **un componente que revienta al renderizar** (el comentario Razor
+  dentro de la lista de atributos, gotcha 34) y **un flujo que acaba en la pantalla equivocada** (el
+  eco del árbol, gotcha 35). Los servicios son **falsos**: si el core devuelve mal un DTO, eso no se
+  ve aquí — es trabajo del arnés de paridad, y por eso el fallo de la casilla de la v0.19.1 pasó
+  desapercibido en la UI y lo cazó el arnés.
+  **Los dos tests se validaron reintroduciendo cada bug y comprobando que se ponen rojos**; unos
+  tests que no fallan nunca dan la misma tranquilidad que no tenerlos.
+- **CI** (`.github/workflows/ci.yml`, en cada push y PR a `main`): compila las librerías **una a una
+  con un glob**, nunca el `.slnx` —incluye el demo WPF `net10.0-windows`, que no compila en Linux—,
+  corre el arnés en `inmemory`, `litedb` y `http` (los tres se bastan solos; `sqlserver` queda fuera
+  por necesitar instancia) y las pruebas de componentes. Gratis: el repo es público.
 - **Demos**: WPF verificado por logs/publish; Server y WASM verificados en navegador
   (login, árboles por rol, assets immutable, normalización docimg:// al guardar desde WASM).
 - **Humo NuGet**: app mínima en scratchpad restaurando SOLO desde `artifacts/` (9/9 PASS).
@@ -644,6 +657,25 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     - **`kh.is_pdf` no se puede resolver con un parámetro opcional en la lectura**: esa la llama
       todo el mundo y el que lo olvide produce un fallo silencioso. Va en un método aparte,
       `GetPageForExportAsync`, que solo usa el exportador. El arnés cazó justo ese bug.
+
+34. **Un comentario Razor DENTRO de la lista de atributos de un componente compila y revienta al
+    renderizar** (v0.19.2). Razor no se queja: lo trata como el **nombre de un atributo**, así que
+    falla en ejecución con *"does not have a property matching the name '@*…'"*. Rompió el
+    `KnowledgeHubBrowser` entero —la integración de una línea que anuncia el README— durante **tres
+    versiones**, porque 0 warnings no dice nada de esto. Los comentarios van **entre elementos**,
+    nunca entre atributos. Cubierto por el humo de bUnit.
+
+35. **`RadzenTree` vuelve a disparar `Change` al reaplicar la selección tras recargarse** (v0.19.3),
+    exactamente igual que si el usuario hubiera hecho clic. Con el predicado `Selected` que se añadió
+    en la v0.18.0, cualquier recarga del árbol informaba de una selección que solo estaba
+    **restaurando**, y eso arrastraba la vista del anfitrión: pulsar Editar cambiaba a la vista de
+    edición y el refresco del árbol la devolvía al lector, **sin error en ninguna parte**. Guardado
+    en `OnNodeSelect`: un eco siempre nombra la página que YA es la actual, así que ese es el caso a
+    ignorar. Afectaba a más sitios que Editar —guardar el icono en Gestionar también recarga el
+    árbol y también te expulsaba—, y **solo al modo embebido**: en enrutado nadie pasa
+    `CurrentPagePk`, el predicado nunca marca nada y no hay eco.
+    Diagnóstico que lo desatascó: editar el DOM a mano con las dev tools y ver que se revertía
+    demostró que el manejador SÍ corría; a partir de ahí, instrumentar y leer la traza.
 
 ## Pendientes / siguientes pasos
 

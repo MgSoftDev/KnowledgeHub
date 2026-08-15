@@ -1,0 +1,47 @@
+name: CI
+
+# Compila y verifica en cada push. Hasta ahora lo único que corría en GitHub era la publicación
+# al pushear un tag: nada comprobaba nada hasta que ya estabas publicando.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # NO se compila el .slnx: incluye el demo WPF (net10.0-windows), que no compila en Linux.
+      # Mismo motivo por el que publish-nuget.yml empaqueta proyecto a proyecto con un glob.
+      - name: Compilar las librerías
+        run: |
+          for proj in MgSoftDev.KnowledgeHub*/*.csproj; do
+            dotnet build "$proj" -c Release
+          done
+
+      - name: Compilar el arnés de paridad
+        run: dotnet build Tests/KnowledgeHub.ParityHarness -c Release
+
+      # Los tres modos se bastan solos: inmemory y litedb no necesitan nada, y http levanta su
+      # propio Kestrel. sqlserver se queda fuera porque exige una instancia y no cubre nada
+      # distinto: el mismo guion corre sobre los cuatro proveedores.
+      - name: Arnés de paridad (inmemory, litedb, http)
+        run: |
+          for mode in inmemory litedb http; do
+            echo "::group::Arnés — $mode"
+            dotnet run --project Tests/KnowledgeHub.ParityHarness -c Release --no-build -- "$mode"
+            echo "::endgroup::"
+          done
+
+      # bUnit renderiza los componentes en memoria. Cubre lo que ni el compilador ni el arnés ven:
+      # un componente que revienta al renderizar, o un flujo que acaba en la pantalla equivocada.
+      - name: Pruebas de componentes
+        run: dotnet test Tests/KnowledgeHub.ComponentTests -c Release
