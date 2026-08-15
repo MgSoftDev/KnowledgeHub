@@ -836,6 +836,13 @@ public static class ParityScript
         var marcarR = await pages.SetPageUsesTemplatesAsync(marcada.Value, true);
         Check("Un admin puede marcar la página como dinámica", marcarR.Ok);
 
+        // Que RENDERICE no prueba que la pantalla de Gestionar lo lea de vuelta: son dos caminos
+        // distintos y el DTO se rellena a mano, campo a campo. Faltaba este campo y la casilla
+        // aparecía siempre desmarcada aunque la página sí procesara sus datos.
+        var infoMarcada = await pages.GetPageInfoAsync(marcada.Value);
+        Check("La marca vuelve en GetPageInfo (es lo que pinta la casilla)",
+            infoMarcada.OkNotNull && infoMarcada.Value.UsesTemplates);
+
         const string plantilla = "<ul>{{ for e in equipos }}<li>{{ e.nombre }} {{ e.ip }}</li>{{ end }}</ul>";
         await PublishSimpleAsync(pages, marcada.Value, plantilla);
         await PublishSimpleAsync(pages, sinMarcar.Value, plantilla);
@@ -940,6 +947,10 @@ public static class ParityScript
         // el saneador sin mirarse, y ya no queda nadie que las consuma.
         var desmarcar = await pages.SetPageUsesTemplatesAsync(marcada.Value, false);
         Check("Se puede desmarcar la página", desmarcar.Ok);
+
+        var infoDesmarcada = await pages.GetPageInfoAsync(marcada.Value);
+        Check("Al desmarcar, GetPageInfo también lo refleja",
+            infoDesmarcada.OkNotNull && !infoDesmarcada.Value.UsesTemplates);
         var trasDesmarcar = await pages.GetPageForReadAsync(marcada.Value);
         Check("Tras desmarcar, ya no se renderiza",
             trasDesmarcar.OkNotNull && trasDesmarcar.Value.ContentHtml.Contains("{{"));

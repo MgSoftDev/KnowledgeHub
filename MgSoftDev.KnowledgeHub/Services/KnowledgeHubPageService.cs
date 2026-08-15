@@ -525,7 +525,8 @@ public sealed class KnowledgeHubPageService : IKnowledgeHubPageService
                 SortOrder = page.SortOrder,
                 Icon = page.Icon,
                 IconColor = page.IconColor,
-                ExcludeFromPdf = page.ExcludeFromPdf
+                ExcludeFromPdf = page.ExcludeFromPdf,
+                UsesTemplates = page.UsesTemplates
             };
         }, saveLog: true);
 
