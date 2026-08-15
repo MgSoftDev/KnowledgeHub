@@ -10,6 +10,11 @@
                          TreeWidthStorageKey="@Options.TreeWidthStorageKey">
     <TreeContent>
         <div class="kh-browser-sidebar">
+            @* CurrentPagePk: aquí la navegación es INTERNA y la URL no cambia, así que el árbol no
+               puede deducir por su cuenta qué página está abierta.
+               OJO: este comentario va FUERA de la etiqueta. Dentro de la lista de atributos, Razor
+               lo compila sin quejarse y lo trata como el nombre de un atributo, que revienta al
+               renderizar con "does not have a property matching the name '@*…'". *@
             <KnowledgeHubNavTree @ref="_navTree"
                                  Title="@Title"
                                  ShowHeader="@ShowTreeHeader"
@@ -17,8 +22,6 @@
                                  ShowUser="@ShowUser"
                                  AllowCreate="@AllowCreate"
                                  FooterContent="@TreeFooterContent"
-                                 @* Navegación INTERNA: la URL no cambia, así que el árbol no puede
-                                    deducir por su cuenta qué página está abierta. *@
                                  CurrentPagePk="@SelectedPagePk"
                                  OnPageSelected="@SelectPageAsync"
                                  OnCreatePageRequested="@EditPageAsync"
