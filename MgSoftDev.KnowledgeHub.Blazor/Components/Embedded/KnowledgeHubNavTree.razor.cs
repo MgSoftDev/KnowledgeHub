@@ -67,6 +67,24 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
     public bool Wait { get; private set; }
     protected string SearchTerm { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The page the tree considers open, whoever answered: the host through CurrentPagePk, or the
+    /// URL in routed mode, where the layout holds the tree and cannot see the route parameter of
+    /// the page inside @Body. Highlight, branch opening and the echo guard all read THIS, never
+    /// CurrentPagePk: two of them used to and the tree simply never highlighted anything in the
+    /// portal (see gotcha 35).
+    /// </summary>
+    protected Guid? ActivePagePk { get; private set; }
+
+    /// <summary>
+    /// That same page as a node of the loaded tree, bound to RadzenTree.Value. It is NOT a spare
+    /// copy of the Selected predicate: setting Value to null is the ONLY way to clear
+    /// RadzenTree.SelectedItem, which otherwise keeps pointing at the last item selected — and
+    /// Radzen swallows the next click on that item (SelectItem skips Change when the item already
+    /// is the selected one), so it stops navigating. See gotcha 35.
+    /// </summary>
+    protected PageTreeNodeDto? ActiveNode { get; private set; }
+
     private IJSObjectReference? _module;
     private Guid? _openedBranchFor;
 
@@ -86,8 +104,11 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
     /// </summary>
     protected override void OnParametersSet()
     {
-        var current = CurrentPagePk ?? PageFromUrl();
-        if (current is not Guid pagePk || _openedBranchFor == pagePk) return;
+        // Assigned BEFORE the early return: the branch only has to be opened once per page, but
+        // the highlight has to be right on every pass.
+        ActivePagePk = CurrentPagePk ?? PageFromUrl();
+        RefreshActiveNode();
+        if (ActivePagePk is not Guid pagePk || _openedBranchFor == pagePk) return;
 
         _openedBranchFor = pagePk;
         if (OpenAncestorsOf(pagePk)) _ = PersistCollapsedAsync();
@@ -142,7 +163,7 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
 
             // The branch of the page being viewed wins over what was stored, or a deep link into a
             // collapsed branch would restore it closed right after we opened it.
-            if ((CurrentPagePk ?? PageFromUrl()) is Guid pagePk) OpenAncestorsOf(pagePk);
+            if (ActivePagePk is Guid pagePk) OpenAncestorsOf(pagePk);
 
             StateHasChanged();
         }
@@ -187,6 +208,20 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
         foreach (var pk in chain.Where(pk => pk != pagePk))
             changed |= UiState.CollapsedPages.Remove(pk);
         return changed;
+    }
+
+    private void RefreshActiveNode() =>
+        ActiveNode = ActivePagePk is Guid pagePk ? FindNode(Roots, pagePk) : null;
+
+    private static PageTreeNodeDto? FindNode(IEnumerable<PageTreeNodeDto> nodes, Guid pagePk)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.Pk == pagePk) return node;
+            var found = FindNode(node.Children, pagePk);
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     private static bool FindChain(IEnumerable<PageTreeNodeDto> nodes, Guid pagePk, List<Guid> chain)
@@ -264,6 +299,8 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
         Loading = true;
         var result = await DocService.GetTreeAsync();
         Roots = result.OkNotNull ? result.Value : new List<PageTreeNodeDto>();
+        // The DTOs are new instances, so the node held from the previous load is now a stranger.
+        RefreshActiveNode();
         Loading = false;
     }
 
@@ -271,12 +308,15 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
     {
         if (args.Value is not PageTreeNodeDto node) return;
 
-        // Reloading the tree re-applies the highlight, and RadzenTree raises Change for it exactly
-        // as if the user had clicked. Reporting that as a selection dragged the host back to the
-        // reader: pressing Edit switched to the editor, the tree refreshed, and the echo pulled the
-        // view straight back to the page — with no error anywhere. An echo names the page that is
-        // ALREADY current, so that is the one case to ignore.
-        if (node.Pk == CurrentPagePk) return;
+        // Re-applying the highlight — after a reload, or after navigating — makes RadzenTree raise
+        // Change exactly as if the user had clicked. Reporting that as a selection dragged the host
+        // back to the reader: pressing Edit switched to the editor, the tree refreshed, and the echo
+        // pulled the view straight back to the page — with no error anywhere. An echo names the page
+        // that is ALREADY the active one, so that is the one case to ignore.
+        // Cost: clicking the node that is already active does nothing, so you leave Manage/Edit
+        // through their own Back button. Radzen already behaves that way while the tree is not
+        // reloaded (SelectItem skips Change when the item is already the selected one).
+        if (node.Pk == ActivePagePk) return;
 
         if (OnPageSelected.HasDelegate) await OnPageSelected.InvokeAsync(node.Pk);
         else Nav.NavigateTo(KnowledgeHubRoutes.Page(node.Pk));

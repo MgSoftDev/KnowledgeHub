@@ -253,11 +253,11 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
   127.0.0.1:5599. El ALTER-ADD del icono se verificó además creando una tabla `DocPages` v0.2
   vacía y confirmando la migración en caliente.
-- **Pruebas de componentes** (17, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
-  componente embebible se monta una vez— y 4 de flujo del `KnowledgeHubBrowser`. Cubren lo que ni el
-  compilador ni el arnés ven: **un componente que revienta al renderizar** (el comentario Razor
-  dentro de la lista de atributos, gotcha 34) y **un flujo que acaba en la pantalla equivocada** (el
-  eco del árbol, gotcha 35). Los servicios son **falsos**: si el core devuelve mal un DTO, eso no se
+- **Pruebas de componentes** (23, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
+  componente embebible se monta una vez—, 4 de flujo del `KnowledgeHubBrowser` y 6 de la marca de
+  selección del árbol en los dos modos. Cubren lo que ni el compilador ni el arnés ven: **un
+  componente que revienta al renderizar** (el comentario Razor dentro de la lista de atributos,
+  gotcha 34) y **un flujo que acaba en la pantalla equivocada** (el eco del árbol, gotcha 35). Los servicios son **falsos**: si el core devuelve mal un DTO, eso no se
   ve aquí — es trabajo del arnés de paridad, y por eso el fallo de la casilla de la v0.19.1 pasó
   desapercibido en la UI y lo cazó el arnés.
   **Los dos tests se validaron reintroduciendo cada bug y comprobando que se ponen rojos**; unos
@@ -672,10 +672,39 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     edición y el refresco del árbol la devolvía al lector, **sin error en ninguna parte**. Guardado
     en `OnNodeSelect`: un eco siempre nombra la página que YA es la actual, así que ese es el caso a
     ignorar. Afectaba a más sitios que Editar —guardar el icono en Gestionar también recarga el
-    árbol y también te expulsaba—, y **solo al modo embebido**: en enrutado nadie pasa
-    `CurrentPagePk`, el predicado nunca marca nada y no hay eco.
+    árbol y también te expulsaba—, y **solo al modo embebido**: en enrutado nadie pasaba
+    `CurrentPagePk`, el predicado no marcaba nada y no había eco.
     Diagnóstico que lo desatascó: editar el DOM a mano con las dev tools y ver que se revertía
     demostró que el manejador SÍ corría; a partir de ahí, instrumentar y leer la traza.
+    **Y ese «solo al modo embebido» era el otro bug** (v0.19.4): en el portal el árbol **no marcaba
+    nunca la página abierta**, ni al llegar por URL ni al navegar, y 🔄 o guardar en
+    Permisos/Gestionar «perdía» la marca. El layout del portal no puede pasar `CurrentPagePk` —la
+    página ruteada vive dentro de `@Body`—, así que la única fuente es la URL, que el árbol ya leía
+    para abrir la rama (`PageFromUrl`) pero no para marcar. Ahora ambos y la guarda del eco leen un
+    único `ActivePagePk = CurrentPagePk ?? PageFromUrl()`.
+    Lo que había que saber de Radzen para arreglarlo, leído en su fuente:
+    - `RenderTreeItem` hace `builder.SetKey(data)` y `Selected = Value == data || selected(data)`.
+      Como cada `GetTreeAsync` devuelve DTOs nuevos, al recargar mueren todos los items y
+      `RadzenTree.SelectedItem` **queda apuntando a un item destruido**, que nadie limpia. Por eso
+      el resaltado del clic no sobrevive a una recarga: lo único que lo repone es el predicado.
+    - `RadzenTreeItem.SetParametersAsync` **sí** reacciona a que cambie `Selected`
+      (`DidParameterChange` → `selected = …; Tree?.SelectItem(this)`), así que la marca se mueve con
+      un simple re-render y navegar **no cuesta una consulta al store**.
+    - `SelectItem` no dispara `Change` si el item ya era el `SelectedItem`, así que «clic en el nodo
+      que ya es el activo no hace nada» es de Radzen tanto como de la guarda. Es el precio asumido:
+      de Gestionar/Editar se sale por su botón Volver, no clicando la página en el árbol.
+    - **Y ese `SelectedItem` se queda colgado**: nadie lo limpia al deseleccionar, así que tras
+      volver a `/kh` el árbol se quedaba MUDO —clic en la página, resaltado sí, navegación no—.
+      Lo único que lo limpia es `Value`: `SetParametersAsync` hace `SelectedItem = null` cuando
+      **pasa a null**. De ahí `Value="@ActiveNode"`, que no duplica al predicado: el predicado marca,
+      `Value` desmarca. Existía desde siempre, pero marcar desde la URL lo agravaba (ahora hay
+      selección sin que nadie haya hecho clic), así que entra en la misma entrega.
+    - Distinguir el eco con una bandera de render **no funciona aquí**: el item hace
+      `await Tree.ExpandItem(this)` ANTES de seleccionar, y ese await pasa por nuestro `OnNodeExpand`
+      → `PersistCollapsedAsync` → interop JS, así que el eco puede llegar después del render.
+    Cubierto por 6 pruebas de bUnit sobre `aria-selected` (no sobre clases de Radzen), y verificado
+    en el demo Server: llegar por URL marca, navegar mueve la marca **sin recargar el árbol**, 🔄 la
+    conserva y el clic vuelve a navegar.
 
 ## Pendientes / siguientes pasos
 

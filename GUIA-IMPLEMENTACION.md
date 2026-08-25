@@ -775,7 +775,6 @@ configuras un `TreeMaxSize` mayor.
 | `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `TreeFooterContent`, `@bind-SelectedPagePk`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible` | — (navega internamente) |
 | `KnowledgeHubSplitLayout` | `TreeContent`, `MainContent`, `ShowTree`, `Embedded`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible`, `TreeWidthStorageKey` | — (el divisor de los dos shells, por si quieres el mismo split con tu contenido) |
 | `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent`, `CurrentPagePk` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
-| `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
 | `KnowledgeHubPageView` | `PagePk`, `ShowActions` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
 | `KnowledgeHubPageEditor` | `PagePk` | `OnPublished`, `OnDiscarded` |
 | `KnowledgeHubPageHistory` | `PagePk` | `OnVersionRequested`, `OnBackRequested` |
