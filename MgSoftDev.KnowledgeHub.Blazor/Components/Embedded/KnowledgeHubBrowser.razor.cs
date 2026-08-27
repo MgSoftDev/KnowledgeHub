@@ -75,6 +75,12 @@ public partial class KnowledgeHubBrowser : ComponentBase
     /// <summary>Show the arrow that collapses the tree. Null takes the value from the options.</summary>
     [Parameter] public bool? TreeCollapsible { get; set; }
 
+    /// <summary>Show the "En esta página" panel while reading. Null takes the value from the options.</summary>
+    [Parameter] public bool? ShowOutline { get; set; }
+
+    /// <summary>Deepest heading listed in that panel (1..6). Null takes the value from the options.</summary>
+    [Parameter] public int? OutlineMaxLevel { get; set; }
+
     /// <summary>Content shown when no page is selected. Defaults to a short hint.</summary>
     [Parameter] public RenderFragment? EmptyContent { get; set; }
 

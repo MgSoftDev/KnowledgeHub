@@ -48,4 +48,15 @@ public sealed class KnowledgeHubUiState
     /// once per session and a second tree instance does not undo what the first restored.
     /// </summary>
     public bool CollapsedPagesRestored { get; set; }
+
+    /// <summary>
+    /// Whether the reader folded away the "En esta página" panel. It lives here, and not as a
+    /// parameter of the reader, for a concrete reason: the reader reloads the page from the store on
+    /// every parameter set, so driving the fold from outside would cost a database round trip per
+    /// click. From here, folding is a re-render and nothing else.
+    /// </summary>
+    public bool OutlineCollapsed { get; set; }
+
+    /// <summary>Same one-trip-per-session guard as <see cref="CollapsedPagesRestored"/>.</summary>
+    public bool OutlineRestored { get; set; }
 }

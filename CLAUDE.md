@@ -72,6 +72,18 @@ automático** (v0.8.0-preview.1).
     remonta en el primer render cuando hay ancho guardado, y cada acción de gestión lo recarga.
     `CurrentPagePk` (o la URL, en modo enrutado) abre la cadena de ancestros de la página abierta y
     la marca con `RadzenTreeLevel.Selected`, sin tocar el resto. Ver gotcha 32.
+  - **Índice «En esta página» (v0.20.0)**: columna pegajosa a la derecha del lector con los
+    encabezados de la página; al pulsar salta, y el que estás leyendo queda marcado. Las anclas
+    **se generan al renderizar y NO se persisten** — no podrían: el saneador borra `id` en los tres
+    niveles y cada guardado sanea (gotcha 36). De ahí sale gratis lo que pedía el encargo: funciona
+    en páginas escritas hace meses, **sin migrar ni tocar contenido**. La extracción es una función
+    PURA en Abstractions (`KnowledgeHubHtml.BuildOutline`, regex `[GeneratedRegex]`), no un parseo
+    en JS: la RCL solo referencia Abstractions, y siendo pura la cubre el arnés — bUnit no ejecuta
+    JS. Corre **después** del rewriter de imágenes, así que un encabezado que produce un `{{ for }}`
+    de Scriban se indexa como cualquier otro. Opciones: `ShowOutline`, `OutlineMaxLevel` (3) y
+    `OutlineStorageKey`, las dos primeras overridables por instancia en el lector y en el Browser;
+    el plegado vive en `KnowledgeHubUiState` (**no** como parámetro: el lector recarga del store en
+    cada set de parámetros, así que sería un viaje a la BD por clic).
   - CSS: alturas por variables `--kh-portal-height` / `--kh-editor-height` (default `100vh`);
     `KnowledgeHubBrowser` usa `.kh-embedded` (100% del contenedor).
   - **Pantalla de bienvenida sustituible (v0.10.0)**: `Options.HomeComponent` (`Type?`, mismo patrón
@@ -241,21 +253,21 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (198 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (211 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
   7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
   v0.13.0, 12 de páginas excluidas/vacías en v0.14.0, 8 de fugas por Guid en v0.15.0, 16 de creación
-  visible + escalada cerrada en v0.16.0, 9 de borrado en cascada en v0.17.0 y 18 de datos vivos en
-  v0.19.0
+  visible + escalada cerrada en v0.16.0, 9 de borrado en cascada en v0.17.0 18 de datos vivos en
+  v0.19.0 y 13 del índice de la página en v0.20.0
   —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
   127.0.0.1:5599. El ALTER-ADD del icono se verificó además creando una tabla `DocPages` v0.2
   vacía y confirmando la migración en caliente.
-- **Pruebas de componentes** (23, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
-  componente embebible se monta una vez—, 4 de flujo del `KnowledgeHubBrowser` y 6 de la marca de
-  selección del árbol en los dos modos. Cubren lo que ni el compilador ni el arnés ven: **un
+- **Pruebas de componentes** (30, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
+  componente embebible se monta una vez—, 4 de flujo del `KnowledgeHubBrowser`, 6 de la marca de
+  selección del árbol en los dos modos y 7 del panel «En esta página». Cubren lo que ni el compilador ni el arnés ven: **un
   componente que revienta al renderizar** (el comentario Razor dentro de la lista de atributos,
   gotcha 34) y **un flujo que acaba en la pantalla equivocada** (el eco del árbol, gotcha 35). Los servicios son **falsos**: si el core devuelve mal un DTO, eso no se
   ve aquí — es trabajo del arnés de paridad, y por eso el fallo de la casilla de la v0.19.1 pasó
@@ -705,6 +717,47 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     Cubierto por 6 pruebas de bUnit sobre `aria-selected` (no sobre clases de Radzen), y verificado
     en el demo Server: llegar por URL marca, navegar mueve la marca **sin recargar el árbol**, 🔄 la
     conserva y el clic vuelve a navegar.
+
+36. **Un índice por página no puede vivir en el contenido guardado, y las container queries tienen
+    una regla que no se ve venir** (v0.20.0).
+    - **El saneador borra `id` en los TRES niveles** (medido con Ganss.Xss 9.1.968-beta: `id` no está
+      en los 95 `AllowedAttributes` de fábrica, `KnowledgeHubSanitizerDefaults` solo añade `class`, y
+      el nivel 3 sustituye la lista entera por `src/alt/style`). Como `SaveDraftAsync` sanea en cada
+      guardado, un ancla escrita a mano en el HTML **vive hasta el siguiente guardado y desaparece
+      sin decir nada**. Por eso `BuildOutline` inyecta los `id` al renderizar y nunca los persiste —
+      y por eso, gratis, el índice funciona en páginas escritas mucho antes de que existiera.
+      Curiosidad útil: `name` y `href="#…"` SÍ sobreviven a los niveles 1 y 2, así que el enlace vive
+      y el destino muere. Un anfitrión puede permitir `id` con `ConfigureStandard`, así que
+      `BuildOutline` **reutiliza** el `id` que ya venga en vez de añadir un segundo.
+    - **Regex sobre HTML, con una trampa concreta**: `<h2[^>]*>` parece bastar y **corrompe el
+      marcado** en cuanto un atributo lleva `>` entre comillas (`title="a > b"`), porque el `id` se
+      inyecta en mitad del atributo. La regex consume los valores entrecomillados enteros. Y **sin
+      backreferencia** en el cierre: el generador de `[GeneratedRegex]` puede emitir SYSLIB1044, que
+      aquí es error de compilación. Solo se reescribe si han casado apertura Y cierre, así que un
+      encabezado sin cerrar cuesta un enlace, nunca HTML roto.
+    - **Una container query NO puede dar estilo a su propio contenedor.** Se resuelve contra el
+      contenedor ANCESTRO, así que un `@container { .el-contenedor { flex-wrap: wrap } }` se ignora
+      **en silencio** — y aquí eso dejaba la columna de texto en **0 px** en el modo estrecho. Hay
+      que separar en dos elementos: uno declara `container-type` y mide, otro obedece
+      (`.kh-doc-layout` / `.kh-doc-row`). Lo contrario también muerde: mover el `flex-wrap` a la
+      regla base parece equivalente y no lo es, porque en modo ancho hace que el panel salte de
+      línea. Lo que sí se confirmó: `container-type: inline-size` **no** rompe el `position: sticky`.
+    - **`scrollIntoView({behavior:'smooth'})` puede aceptarse y no animar nada** (navegadores
+      automatizados, algunos WebView). Devuelve sin error y el lector se queda donde estaba. Se
+      pide smooth y, si a los 250 ms no se ha movido nada, se salta en seco: aterrizar importa más
+      que deslizarse. `behavior:'auto'` funcionó siempre.
+    - **El scroll-spy NO usa `IntersectionObserver`**, por dos razones y solo una es de entorno. La
+      de diseño: un observador sobre una banda superior **no marca NADA** cuando ningún encabezado
+      cae dentro —página corta, o sección que llena la pantalla—, justo cuando más metido en el
+      texto estás. Con geometría siempre hay respuesta: el último encabezado que pasó la banda. La
+      de entorno: el panel del navegador de esta sesión **no entrega ni una entrada** de
+      `IntersectionObserver`, ni con opciones por defecto (tampoco compone frames ni deja capturar).
+      Y la regla dura: el spy **no llama a .NET jamás** — un aviso por sección cruzada sería un
+      round-trip de SignalR por sección mientras arrastras la barra (gotcha 18).
+    - Los enlaces del panel son `<button>`, no `<a href="#ancla">`: el router de Blazor intercepta
+      los fragmentos, cambiaría la URL —lo que despierta al árbol, que escucha `LocationChanged`— y
+      encima no haría scroll, porque quien scrollea es un div y no la ventana. Verificado en el demo
+      embebido: saltar **no cambia** `/mi-app/documentacion`.
 
 ## Pendientes / siguientes pasos
 

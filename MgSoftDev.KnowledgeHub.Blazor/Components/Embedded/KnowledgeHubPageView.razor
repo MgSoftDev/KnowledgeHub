@@ -25,6 +25,11 @@ else if (ErrorMessage is not null)
 }
 else if (Page is not null)
 {
+    @* El panel «En esta página» es HERMANO de .kh-doc-content, no hijo: esa clase la comparten 11
+       componentes y su max-width ES la columna de lectura, así que meterlo dentro la estrecharía
+       en todos ellos. *@
+    <div class="kh-doc-layout" @ref="_layoutElement">
+    <div class="kh-doc-row">
     <div class="kh-doc-content">
         @if (!string.IsNullOrWhiteSpace(Page.Icon))
         {
@@ -70,5 +75,33 @@ else if (Page is not null)
             </div>
         }
         @((MarkupString)RenderedHtml)
+    </div>
+
+    @if (ShowOutlinePanel)
+    {
+        <aside class="kh-doc-toc @(OutlineCollapsed ? "kh-doc-toc-folded" : null)">
+            <button type="button" class="kh-doc-toc-toggle" @onclick="ToggleOutlineAsync"
+                    aria-expanded="@(OutlineCollapsed ? "false" : "true")"
+                    title="@(OutlineCollapsed ? "Mostrar el índice" : "Ocultar el índice")">
+                <RadzenIcon Icon="@(OutlineCollapsed ? "chevron_right" : "expand_more")" />
+                <span>En esta página</span>
+            </button>
+            @if (!OutlineCollapsed)
+            {
+                @* Botones y no <a href="#ancla">: el router de Blazor intercepta los fragmentos y
+                   cambiaría la URL —lo que despierta al árbol, que escucha LocationChanged— y
+                   encima no haría scroll, porque quien scrollea es un div, no la ventana. *@
+                <nav class="kh-doc-toc-list" aria-label="En esta página">
+                    @foreach (var heading in Headings)
+                    {
+                        <button type="button" data-kh-anchor="@heading.Id"
+                                class="kh-doc-toc-link kh-doc-toc-l@(heading.Level)"
+                                @onclick="@(() => GoToHeadingAsync(heading.Id))">@heading.Text</button>
+                    }
+                </nav>
+            }
+        </aside>
+    }
+    </div>
     </div>
 }

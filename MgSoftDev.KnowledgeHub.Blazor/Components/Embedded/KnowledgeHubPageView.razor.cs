@@ -15,12 +15,18 @@ namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 /// Embeddable anywhere; supply the action callbacks to keep the user inside your own screen,
 /// or omit them to fall back to URL navigation over the built-in /kh routes.
 /// </summary>
-public partial class KnowledgeHubPageView : ComponentBase
+public partial class KnowledgeHubPageView : ComponentBase, IAsyncDisposable
 {
     [Parameter] public Guid PagePk { get; set; }
 
     /// <summary>Show the meta/actions bar (version + Edit/Permissions/Manage/History). Default true.</summary>
     [Parameter] public bool ShowActions { get; set; } = true;
+
+    /// <summary>Show the "En esta página" panel. Null follows KnowledgeHubBlazorOptions.ShowOutline.</summary>
+    [Parameter] public bool? ShowOutline { get; set; }
+
+    /// <summary>Deepest heading listed (1..6). Null follows KnowledgeHubBlazorOptions.OutlineMaxLevel.</summary>
+    [Parameter] public int? OutlineMaxLevel { get; set; }
 
     /// <summary>Without a handler, navigates to /kh/edit/{pk}.</summary>
     [Parameter] public EventCallback<Guid> OnEditRequested { get; set; }
@@ -43,12 +49,29 @@ public partial class KnowledgeHubPageView : ComponentBase
     [Inject] private KnowledgeHubOptions CoreOptions { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
     [Inject] private IJSRuntime JS { get; set; } = null!;
+    [Inject] private KnowledgeHubBlazorOptions Options { get; set; } = null!;
+    [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
 
     protected PageReadDto? Page { get; private set; }
     protected string RenderedHtml { get; private set; } = string.Empty;
     protected string? ErrorMessage { get; private set; }
     protected bool Loading { get; private set; } = true;
     protected bool Exporting { get; private set; }
+
+    /// <summary>Headings of the page being read, in document order, already anchored in the html.</summary>
+    protected IReadOnlyList<HtmlHeading> Headings { get; private set; } = [];
+
+    /// <summary>An index of a single link is noise, so the panel starts paying off at two.</summary>
+    private const int MinHeadingsForOutline = 2;
+
+    private IJSObjectReference? _module;
+    private ElementReference _layoutElement;
+    private Guid? _spiedVersion;
+
+    protected bool ShowOutlinePanel =>
+        (ShowOutline ?? Options.ShowOutline) && Headings.Count >= MinHeadingsForOutline;
+
+    protected bool OutlineCollapsed => UiState.OutlineCollapsed;
 
     /// <summary>
     /// The export button shows only when the user may export AND something can actually produce a
@@ -65,6 +88,8 @@ public partial class KnowledgeHubPageView : ComponentBase
         Loading = true;
         ErrorMessage = null;
         Page = null;
+        Headings = [];
+        _spiedVersion = null;
 
         var totalStopwatch = Stopwatch.StartNew();
 
@@ -106,11 +131,129 @@ public partial class KnowledgeHubPageView : ComponentBase
             RenderedHtml = Page.ContentHtml;
         }
 
+        // Anchors are added here, on the way to the screen, and never stored: the sanitizer drops
+        // `id` at every cleanup level and every save sanitizes. Doing it last also means a heading
+        // produced by a Scriban loop is indexed like any other, since the server already rendered
+        // the templates on the way out of GetPageForReadAsync.
+        var outline = KnowledgeHubHtml.BuildOutline(RenderedHtml, OutlineMaxLevel ?? Options.OutlineMaxLevel);
+        RenderedHtml = outline.Html;
+        Headings = outline.Headings;
+
         totalStopwatch.Stop();
         snapshot.TotalMs = totalStopwatch.Elapsed.TotalMilliseconds;
         Diagnostics.Record(snapshot);
 
         Loading = false;
+    }
+
+    // ---------------------------------------------------------------- "En esta página"
+
+    /// <summary>
+    /// Reads back whether the panel was folded, and arms the scroll spy. Both have to wait for a
+    /// render: browser storage does not exist while Blazor Server prerenders on the server, and the
+    /// headings are not in the DOM until the content has been painted.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await RestoreOutlineStateAsync();
+
+        if (!ShowOutlinePanel || UiState.OutlineCollapsed || Page is null || _spiedVersion == Page.VersionPk)
+            return;
+
+        _spiedVersion = Page.VersionPk;
+        await InvokeModuleAsync(m => m.InvokeVoidAsync("observeHeadings", _layoutElement));
+    }
+
+    private async Task RestoreOutlineStateAsync()
+    {
+        if (UiState.OutlineRestored || string.IsNullOrEmpty(Options.OutlineStorageKey)) return;
+
+        UiState.OutlineRestored = true;
+        var stored = await InvokeModuleAsync(m =>
+            m.InvokeAsync<string?>("readSetting", Options.OutlineStorageKey));
+
+        if (stored != "1") return;
+
+        UiState.OutlineCollapsed = true;
+        StateHasChanged();
+    }
+
+    /// <summary>Folds the panel away, or brings it back, and remembers which.</summary>
+    protected async Task ToggleOutlineAsync()
+    {
+        UiState.OutlineCollapsed = !UiState.OutlineCollapsed;
+        // The spy dies with the list that carried it, so let the next render arm a new one.
+        _spiedVersion = null;
+
+        if (UiState.OutlineCollapsed)
+            await InvokeModuleAsync(m => m.InvokeVoidAsync("stopObservingHeadings", _layoutElement));
+
+        if (string.IsNullOrEmpty(Options.OutlineStorageKey)) return;
+
+        await InvokeModuleAsync(m => m.InvokeAsync<bool>(
+            "writeSetting", Options.OutlineStorageKey, UiState.OutlineCollapsed ? "1" : "0"));
+    }
+
+    /// <summary>Scrolls to a heading. Silent when it is not there: it is a jump, not an operation.</summary>
+    protected Task GoToHeadingAsync(string anchorId) =>
+        InvokeModuleAsync(m => m.InvokeAsync<bool>("scrollToHeading", _layoutElement, anchorId)).AsTask();
+
+    private async Task<IJSObjectReference> GetModuleAsync() =>
+        _module ??= await JS.InvokeAsync<IJSObjectReference>(
+            "import", "./_content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.js");
+
+    /// <summary>
+    /// Runs a call on the shared module, swallowing the two failures that are not ours to report:
+    /// storage or interop being unavailable, and the circuit having gone away mid-call. None of the
+    /// callers here is doing anything the user would lose.
+    /// </summary>
+    private async ValueTask<T?> InvokeModuleAsync<T>(Func<IJSObjectReference, ValueTask<T>> call)
+    {
+        try
+        {
+            return await call(await GetModuleAsync());
+        }
+        catch (JSDisconnectedException)
+        {
+            return default;
+        }
+        catch (JSException)
+        {
+            return default;
+        }
+        catch (InvalidOperationException)
+        {
+            return default;
+        }
+    }
+
+    private ValueTask InvokeModuleAsync(Func<IJSObjectReference, ValueTask> call) =>
+        new(InvokeModuleAsync<object?>(async m =>
+        {
+            await call(m);
+            return null;
+        }).AsTask());
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null) return;
+
+        try
+        {
+            await _module.InvokeVoidAsync("stopObservingHeadings", _layoutElement);
+            await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        _module = null;
     }
 
     private async Task GoEdit()
@@ -184,11 +327,10 @@ public partial class KnowledgeHubPageView : ComponentBase
         using var stream = new MemoryStream(file.Content);
         using var reference = new DotNetStreamReference(stream);
 
-        var module = await JS.InvokeAsync<IJSObjectReference>(
-            "import", "./_content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.js");
-        await using (module)
-        {
-            await module.InvokeVoidAsync("downloadFileFromStream", file.FileName, file.ContentType, reference);
-        }
+        // Shared reference, disposed only in DisposeAsync. It used to be imported and disposed right
+        // here, which was fine while nothing else needed JS — with the outline panel sharing the
+        // module, disposing it after an export would leave the next jump talking to a dead handle.
+        var module = await GetModuleAsync();
+        await module.InvokeVoidAsync("downloadFileFromStream", file.FileName, file.ContentType, reference);
     }
 }

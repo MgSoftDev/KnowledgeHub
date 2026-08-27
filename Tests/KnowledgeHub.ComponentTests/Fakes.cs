@@ -46,6 +46,9 @@ public sealed class FakePageService : IKnowledgeHubPageService
     /// <summary>Counts tree loads, so a test can prove a refresh actually happened.</summary>
     public int TreeLoads { get; private set; }
 
+    /// <summary>Body the reader gets. Settable so a test can hand it headings to index.</summary>
+    public string ContentHtml { get; set; } = "<p>Contenido de prueba</p>";
+
     public Task<ReturningList<PageTreeNodeDto>> GetTreeAsync()
     {
         TreeLoads++;
@@ -73,7 +76,7 @@ public sealed class FakePageService : IKnowledgeHubPageService
         Task.FromResult<Returning<PageReadDto>>(new PageReadDto
         {
             PagePk = pagePk, VersionPk = VersionPk, Title = "Manual",
-            ContentHtml = "<p>Contenido de prueba</p>", VersionNumber = 1,
+            ContentHtml = ContentHtml, VersionNumber = 1,
             Status = DocPageStatus.Published, PublishedAt = DateTime.Now
         });
 

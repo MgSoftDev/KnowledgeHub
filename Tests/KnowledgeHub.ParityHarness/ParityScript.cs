@@ -1137,6 +1137,70 @@ public static class ParityScript
             !(await pages.GetPageInfoAsync(costes.Value)).OkNotNull &&
             !(await pages.GetPageInfoAsync(ventas.Value)).OkNotNull);
 
+        // ---- 30. Índice de la página ("En esta página") -----------------------------------------------
+        // Función pura, así que se llama DIRECTAMENTE, como los checks de niveles de limpieza: el
+        // índice se calcula al renderizar y no pasa por el store. Las anclas no pueden persistirse
+        // —el saneador borra `id` en los tres niveles y cada guardado sanea—, y de ahí sale la
+        // propiedad más importante de todas: el html del autor tiene que salir intacto salvo por
+        // el `id` añadido.
+        Console.WriteLine();
+        Console.WriteLine("== 30. Índice de la página ==");
+
+        var outline = KnowledgeHubHtml.BuildOutline(
+            "<h1>Guía</h1><p>x</p><h2>Instalar</h2><h3>Requisitos</h3><h4>Detalle</h4>");
+        Check("Lista los encabezados en orden de documento, con su nivel",
+            outline.Headings.Select(h => $"{h.Level}:{h.Text}").SequenceEqual(
+                new[] { "1:Guía", "2:Instalar", "3:Requisitos" }),
+            string.Join(" | ", outline.Headings.Select(h => $"{h.Level}:{h.Text}")));
+        Check("Con maxLevel 3 el <h4> ni entra ni recibe id",
+            !outline.Html.Contains("<h4 ") && outline.Html.Contains("<h4>Detalle</h4>"));
+        Check("Cada id de la lista existe de verdad en el html devuelto",
+            outline.Headings.All(h => outline.Html.Contains($"id=\"{h.Id}\"")), outline.Html);
+        Check("El id sale del texto, prefijado para no pisar los del anfitrión",
+            outline.Headings[0].Id == "kh-guia", outline.Headings[0].Id);
+
+        Check("Subir maxLevel alcanza a los niveles profundos",
+            KnowledgeHubHtml.BuildOutline("<h5>Hondo</h5>", 6).Headings.Count == 1 &&
+            KnowledgeHubHtml.BuildOutline("<h5>Hondo</h5>").Headings.Count == 0);
+
+        // Lo que justifica que la regex consuma las comillas enteras: con un [^>]* ingenuo el id
+        // aterrizaría DENTRO del title y rompería el marcado del autor.
+        var tricky = KnowledgeHubHtml.BuildOutline("<h2 title=\"a > b\" class=\"x\">Uno</h2>");
+        Check("Un atributo con '>' dentro sobrevive intacto y el id va al final",
+            tricky.Html == "<h2 title=\"a > b\" class=\"x\" id=\"kh-uno\">Uno</h2>", tricky.Html);
+
+        var dupes = KnowledgeHubHtml.BuildOutline("<h2>Introducción</h2><h2>Introducción</h2>");
+        Check("Dos títulos iguales no comparten ancla",
+            dupes.Headings.Select(h => h.Id).SequenceEqual(new[] { "kh-introduccion", "kh-introduccion-2" }),
+            string.Join(" | ", dupes.Headings.Select(h => h.Id)));
+
+        var reused = KnowledgeHubHtml.BuildOutline("<h2 id=\"mio\">Uno</h2>");
+        Check("Un id que ya venía se reutiliza, no se añade un segundo",
+            reused.Headings[0].Id == "mio" && reused.Html == "<h2 id=\"mio\">Uno</h2>", reused.Html);
+
+        // Un enlace sin nada legible encima es ruido, así que ni entrada ni id. Mismo criterio que
+        // IsVisuallyEmpty: la pregunta es "¿queda texto?", no "¿está la cadena vacía?".
+        var empties = KnowledgeHubHtml.BuildOutline(
+            "<h2></h2><h2><br></h2><h2>&nbsp;</h2><h2><img src=\"docimg://x\"></h2>");
+        Check("Encabezado vacío, con solo <br>, solo &nbsp; o solo imagen: fuera y sin id",
+            empties.Headings.Count == 0 && !empties.Html.Contains("id="), empties.Html);
+        const string noHeadings = "<p>Un párrafo y nada más.</p>";
+        Check("Sin encabezados que anclar, el html vuelve TAL CUAL (misma referencia)",
+            ReferenceEquals(KnowledgeHubHtml.BuildOutline(noHeadings).Html, noHeadings));
+
+        // Documentar HTML es el caso de uso, así que un <h2> escrito como entidades es texto.
+        Check("Un &lt;h2&gt; escapado es contenido, no un encabezado",
+            KnowledgeHubHtml.BuildOutline("<p>&lt;h2&gt;Ejemplo&lt;/h2&gt;</p>").Headings.Count == 0);
+
+        Check("El texto se limpia de marcado y entidades",
+            KnowledgeHubHtml.BuildOutline("<h2>Caf&eacute; <span>y  t&eacute;</span></h2>")
+                .Headings[0] is { Text: "Café y té", Id: "kh-cafe-y-te" });
+
+        // Marcado roto: se pierde un enlace, nunca se rompe el html.
+        var unclosed = KnowledgeHubHtml.BuildOutline("<h2>Sin cerrar<p>texto</p><h3>Buena</h3>");
+        Check("Un encabezado sin cerrar no corrompe el documento",
+            unclosed.Html.Contains("<p>texto</p>") && unclosed.Html.EndsWith("</h3>"), unclosed.Html);
+
         Console.WriteLine();
         var omitted = _omitted > 0 ? $" / {_omitted} OMIT" : string.Empty;
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL{omitted} =====");

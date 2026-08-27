@@ -56,6 +56,8 @@
 
                 case BrowserView.Page:
                     <KnowledgeHubPageView PagePk="@SelectedPagePk!.Value"
+                                          ShowOutline="@ShowOutline"
+                                          OutlineMaxLevel="@OutlineMaxLevel"
                                           OnEditRequested="@EditPageAsync"
                                           OnHistoryRequested="@ShowHistoryAsync"
                                           OnPermissionsRequested="@ShowPermissionsAsync"

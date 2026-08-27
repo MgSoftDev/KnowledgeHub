@@ -76,4 +76,24 @@ public sealed class KnowledgeHubBlazorOptions
     /// hosts two modules whose trees should be remembered independently.
     /// </summary>
     public string? TreeExpansionStorageKey { get; set; } = "kh.treeCollapsed";
+
+    /// <summary>
+    /// Show the "En esta página" panel next to a page being read: its headings, with a click to jump
+    /// to each. Overridable per instance on the reader and the browser. A page with fewer than two
+    /// headings never shows it — an index of one link is noise, not navigation.
+    /// </summary>
+    public bool ShowOutline { get; set; } = true;
+
+    /// <summary>
+    /// Deepest heading level listed in that panel (1..6). Three by default: h4 and below turn the
+    /// rail into a wall and it stops being useful for finding your way.
+    /// </summary>
+    public int OutlineMaxLevel { get; set; } = 3;
+
+    /// <summary>
+    /// localStorage key under which "the reader collapsed the outline panel" is remembered, as a
+    /// preference of the person rather than of the page. Set it to null or empty to stop
+    /// remembering (the panel then starts open on every visit).
+    /// </summary>
+    public string? OutlineStorageKey { get; set; } = "kh.outlineCollapsed";
 }

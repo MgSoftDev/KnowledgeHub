@@ -349,3 +349,120 @@
     overflow: auto;
     margin: 0;
 }
+
+/* ---------------------------------------------------------------- «En esta página» */
+
+/* El panel es HERMANO de .kh-doc-content: esa clase la comparten 11 componentes y su
+   max-width ES la columna de lectura, así que meterlo dentro la estrecharía en todos.
+
+   Dos elementos y no uno: una container query NO puede dar estilo a su propio contenedor —se
+   resuelve contra el contenedor ANCESTRO—, así que el que declara `container-type` no puede ser
+   el mismo que cambia de disposición. .kh-doc-layout mide, .kh-doc-row obedece. */
+.kh-doc-layout { container-type: inline-size; }
+
+.kh-doc-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+}
+
+.kh-doc-row > .kh-doc-content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* sticky respecto al scrollport más cercano —.kh-portal-content / .kh-browser-content—, moviéndose
+   dentro de la fila, que es tan alta como el artículo. Que .kh-split y los panes de Radzen sean
+   overflow:hidden da igual: solo cuenta el scrollport. */
+.kh-doc-toc {
+    flex: 0 0 var(--kh-toc-width, 240px);
+    position: sticky;
+    top: 0;
+    max-height: var(--kh-toc-max-height, 75vh);
+    overflow: auto;
+    padding-left: 14px;
+    border-left: 1px solid #e5e7eb;
+    box-sizing: border-box;
+    font-size: .85rem;
+}
+
+.kh-doc-toc-folded {
+    flex-basis: auto;
+    border-left: none;
+    padding-left: 0;
+}
+
+.kh-doc-toc-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    color: #6b7280;
+    font: inherit;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-size: .72rem;
+}
+
+.kh-doc-toc-folded .kh-doc-toc-toggle span {
+    /* Plegado deja solo el icono: el panel se aparta sin desaparecer del todo, o no habría forma
+       de volver a abrirlo. */
+    display: none;
+}
+
+.kh-doc-toc-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 6px;
+}
+
+.kh-doc-toc-link {
+    padding: 3px 0 3px 8px;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: none;
+    color: #4b5563;
+    font: inherit;
+    font-size: .85rem;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+}
+
+.kh-doc-toc-link:hover { color: #111827; }
+
+.kh-doc-toc-link-active {
+    border-left-color: #2563eb;
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.kh-doc-toc-l2 { padding-left: 18px; }
+.kh-doc-toc-l3 { padding-left: 28px; font-size: .8rem; }
+.kh-doc-toc-l4 { padding-left: 38px; font-size: .8rem; }
+.kh-doc-toc-l5,
+.kh-doc-toc-l6 { padding-left: 48px; font-size: .78rem; }
+
+/* Container query y no media query: embebido bajo la topbar de un anfitrión el viewport es ancho
+   y quien es estrecho es el PANEL. Ahí el índice pasa a bloque sobre el texto. */
+@container (max-width: 780px) {
+    .kh-doc-row { flex-wrap: wrap; gap: 12px; }
+
+    .kh-doc-toc {
+        flex: 1 0 100%;
+        position: static;
+        order: -1;  /* el DOM mantiene contenido→índice para lectores de pantalla */
+        max-height: 220px;
+        border-left: none;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 0 0 8px;
+    }
+}
+
+/* Que el encabezado no quede pegado al borde superior al saltar a él. */
+.kh-doc-content :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: 12px; }

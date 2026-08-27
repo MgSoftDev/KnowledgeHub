@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using MgSoftDev.KnowledgeHub.Dtos;
 
 namespace MgSoftDev.KnowledgeHub;
 
@@ -77,4 +78,108 @@ public static partial class KnowledgeHubHtml
             .Select(m => Guid.Parse(m.Groups["pk"].Value))
             .Distinct()
             .ToList();
+
+    // ------------------------------------------------------------------ índice de la página
+
+    /// <summary>Prefix of every generated anchor, so a heading titled "Main" cannot take over the
+    /// host's own <c>#main</c>. Everything the module puts in the page is prefixed the same way.</summary>
+    public const string HeadingAnchorPrefix = "kh-";
+
+    /// <summary>
+    /// Matches a heading together with its content (groups "level", "attrs", "inner"). The attribute
+    /// part consumes quoted values whole, so a <c>&gt;</c> inside <c>title="a &gt; b"</c> cannot end
+    /// the tag early — with a naive <c>[^&gt;]*</c> the injected id would land in the middle of the
+    /// author's markup. No backreference on the closing tag on purpose: the source generator bails
+    /// out on some backreference shapes with SYSLIB1044, which is a build error here.
+    /// </summary>
+    [GeneratedRegex("""<h(?<level>[1-6])(?<attrs>(?:"[^"]*"|'[^']*'|[^'">])*)>(?<inner>.*?)</h[1-6]\s*>""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
+    private static partial Regex HeadingRegex();
+
+    /// <summary>An <c>id</c> attribute already present on a tag (group "id"), quoted or bare.</summary>
+    [GeneratedRegex("""\bid\s*=\s*(?:"(?<id>[^"]*)"|'(?<id>[^']*)'|(?<id>[^\s"'>]+))""",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex IdAttributeRegex();
+
+    /// <summary>
+    /// Lists the headings of a page and returns the same html with an anchor id on each of them, so
+    /// the "En esta página" panel can link to them.
+    /// <para>
+    /// Anchors are generated HERE and never stored, because they could not be: <c>id</c> is not in
+    /// the sanitizer's allow-list at any cleanup level and every save sanitizes, so an anchor typed
+    /// into the content lives until the next save and then disappears without a word. That also
+    /// makes the panel work on pages written long before it existed, with nothing to migrate.
+    /// </para>
+    /// <para>
+    /// Deliberate omissions: a heading with no readable text (empty, only a &lt;br&gt;, only an
+    /// image) gets neither an entry nor an id — a link with nothing on it is noise; and a heading
+    /// whose closing tag never arrives is left completely alone, so malformed markup costs one
+    /// missing link instead of broken html.
+    /// </para>
+    /// </summary>
+    /// <param name="html">Display html, already image-rewritten and template-rendered.</param>
+    /// <param name="maxLevel">Deepest heading that gets an entry (1..6). Deeper ones are untouched.</param>
+    public static HtmlOutline BuildOutline(string? html, int maxLevel = 3)
+    {
+        if (string.IsNullOrEmpty(html)) return HtmlOutline.Unchanged(html ?? string.Empty);
+        if (!html.Contains("<h", StringComparison.OrdinalIgnoreCase)) return HtmlOutline.Unchanged(html);
+
+        var deepest = Math.Clamp(maxLevel, 1, 6);
+        var headings = new List<HtmlHeading>();
+
+        // Seeded with every id the document already carries: a host can allow `id` through its own
+        // sanitizer configuration, and a generated anchor must not collide with one of those.
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match existing in IdAttributeRegex().Matches(html)) used.Add(existing.Groups["id"].Value);
+
+        var rewritten = HeadingRegex().Replace(html, match =>
+        {
+            var level = match.Groups["level"].Value[0] - '0';
+            if (level > deepest) return match.Value;
+
+            var text = PlainText(match.Groups["inner"].Value);
+            if (text.Length == 0) return match.Value;
+
+            var attrs = match.Groups["attrs"];
+            var present = IdAttributeRegex().Match(attrs.Value);
+            if (present.Success)
+            {
+                // Reuse it. A second id would leave the browser honouring the first one and the
+                // panel pointing at an anchor that resolves to nothing.
+                headings.Add(new HtmlHeading(level, text, present.Groups["id"].Value));
+                return match.Value;
+            }
+
+            var id = Unique(used, HeadingAnchorPrefix + KnowledgeHubSlug.Slugify(text));
+            headings.Add(new HtmlHeading(level, text, id));
+
+            // Only the opening tag is rebuilt; everything from '>' onwards is copied verbatim, so
+            // the author's content and closing tag come out exactly as they went in.
+            var afterOpenTag = attrs.Index - match.Index + attrs.Length;
+            return $"<h{level}{attrs.Value} id=\"{id}\"{match.Value[afterOpenTag..]}";
+        });
+
+        return headings.Count == 0 ? HtmlOutline.Unchanged(html) : new HtmlOutline(rewritten, headings);
+    }
+
+    /// <summary>Readable text of a heading: markup out, entities decoded, whitespace collapsed.</summary>
+    private static string PlainText(string inner)
+    {
+        var text = WebUtility.HtmlDecode(HtmlTagRegex().Replace(inner, " "));
+        // Splitting on whitespace collapses the runs left by the stripped tags and, because
+        // char.IsWhiteSpace covers U+00A0, drops a heading holding nothing but &nbsp;.
+        return string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>Free anchor for the candidate, suffixed -2, -3… as the page slugs are.</summary>
+    private static string Unique(HashSet<string> used, string candidate)
+    {
+        if (used.Add(candidate)) return candidate;
+
+        for (var attempt = 2; ; attempt++)
+        {
+            var next = $"{candidate}-{attempt}";
+            if (used.Add(next)) return next;
+        }
+    }
 }

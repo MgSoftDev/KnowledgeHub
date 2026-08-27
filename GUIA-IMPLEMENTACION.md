@@ -719,6 +719,10 @@ services.AddKnowledgeHubBlazor(o =>
     o.TreeCollapsible = true;   // flechas para plegar el árbol de un clic; por defecto NO salen
     o.TreeWidthStorageKey = null;   // null o "" → arranca siempre en TreeSize, sin recordar
     o.TreeExpansionStorageKey = null;   // null o "" → el árbol vuelve a abrirse entero en cada visita
+
+    o.ShowOutline = true;       // el índice «En esta página» del lector
+    o.OutlineMaxLevel = 3;      // hasta qué encabezado se lista (1..6)
+    o.OutlineStorageKey = null; // null o "" → el índice vuelve a salir desplegado en cada visita
 });
 ```
 
@@ -738,6 +742,31 @@ Además, el árbol **abre la rama de la página que estés viendo y la marca**, 
 llegas por un enlace directo a una página metida en una rama que tenías cerrada, la ves señalada en
 su sitio. En modo enrutado la página actual se deduce de la URL; si navegas por tu cuenta (o embebes
 el `KnowledgeHubBrowser`), pásala con `CurrentPagePk`.
+
+### Índice «En esta página»
+
+Desde la v0.20.0, una página con dos o más encabezados muestra su propio índice en una columna a la
+derecha, que acompaña al scroll y marca la sección que estás leyendo. Al pulsar un enlace salta a
+ella; el botón de la cabecera lo pliega, y esa preferencia se recuerda en `localStorage` bajo
+`OutlineStorageKey`.
+
+**No hay que preparar el contenido de ninguna manera, ni migrar nada**: los `id` de anclaje se
+generan al mostrar la página y no se guardan. De hecho **no podrían** guardarse — el saneador quita
+el atributo `id` en los tres niveles de limpieza y cada guardado sanea —, así que ponerlos a mano en
+la vista de código no serviría de nada. Funciona igual en páginas escritas mucho antes de que la
+función existiera, y también sobre los encabezados que produzca una plantilla Scriban.
+
+Se apaga o se ajusta globalmente (`ShowOutline`, `OutlineMaxLevel`) y también por instancia, tanto en
+el lector como en el `KnowledgeHubBrowser`:
+
+```razor
+<KnowledgeHubBrowser Title="Documentación" ShowOutline="false" />
+<KnowledgeHubPageView PagePk="@id" OutlineMaxLevel="2" />
+```
+
+Con menos de dos encabezados el panel no aparece: un índice de un solo enlace estorba más de lo que
+ayuda. Y si el panel de contenido es estrecho —el caso típico al embeber bajo tu propia topbar— el
+índice pasa solo a un bloque plegable encima del texto en vez de robar ancho de lectura.
 
 En el modo embebido puedes además afinarlo por instancia, útil si la misma app embebe el módulo en
 dos pantallas de distinto tamaño:
@@ -775,7 +804,7 @@ configuras un `TreeMaxSize` mayor.
 | `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `TreeFooterContent`, `@bind-SelectedPagePk`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible` | — (navega internamente) |
 | `KnowledgeHubSplitLayout` | `TreeContent`, `MainContent`, `ShowTree`, `Embedded`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible`, `TreeWidthStorageKey` | — (el divisor de los dos shells, por si quieres el mismo split con tu contenido) |
 | `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent`, `CurrentPagePk` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
-| `KnowledgeHubPageView` | `PagePk`, `ShowActions` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
+| `KnowledgeHubPageView` | `PagePk`, `ShowActions`, `ShowOutline`, `OutlineMaxLevel` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
 | `KnowledgeHubPageEditor` | `PagePk` | `OnPublished`, `OnDiscarded` |
 | `KnowledgeHubPageHistory` | `PagePk` | `OnVersionRequested`, `OnBackRequested` |
 | `KnowledgeHubVersionView` | `VersionPk` | `OnBackRequested` |

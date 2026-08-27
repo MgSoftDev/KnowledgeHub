@@ -128,3 +128,144 @@ export function writeSetting(key, value) {
         return false;
     }
 }
+
+/**
+ * Scrolls a page heading into view for the "En esta página" panel.
+ *
+ * Deliberately does NOT look for the scrolling container: scrollIntoView already walks up every
+ * scrollable ancestor and falls back to the window, which keeps this working when the host
+ * overrides the module's CSS, nests its own scrollers, or runs inside WebView2. The breathing room
+ * above the heading is CSS (scroll-margin-top), not arithmetic here.
+ * @param {Element} container
+ * @param {string} anchorId
+ * @returns {boolean} False when the heading is gone (stale panel), which is not an error.
+ */
+export function scrollToHeading(container, anchorId) {
+    const target = findAnchor(container, anchorId);
+    if (!target) return false;
+
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true) {
+        target.scrollIntoView({ block: 'start', behavior: 'auto' });
+        return true;
+    }
+
+    const scroller = scrollParent(container);
+    const before = scroller ? scroller.scrollTop : window.scrollY;
+    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+
+    // Not every environment honours a smooth request: automation browsers and some WebView builds
+    // accept it and animate nothing, which would leave the reader exactly where they were with the
+    // jump looking broken. Landing on the section matters more than gliding there, so if nothing
+    // has moved by the time the animation should have started, snap. A no-op when the target was
+    // already at the top, or when the scroller is at its end and cannot go further.
+    window.setTimeout(() => {
+        const now = scroller ? scroller.scrollTop : window.scrollY;
+        if (now === before) target.scrollIntoView({ block: 'start', behavior: 'auto' });
+    }, 250);
+    return true;
+}
+
+/**
+ * Marks the panel entry of the heading being read, and keeps marking it while the user scrolls.
+ *
+ * Stays entirely inside the browser on purpose: reporting each crossed section back to .NET would
+ * be one SignalR round trip per section under Blazor Server, on an event that fires continuously
+ * while dragging the scrollbar. Toggling a class costs nothing in any of the three hosting models.
+ *
+ * Idempotent: observing the same container twice replaces the previous observer.
+ * @param {Element} container
+ */
+export function observeHeadings(container) {
+    stopObservingHeadings(container);
+    if (!container) return;
+
+    const links = new Map();
+    for (const link of container.querySelectorAll('[data-kh-anchor]'))
+        links.set(link.getAttribute('data-kh-anchor'), link);
+    if (links.size === 0) return;
+
+    const headings = [];
+    for (const id of links.keys()) {
+        const heading = findAnchor(container, id);
+        if (heading) headings.push(heading);
+    }
+    if (headings.length === 0) return;
+
+    const scroller = scrollParent(container);
+
+    // Plain geometry rather than an IntersectionObserver, for two reasons. It always has an answer:
+    // an observer watching a band at the top of the viewport marks NOTHING whenever no heading
+    // happens to be inside it — a short page, or a section long enough to fill the screen — and the
+    // reader is left with a dead panel exactly when they are deepest in the text. And it does not
+    // depend on the browser running the intersection step, which some embedded and automated
+    // browsers skip entirely.
+    const mark = () => {
+        const view = scroller ? scroller.getBoundingClientRect() : null;
+        const originY = view ? view.top : 0;
+        const band = (view ? view.height : window.innerHeight) * 0.3;
+
+        // The section you are reading is the last one whose heading has gone past the band; above
+        // the first one, it is the first one.
+        let active = headings[0].id;
+        for (const heading of headings) {
+            if (heading.getBoundingClientRect().top - originY > band) break;
+            active = heading.id;
+        }
+
+        for (const [id, link] of links) link.classList.toggle('kh-doc-toc-link-active', id === active);
+    };
+
+    // Throttled by clock and not by animation frame: a frame callback never arrives in a browser
+    // that is not compositing, and then the mark would freeze on whatever it said first.
+    let pending = false;
+    const onScroll = () => {
+        if (pending) return;
+        pending = true;
+        window.setTimeout(() => { pending = false; mark(); }, 60);
+    };
+
+    const source = scroller ?? window;
+    source.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    container.__khOutline = { source, onScroll };
+    mark();
+}
+
+/**
+ * @param {Element} container
+ */
+export function stopObservingHeadings(container) {
+    const watch = container?.__khOutline;
+    if (!watch) return;
+
+    watch.source.removeEventListener('scroll', watch.onScroll);
+    window.removeEventListener('resize', watch.onScroll);
+    container.__khOutline = null;
+}
+
+/**
+ * Attribute selector rather than '#id': a heading titled "1. Introducción" yields an id starting
+ * with a digit, which is a valid HTML id but NOT a valid CSS selector. Scoped to the container so
+ * an element of the host app carrying the same id cannot win.
+ */
+function findAnchor(container, anchorId) {
+    if (!container || !anchorId) return null;
+    try {
+        return container.querySelector(`[id="${CSS.escape(anchorId)}"]`);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Nearest scrolling ancestor, found by computed style so it survives the host renaming or
+ * restyling anything. Null means the viewport, which IntersectionObserver accepts as the root.
+ */
+function scrollParent(element) {
+    for (let node = element?.parentElement; node; node = node.parentElement) {
+        const overflow = window.getComputedStyle(node).overflowY;
+        if ((overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') &&
+            node.scrollHeight > node.clientHeight) return node;
+    }
+    return null;
+}

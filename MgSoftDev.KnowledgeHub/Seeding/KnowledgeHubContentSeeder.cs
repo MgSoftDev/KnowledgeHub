@@ -59,9 +59,22 @@ public sealed class KnowledgeHubContentSeeder
             var imgProduccion = await InsertGradientImageAsync("demo-produccion.webp", (244, 67, 54), now);
 
             // ---- Published content ---------------------------------------------------
+            // Con secciones a propósito: es la única página sembrada lo bastante larga para que el
+            // panel «En esta página» tenga sentido, y sin ella la función quedaría invisible en un
+            // demo recién instalado.
             await SeedPublishedVersionAsync(manual,
                 "<h1>Manual de Usuario</h1><p>Bienvenido al portal de documentación.</p>" +
-                DemoImageHtml(imgManual), new[] { imgManual }, now, audit);
+                DemoImageHtml(imgManual) +
+                "<h2>Cómo se organiza</h2><p>El árbol de la izquierda ordena las páginas por temas. " +
+                "Puedes cerrar las ramas que no uses: se recuerdan para la próxima visita.</p>" +
+                "<h2>Buscar y navegar</h2><p>La caja de búsqueda mira dentro del texto de todas las " +
+                "páginas que puedes ver.</p>" +
+                "<h3>En esta página</h3><p>Cuando una página tiene varias secciones aparece un índice " +
+                "a la derecha para saltar entre ellas. Se pliega si molesta.</p>" +
+                "<h2>Permisos</h2><p>Cada página decide quién la ve. Lo que no puedes ver no aparece " +
+                "en el árbol, ni en la búsqueda, ni en el PDF.</p>" +
+                "<h2>Exportar a PDF</h2><p>El botón PDF imprime esta página, o la rama entera con sus " +
+                "subpáginas, tal y como se ve aquí.</p>", new[] { imgManual }, now, audit);
             await SeedPublishedVersionAsync(pasos,
                 "<h1>Primeros Pasos</h1><ol><li>Inicia sesión.</li><li>Explora el árbol.</li></ol>",
                 Array.Empty<Guid>(), now, audit);
