@@ -68,7 +68,9 @@ public sealed class KnowledgeHubContentSeeder
                 "<h2>Cómo se organiza</h2><p>El árbol de la izquierda ordena las páginas por temas. " +
                 "Puedes cerrar las ramas que no uses: se recuerdan para la próxima visita.</p>" +
                 "<h2>Buscar y navegar</h2><p>La caja de búsqueda mira dentro del texto de todas las " +
-                "páginas que puedes ver.</p>" +
+                "páginas que puedes ver. Para enlazar una página desde otra, clic derecho sobre ella " +
+                "en el árbol y «Copiar enlace»: así se hizo este, que lleva a " +
+                $"<a href=\"{KnowledgeHubRoutes.Page(pasos.Pk)}\">Primeros Pasos</a>.</p>" +
                 "<h3>En esta página</h3><p>Cuando una página tiene varias secciones aparece un índice " +
                 "a la derecha para saltar entre ellas. Se pliega si molesta.</p>" +
                 "<h2>Permisos</h2><p>Cada página decide quién la ve. Lo que no puedes ver no aparece " +

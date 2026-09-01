@@ -269,3 +269,100 @@ function scrollParent(element) {
     }
     return null;
 }
+
+/**
+ * Puts text on the clipboard, reporting whether it made it.
+ *
+ * Two paths on purpose: navigator.clipboard needs a SECURE context, and this module also runs
+ * under WebView2 on a custom virtual host and behind plain http on a LAN, where it is simply not
+ * there. The old execCommand still works in those, so it is the fallback rather than the excuse
+ * for telling the user to copy by hand.
+ * @param {string} text
+ * @returns {Promise<boolean>}
+ */
+export async function copyText(text) {
+    if (typeof text !== 'string' || text.length === 0) return false;
+
+    try {
+        if (window.isSecureContext && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    } catch {
+        // Denied, or no permission: fall through and try the old way.
+    }
+
+    try {
+        const box = document.createElement('textarea');
+        box.value = text;
+        // Off-screen but focusable: display:none or visibility:hidden make the selection fail.
+        box.setAttribute('readonly', '');
+        box.style.position = 'fixed';
+        box.style.top = '-1000px';
+        box.style.opacity = '0';
+        document.body.appendChild(box);
+        box.select();
+        const copied = document.execCommand('copy');
+        document.body.removeChild(box);
+        return copied === true;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Follows the links an author wrote between pages through the module's own navigation instead of
+ * letting the browser leave the current screen — which is the whole point in embedded mode, where
+ * KnowledgeHub lives inside a host page and a plain href would take the user out of it.
+ *
+ * Delegated on the container, so it survives the content being re-rendered on every page change.
+ * @param {Element} container
+ * @param {string} prefix Route prefix of the module, handed in so the pattern lives in C#.
+ * @param {object} dotNetRef Object exposing OpenPageFromLinkAsync(path).
+ */
+export function interceptPageLinks(container, prefix, dotNetRef) {
+    stopInterceptingPageLinks(container);
+    if (!container || !dotNetRef) return;
+
+    const segment = `${prefix}/page/`;
+
+    const onClick = event => {
+        // Everything the browser already gives the reader stays working: middle click, ctrl/cmd
+        // click and shift click all mean "open it somewhere else", and hijacking them would be
+        // taking away a browser affordance to gain nothing.
+        if (event.defaultPrevented || event.button !== 0 ||
+            event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+        const anchor = event.target?.closest?.('a[href]');
+        if (!anchor || !container.contains(anchor)) return;
+        if (anchor.target && anchor.target !== '_self') return;
+        if (anchor.hasAttribute('download')) return;
+
+        let url;
+        try {
+            url = new URL(anchor.href, document.baseURI);
+        } catch {
+            return;
+        }
+
+        // Cross-origin is decided HERE and not in C#, which only ever sees a path: a link to
+        // someone else's portal must stay a normal link.
+        if (url.origin !== window.location.origin) return;
+        if (!url.pathname.toLowerCase().includes(segment.toLowerCase())) return;
+
+        event.preventDefault();
+        dotNetRef.invokeMethodAsync('OpenPageFromLinkAsync', url.pathname);
+    };
+
+    container.addEventListener('click', onClick);
+    container.__khLinks = onClick;
+}
+
+/**
+ * @param {Element} container
+ */
+export function stopInterceptingPageLinks(container) {
+    if (!container?.__khLinks) return;
+    container.removeEventListener('click', container.__khLinks);
+    container.__khLinks = null;
+}

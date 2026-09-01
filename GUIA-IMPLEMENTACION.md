@@ -723,6 +723,8 @@ services.AddKnowledgeHubBlazor(o =>
     o.ShowOutline = true;       // el índice «En esta página» del lector
     o.OutlineMaxLevel = 3;      // hasta qué encabezado se lista (1..6)
     o.OutlineStorageKey = null; // null o "" → el índice vuelve a salir desplegado en cada visita
+
+    o.TreeContextMenu = false;  // quita el menú de clic derecho del árbol
 });
 ```
 
@@ -768,6 +770,35 @@ Con menos de dos encabezados el panel no aparece: un índice de un solo enlace e
 ayuda. Y si el panel de contenido es estrecho —el caso típico al embeber bajo tu propia topbar— el
 índice pasa solo a un bloque plegable encima del texto en vez de robar ancho de lectura.
 
+### Enlazar una página desde otra
+
+Desde la v0.21.0, **clic derecho sobre una página del árbol** abre un menú con:
+
+- **Copiar ruta** → `/kh/page/{guid}`
+- **Copiar enlace** → `<a href="/kh/page/{guid}">Título de la página</a>`, listo para pegar en la
+  vista de código del editor
+- y, con permiso de edición, **Nueva página** (crea una subpágina y abre su editor, donde le pones
+  el título), **Editar** y **Gestionar**.
+
+Las rutas van por `Guid` —el slug es interno y no sirve para enlazar—, y por eso el menú existe:
+nadie va a teclear ese identificador a mano.
+
+**Esos enlaces funcionan en los dos modos.** El lector intercepta los clics sobre enlaces a otras
+páginas del módulo y los resuelve con su propia navegación: en el portal navega por URL, y embebido
+cambia de página **sin sacar al usuario de tu pantalla** ni tocar la barra de direcciones. Se
+respeta lo que el navegador ya ofrece: ctrl/cmd+clic, botón central y `target="_blank"` siguen
+abriendo en otra pestaña, y los enlaces a otros dominios no se tocan. No hay atajo de seguridad: la
+página destino se carga con las mismas comprobaciones de visibilidad que cualquier otra.
+
+Dos avisos que conviene tener presentes:
+
+- El menú usa el mismo mecanismo que los diálogos y las notificaciones del módulo, así que **necesita
+  `<RadzenComponents />`** junto a tu Router (§3.4). Si tu app no lo tiene, apágalo con
+  `o.TreeContextMenu = false` o `<KnowledgeHubBrowser ShowContextMenu="false" />`: sin ese host el
+  menú no abre ni avisa, y el clic derecho se queda sin hacer nada.
+- **El nivel 3 de limpieza («solo texto») borra los enlaces** y deja el texto. Si le pasas la escoba
+  en ese nivel a una página con referencias cruzadas, pierdes los destinos sin aviso.
+
 En el modo embebido puedes además afinarlo por instancia, útil si la misma app embebe el módulo en
 dos pantallas de distinto tamaño:
 
@@ -803,8 +834,8 @@ configuras un `TreeMaxSize` mayor.
 |---|---|---|
 | `KnowledgeHubBrowser` | `Title`, `ShowTree`, `ShowSearch`, `ShowUser`, `AllowCreate`, `Embedded`, `EmptyContent`, `TreeFooterContent`, `@bind-SelectedPagePk`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible` | — (navega internamente) |
 | `KnowledgeHubSplitLayout` | `TreeContent`, `MainContent`, `ShowTree`, `Embedded`, `TreeSize`, `TreeMinSize`, `TreeMaxSize`, `TreeCollapsible`, `TreeWidthStorageKey` | — (el divisor de los dos shells, por si quieres el mismo split con tu contenido) |
-| `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent`, `CurrentPagePk` | `OnPageSelected`, `OnCreatePageRequested`, `OnSearchRequested` |
-| `KnowledgeHubPageView` | `PagePk`, `ShowActions`, `ShowOutline`, `OutlineMaxLevel` | `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
+| `KnowledgeHubNavTree` | `Title`, `ShowHeader`, `ShowSearch`, `ShowUser`, `AllowCreate`, `FooterContent`, `CurrentPagePk`, `ShowContextMenu` | `OnPageSelected`, `OnCreatePageRequested`, `OnEditRequested`, `OnManageRequested`, `OnSearchRequested` |
+| `KnowledgeHubPageView` | `PagePk`, `ShowActions`, `ShowOutline`, `OutlineMaxLevel` | `OnPageRequested`, `OnEditRequested`, `OnHistoryRequested`, `OnPermissionsRequested`, `OnManageRequested` |
 | `KnowledgeHubPageEditor` | `PagePk` | `OnPublished`, `OnDiscarded` |
 | `KnowledgeHubPageHistory` | `PagePk` | `OnVersionRequested`, `OnBackRequested` |
 | `KnowledgeHubVersionView` | `VersionPk` | `OnBackRequested` |

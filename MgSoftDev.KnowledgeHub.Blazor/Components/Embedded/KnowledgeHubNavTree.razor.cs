@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using MgSoftDev.KnowledgeHub.Blazor.Helpers;
 using MgSoftDev.KnowledgeHub.Contracts;
@@ -28,6 +29,7 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private NotificationService Notify { get; set; } = null!;
     [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
+    [Inject] private ContextMenuService ContextMenu { get; set; } = null!;
 
     /// <summary>Header title. Defaults to KnowledgeHubBlazorOptions.PortalTitle.</summary>
     [Parameter] public string? Title { get; set; }
@@ -61,6 +63,15 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
     /// that navigate internally (the Browser) pass it; in routed mode it is read off the URL.
     /// </summary>
     [Parameter] public Guid? CurrentPagePk { get; set; }
+
+    /// <summary>Right-click menu on the nodes. Null follows KnowledgeHubBlazorOptions.TreeContextMenu.</summary>
+    [Parameter] public bool? ShowContextMenu { get; set; }
+
+    /// <summary>Raised from the context menu. Without a handler, navigates to /kh/edit/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnEditRequested { get; set; }
+
+    /// <summary>Raised from the context menu. Without a handler, navigates to /kh/manage/{pk}.</summary>
+    [Parameter] public EventCallback<Guid> OnManageRequested { get; set; }
 
     protected List<PageTreeNodeDto> Roots { get; private set; } = new();
     protected bool Loading { get; private set; } = true;
@@ -320,6 +331,135 @@ public partial class KnowledgeHubNavTree : ComponentBase, IDisposable, IAsyncDis
 
         if (OnPageSelected.HasDelegate) await OnPageSelected.InvokeAsync(node.Pk);
         else Nav.NavigateTo(KnowledgeHubRoutes.Page(node.Pk));
+    }
+
+    // ---------------------------------------------------------------- menú contextual
+
+    private const string MenuCopyPath = "copy-path";
+    private const string MenuCopyLink = "copy-link";
+    private const string MenuNewChild = "new-child";
+    private const string MenuEdit = "edit";
+    private const string MenuManage = "manage";
+
+    protected bool ContextMenuEnabled => ShowContextMenu ?? Options.TreeContextMenu;
+
+    /// <summary>
+    /// Right-click menu of a node. Its reason to exist is "Copiar ruta": writing a link to another
+    /// page means getting hold of its route, and the route carries a Guid nobody is going to type.
+    ///
+    /// It needs <c>&lt;RadzenComponents /&gt;</c> mounted by the host, like the module's dialogs and
+    /// notifications already do. Without it Radzen's service does nothing at all — no exception —
+    /// so <see cref="ContextMenuEnabled"/> exists to turn the menu off rather than leave a
+    /// right-click that looks broken.
+    /// </summary>
+    private void OnItemContextMenu(TreeItemContextMenuEventArgs args)
+    {
+        if (!ContextMenuEnabled || args.Value is not PageTreeNodeDto node) return;
+
+        var items = new List<ContextMenuItem>
+        {
+            new() { Text = "Copiar ruta", Value = MenuCopyPath, Icon = "link" },
+            new() { Text = "Copiar enlace", Value = MenuCopyLink, Icon = "add_link" }
+        };
+
+        if (User.CanEdit())
+        {
+            items.Add(new ContextMenuItem { Text = "Nueva página", Value = MenuNewChild, Icon = "add" });
+            items.Add(new ContextMenuItem { Text = "Editar", Value = MenuEdit, Icon = "edit" });
+            items.Add(new ContextMenuItem { Text = "Gestionar", Value = MenuManage, Icon = "settings" });
+        }
+
+        // El callback de Radzen es SÍNCRONO y todo lo que hay debajo es async (portapapeles, crear
+        // una página). Se marshala con InvokeAsync por la gotcha 11.
+        ContextMenu.Open(args, items, e => _ = InvokeAsync(() => RunMenuActionAsync(e, node)));
+    }
+
+    private async Task RunMenuActionAsync(MenuItemEventArgs args, PageTreeNodeDto node)
+    {
+        ContextMenu.Close();
+
+        switch (args.Value as string)
+        {
+            case MenuCopyPath:
+                await CopyToClipboardAsync(KnowledgeHubRoutes.Page(node.Pk), "Ruta copiada");
+                break;
+
+            case MenuCopyLink:
+                // El título va escapado: puede llevar & o <, y aquí se está montando HTML que el
+                // autor va a pegar tal cual en la vista de código del editor.
+                await CopyToClipboardAsync(
+                    $"<a href=\"{KnowledgeHubRoutes.Page(node.Pk)}\">{WebUtility.HtmlEncode(node.Title)}</a>",
+                    "Enlace copiado");
+                break;
+
+            case MenuNewChild:
+                await CreateChildPageAsync(node);
+                break;
+
+            case MenuEdit:
+                if (OnEditRequested.HasDelegate) await OnEditRequested.InvokeAsync(node.Pk);
+                else Nav.NavigateTo(KnowledgeHubRoutes.Edit(node.Pk));
+                break;
+
+            case MenuManage:
+                if (OnManageRequested.HasDelegate) await OnManageRequested.InvokeAsync(node.Pk);
+                else Nav.NavigateTo(KnowledgeHubRoutes.Manage(node.Pk));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Copies, and says so. When the clipboard is unavailable —it needs a secure context, which the
+    /// WPF virtual host and a plain-http LAN are not— the text is shown in the notification instead
+    /// of pretending it worked: the reader can still select it by hand.
+    /// </summary>
+    private async Task CopyToClipboardAsync(string text, string doneTitle)
+    {
+        var copied = false;
+        try
+        {
+            var module = await GetModuleAsync();
+            copied = await module.InvokeAsync<bool>("copyText", text);
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        Notify.Notify(new NotificationMessage
+        {
+            Severity = copied ? NotificationSeverity.Success : NotificationSeverity.Info,
+            Summary = copied ? doneTitle : "Cópialo a mano",
+            Detail = text,
+            Duration = copied ? 2500 : 8000
+        });
+    }
+
+    /// <summary>Creates a subpage and opens its editor, where the title is renamed for real.</summary>
+    private async Task CreateChildPageAsync(PageTreeNodeDto parent)
+    {
+        Wait = true;
+        StateHasChanged();
+        var result = await DocService.CreatePageAsync(parent.Pk, "Nueva página");
+        Wait = false;
+
+        if (result.OkNotNull)
+        {
+            // La página nace DENTRO del padre: si esa rama estaba cerrada, el usuario no vería
+            // aparecer nada y parecería que no se creó.
+            if (UiState.CollapsedPages.Remove(parent.Pk)) _ = PersistCollapsedAsync();
+
+            await LoadTreeAsync();
+            if (OnCreatePageRequested.HasDelegate) await OnCreatePageRequested.InvokeAsync(result.Value);
+            else Nav.NavigateTo(KnowledgeHubRoutes.Edit(result.Value));
+        }
+        else
+        {
+            result.SendNotifyIfNotOk(Notify, "Error al crear la página");
+        }
+        StateHasChanged();
     }
 
     private async Task CreateRootPageAsync()

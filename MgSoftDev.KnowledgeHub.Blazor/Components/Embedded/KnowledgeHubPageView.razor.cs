@@ -28,6 +28,12 @@ public partial class KnowledgeHubPageView : ComponentBase, IAsyncDisposable
     /// <summary>Deepest heading listed (1..6). Null follows KnowledgeHubBlazorOptions.OutlineMaxLevel.</summary>
     [Parameter] public int? OutlineMaxLevel { get; set; }
 
+    /// <summary>
+    /// Raised when the reader clicks a link to another KnowledgeHub page inside the content.
+    /// Without a handler, navigates to /kh/page/{pk}.
+    /// </summary>
+    [Parameter] public EventCallback<Guid> OnPageRequested { get; set; }
+
     /// <summary>Without a handler, navigates to /kh/edit/{pk}.</summary>
     [Parameter] public EventCallback<Guid> OnEditRequested { get; set; }
 
@@ -65,8 +71,10 @@ public partial class KnowledgeHubPageView : ComponentBase, IAsyncDisposable
     private const int MinHeadingsForOutline = 2;
 
     private IJSObjectReference? _module;
+    private DotNetObjectReference<KnowledgeHubPageView>? _selfRef;
     private ElementReference _layoutElement;
     private Guid? _spiedVersion;
+    private Guid? _linkedVersion;
 
     protected bool ShowOutlinePanel =>
         (ShowOutline ?? Options.ShowOutline) && Headings.Count >= MinHeadingsForOutline;
@@ -156,9 +164,17 @@ public partial class KnowledgeHubPageView : ComponentBase, IAsyncDisposable
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) await RestoreOutlineStateAsync();
+        if (Page is null) return;
 
-        if (!ShowOutlinePanel || UiState.OutlineCollapsed || Page is null || _spiedVersion == Page.VersionPk)
-            return;
+        if (_linkedVersion != Page.VersionPk)
+        {
+            _linkedVersion = Page.VersionPk;
+            _selfRef ??= DotNetObjectReference.Create(this);
+            await InvokeModuleAsync(m => m.InvokeVoidAsync(
+                "interceptPageLinks", _layoutElement, KnowledgeHubRoutes.Prefix, _selfRef));
+        }
+
+        if (!ShowOutlinePanel || UiState.OutlineCollapsed || _spiedVersion == Page.VersionPk) return;
 
         _spiedVersion = Page.VersionPk;
         await InvokeModuleAsync(m => m.InvokeVoidAsync("observeHeadings", _layoutElement));
@@ -192,6 +208,31 @@ public partial class KnowledgeHubPageView : ComponentBase, IAsyncDisposable
 
         await InvokeModuleAsync(m => m.InvokeAsync<bool>(
             "writeSetting", Options.OutlineStorageKey, UiState.OutlineCollapsed ? "1" : "0"));
+    }
+
+    /// <summary>
+    /// Opens a page the author linked to from the content, called back from the click the module
+    /// intercepted in the browser.
+    /// <para>
+    /// This exists so those links work in BOTH modes. In routed mode a plain href would already do
+    /// the job, but embedded the module lives inside a screen of the host app and the browser would
+    /// carry the reader out of it — to a route that may not even be mapped. Going through the
+    /// component's own navigation model means the link behaves like clicking the page in the tree.
+    /// </para>
+    /// <para>
+    /// No new way in: the page is then loaded through GetPageForReadAsync like any other, so a link
+    /// to something the reader may not see is refused exactly as it is today.
+    /// </para>
+    /// </summary>
+    [JSInvokable]
+    public async Task OpenPageFromLinkAsync(string path)
+    {
+        // The path is re-parsed here rather than trusted: the browser only decides whether to hold
+        // the click, and a broken link must end in nothing happening, not in a bad navigation.
+        if (!KnowledgeHubRoutes.TryGetPagePk(path, out var pagePk)) return;
+
+        if (OnPageRequested.HasDelegate) await OnPageRequested.InvokeAsync(pagePk);
+        else Nav.NavigateTo(KnowledgeHubRoutes.Page(pagePk));
     }
 
     /// <summary>Scrolls to a heading. Silent when it is not there: it is a jump, not an operation.</summary>
@@ -241,6 +282,7 @@ public partial class KnowledgeHubPageView : ComponentBase, IAsyncDisposable
         try
         {
             await _module.InvokeVoidAsync("stopObservingHeadings", _layoutElement);
+            await _module.InvokeVoidAsync("stopInterceptingPageLinks", _layoutElement);
             await _module.DisposeAsync();
         }
         catch (JSDisconnectedException)
@@ -254,6 +296,8 @@ public partial class KnowledgeHubPageView : ComponentBase, IAsyncDisposable
         }
 
         _module = null;
+        _selfRef?.Dispose();
+        _selfRef = null;
     }
 
     private async Task GoEdit()

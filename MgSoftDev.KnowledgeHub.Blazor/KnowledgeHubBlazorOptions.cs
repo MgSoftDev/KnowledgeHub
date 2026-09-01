@@ -96,4 +96,15 @@ public sealed class KnowledgeHubBlazorOptions
     /// remembering (the panel then starts open on every visit).
     /// </summary>
     public string? OutlineStorageKey { get; set; } = "kh.outlineCollapsed";
+
+    /// <summary>
+    /// Right-click menu on the navigation tree: copy a page's route or a ready-made link to it, and
+    /// jump to editing, managing or creating a subpage.
+    /// <para>
+    /// Like the module's dialogs and notifications, it needs <c>&lt;RadzenComponents /&gt;</c>
+    /// mounted by the host. Turn it off if yours does not have it: without that host Radzen opens
+    /// nothing and says nothing, and a right-click that does neither reads as broken.
+    /// </para>
+    /// </summary>
+    public bool TreeContextMenu { get; set; } = true;
 }

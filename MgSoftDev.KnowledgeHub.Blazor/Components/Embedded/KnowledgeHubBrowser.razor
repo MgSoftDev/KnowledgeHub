@@ -23,8 +23,11 @@
                                  AllowCreate="@AllowCreate"
                                  FooterContent="@TreeFooterContent"
                                  CurrentPagePk="@SelectedPagePk"
+                                 ShowContextMenu="@ShowContextMenu"
                                  OnPageSelected="@SelectPageAsync"
                                  OnCreatePageRequested="@EditPageAsync"
+                                 OnEditRequested="@EditPageAsync"
+                                 OnManageRequested="@ShowManageAsync"
                                  OnSearchRequested="@SearchAsync" />
         </div>
     </TreeContent>
@@ -57,6 +60,7 @@
                 case BrowserView.Page:
                     <KnowledgeHubPageView PagePk="@SelectedPagePk!.Value"
                                           ShowOutline="@ShowOutline"
+                                          OnPageRequested="@SelectPageAsync"
                                           OutlineMaxLevel="@OutlineMaxLevel"
                                           OnEditRequested="@EditPageAsync"
                                           OnHistoryRequested="@ShowHistoryAsync"

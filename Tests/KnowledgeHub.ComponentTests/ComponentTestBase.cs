@@ -2,8 +2,10 @@ using Bunit;
 using MgSoftDev.KnowledgeHub;
 using MgSoftDev.KnowledgeHub.Blazor;
 using MgSoftDev.KnowledgeHub.Contracts;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Radzen;
+using Radzen.Blazor;
 
 namespace KnowledgeHub.ComponentTests;
 
@@ -36,4 +38,15 @@ public abstract class ComponentTestBase : BunitContext
         Services.AddScoped<IKnowledgeHubDiagnostics, FakeDiagnostics>();
         Services.AddScoped<IKnowledgeHubImageService, FakeImageService>();
     }
+
+    /// <summary>
+    /// Mounts Radzen's overlay hosts, the way a host app puts <c>&lt;RadzenComponents /&gt;</c>
+    /// beside its Router. Render it before the component under test and read the menus and dialogs
+    /// off ITS markup — they are painted there, not inside the component that asked for them.
+    ///
+    /// It matters for anything going through ContextMenuService, DialogService or
+    /// NotificationService: without the host mounted those services raise an event nobody is
+    /// listening to and return normally, so a menu that never opens would look perfectly green.
+    /// </summary>
+    protected IRenderedComponent<RadzenComponents> RenderRadzenOverlays() => Render<RadzenComponents>();
 }

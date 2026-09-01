@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.20.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.21.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -51,7 +51,7 @@ en tu contenido, el editor en una pestaña…). Ver la
 | `MgSoftDev.KnowledgeHub.Storage.LiteDb` | Provider LiteDB (persistencia en archivo, sin servidor) |
 | `MgSoftDev.KnowledgeHub.Storage.EntityFramework` | Base EF neutral (para providers relacionales) |
 | `MgSoftDev.KnowledgeHub.Storage.SqlServer` | Provider SQL Server + script DDL (esquema/prefijo configurable) |
-| `MgSoftDev.KnowledgeHub.Blazor` | La UI: Razor Class Library (11 componentes + editor con herramientas inyectables). El árbol recuerda qué ramas cierras y señala la página abierta, y cada página lleva su índice «En esta página» |
+| `MgSoftDev.KnowledgeHub.Blazor` | La UI: Razor Class Library (11 componentes + editor con herramientas inyectables). El árbol recuerda qué ramas cierras, señala la página abierta y tiene menú de clic derecho para copiar el enlace a una página; cada página lleva su índice «En esta página» |
 | `MgSoftDev.KnowledgeHub.AspNetCore` | Endpoint de imágenes `/kh/assets` (caché `immutable`) |
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos (para clientes WASM) |
 | `MgSoftDev.KnowledgeHub.Http.Client` | Implementaciones `HttpClient` de los contratos (WASM-safe) |
@@ -78,8 +78,8 @@ Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.BlazorServer       Blazor Server + LiteDB
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
-Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (211 checks) sobre 4 modos de store
-Tests/KnowledgeHub.ComponentTests/ Pruebas de componentes con bUnit (30: humo, flujos, árbol e índice)
+Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (218 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ComponentTests/ Pruebas de componentes con bUnit (36: humo, flujos, árbol, índice y menú)
 ```
 
 ## Compilar y probar
@@ -142,8 +142,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.20.0-preview.1**. Las 12 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-211/211 en los 4 modos de store, las pruebas de componentes 30/30; los demos están verificados
+**v0.21.0-preview.1**. Las 12 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+218/218 en los 4 modos de store, las pruebas de componentes 36/36; los demos están verificados
 end-to-end.
 
 ## Licencia

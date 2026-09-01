@@ -75,6 +75,9 @@ public partial class KnowledgeHubBrowser : ComponentBase
     /// <summary>Show the arrow that collapses the tree. Null takes the value from the options.</summary>
     [Parameter] public bool? TreeCollapsible { get; set; }
 
+    /// <summary>Right-click menu on the tree. Null takes the value from the options.</summary>
+    [Parameter] public bool? ShowContextMenu { get; set; }
+
     /// <summary>Show the "En esta página" panel while reading. Null takes the value from the options.</summary>
     [Parameter] public bool? ShowOutline { get; set; }
 

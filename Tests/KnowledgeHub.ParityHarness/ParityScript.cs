@@ -1201,6 +1201,32 @@ public static class ParityScript
         Check("Un encabezado sin cerrar no corrompe el documento",
             unclosed.Html.Contains("<p>texto</p>") && unclosed.Html.EndsWith("</h3>"), unclosed.Html);
 
+        // ---- 31. Reconocer un enlace a otra página -----------------------------------------------------
+        // El lector intercepta los enlaces entre páginas para resolverlos con su propia navegación
+        // (embebido no puede dejar que el navegador se lleve al usuario fuera de la pantalla del
+        // anfitrión). Quien decide si un href es de KnowledgeHub es esta función pura.
+        Console.WriteLine();
+        Console.WriteLine("== 31. Enlaces entre páginas ==");
+
+        var linkPk = Guid.Parse("019f8d8a-f04f-72e8-8c2c-c30017d78a42");
+        Check("Reconoce la ruta que copia el árbol",
+            KnowledgeHubRoutes.TryGetPagePk(KnowledgeHubRoutes.Page(linkPk), out var got) && got == linkPk);
+        Check("Y la reconoce aunque la app viva bajo una ruta base",
+            KnowledgeHubRoutes.TryGetPagePk($"/miapp/kh/page/{linkPk}", out var based) && based == linkPk);
+        Check("Ignora lo que venga detrás del pk",
+            KnowledgeHubRoutes.TryGetPagePk($"/kh/page/{linkPk}?x=1#seccion", out var extra) && extra == linkPk);
+        Check("No confunde una ruta que solo TERMINA en kh/page",
+            !KnowledgeHubRoutes.TryGetPagePk($"/notkh/page/{linkPk}", out _));
+        Check("Un pk que no es un Guid no cuela",
+            !KnowledgeHubRoutes.TryGetPagePk("/kh/page/no-soy-un-guid", out _));
+        Check("Otras rutas del módulo no son enlaces a página",
+            !KnowledgeHubRoutes.TryGetPagePk(KnowledgeHubRoutes.Edit(linkPk), out _) &&
+            !KnowledgeHubRoutes.TryGetPagePk(KnowledgeHubRoutes.Manage(linkPk), out _));
+        Check("Vacío, nulo o un enlace externo: no",
+            !KnowledgeHubRoutes.TryGetPagePk(null, out _) &&
+            !KnowledgeHubRoutes.TryGetPagePk("", out _) &&
+            !KnowledgeHubRoutes.TryGetPagePk("/otra/cosa", out _));
+
         Console.WriteLine();
         var omitted = _omitted > 0 ? $" / {_omitted} OMIT" : string.Empty;
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL{omitted} =====");

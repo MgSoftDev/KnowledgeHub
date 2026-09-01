@@ -41,7 +41,8 @@
                expone ni API pública de expansión ni un binding, y el estado vive dentro de cada
                RadzenTreeItem, que se destruye en cuanto se reasigna Data. *@
             <RadzenTree Data="@Roots" Value="@ActiveNode" Change="@OnNodeSelect" Style="width:100%"
-                        Expand="@OnNodeExpand" Collapse="@OnNodeCollapse">
+                        Expand="@OnNodeExpand" Collapse="@OnNodeCollapse"
+                        ItemContextMenu="@OnItemContextMenu">
                 <RadzenTreeLevel ChildrenProperty="@nameof(PageTreeNodeDto.Children)"
                                  HasChildren="@(o => ((PageTreeNodeDto)o).Children.Count > 0)"
                                  Selected="@(o => ((PageTreeNodeDto)o).Pk == ActivePagePk)"

@@ -84,6 +84,19 @@ automático** (v0.8.0-preview.1).
     `OutlineStorageKey`, las dos primeras overridables por instancia en el lector y en el Browser;
     el plegado vive en `KnowledgeHubUiState` (**no** como parámetro: el lector recarga del store en
     cada set de parámetros, así que sería un viaje a la BD por clic).
+  - **Menú del árbol y enlaces entre páginas (v0.21.0)**: clic derecho sobre un nodo
+    (`RadzenTree.ItemContextMenu` + `ContextMenuService`) con **Copiar ruta** / **Copiar enlace** y,
+    con permiso de edición, Nueva página / Editar / Gestionar. Existe por lo primero: enlazar una
+    página exige su Guid, que nadie va a teclear.
+    Y lo segundo, que es lo que lo hace útil de verdad: **el lector intercepta los clics sobre esos
+    enlaces** (`interceptPageLinks` en JS → `[JSInvokable] OpenPageFromLinkAsync` → `OnPageRequested`)
+    y los resuelve con la navegación del módulo. Sin eso, un `/kh/page/{pk}` pegado funciona en el
+    portal pero **en embebido saca al usuario de la pantalla del anfitrión** — a una ruta que puede
+    ni estar mapeada. Quién decide si un href es nuestro: `KnowledgeHubRoutes.TryGetPagePk`, función
+    pura y por tanto cubierta por el arnés; el mismo-origen lo decide el JS, que es quien ve la URL.
+    No abre ninguna puerta: la página destino se carga por `GetPageForReadAsync` como cualquier otra.
+    Opciones: `TreeContextMenu` (global) + `ShowContextMenu` por instancia — la salida para un
+    anfitrión sin `<RadzenComponents />`. Ver gotcha 37.
   - CSS: alturas por variables `--kh-portal-height` / `--kh-editor-height` (default `100vh`);
     `KnowledgeHubBrowser` usa `.kh-embedded` (100% del contenedor).
   - **Pantalla de bienvenida sustituible (v0.10.0)**: `Options.HomeComponent` (`Type?`, mismo patrón
@@ -253,21 +266,24 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (211 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (218 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
   7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
   v0.13.0, 12 de páginas excluidas/vacías en v0.14.0, 8 de fugas por Guid en v0.15.0, 16 de creación
   visible + escalada cerrada en v0.16.0, 9 de borrado en cascada en v0.17.0 18 de datos vivos en
-  v0.19.0 y 13 del índice de la página en v0.20.0
+  v0.19.0, 13 del índice de la página en v0.20.0 y 7 de enlaces entre páginas en v0.21.0
   —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
   127.0.0.1:5599. El ALTER-ADD del icono se verificó además creando una tabla `DocPages` v0.2
   vacía y confirmando la migración en caliente.
-- **Pruebas de componentes** (30, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
+- **Pruebas de componentes** (36, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
   componente embebible se monta una vez—, 4 de flujo del `KnowledgeHubBrowser`, 6 de la marca de
-  selección del árbol en los dos modos y 7 del panel «En esta página». Cubren lo que ni el compilador ni el arnés ven: **un
+  selección del árbol en los dos modos, 7 del panel «En esta página» y 6 del menú contextual y los
+  enlaces entre páginas. Desde la v0.21.0 el arnés puede montar `<RadzenComponents />`
+  (`RenderRadzenOverlays`): sin ese host `ContextMenuService` no abre nada **ni lanza**, así que un
+  menú roto pasaría por verde. Cubren lo que ni el compilador ni el arnés ven: **un
   componente que revienta al renderizar** (el comentario Razor dentro de la lista de atributos,
   gotcha 34) y **un flujo que acaba en la pantalla equivocada** (el eco del árbol, gotcha 35). Los servicios son **falsos**: si el core devuelve mal un DTO, eso no se
   ve aquí — es trabajo del arnés de paridad, y por eso el fallo de la casilla de la v0.19.1 pasó
@@ -758,6 +774,40 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
       los fragmentos, cambiaría la URL —lo que despierta al árbol, que escucha `LocationChanged`— y
       encima no haría scroll, porque quien scrollea es un div y no la ventana. Verificado en el demo
       embebido: saltar **no cambia** `/mi-app/documentacion`.
+
+37. **Un menú contextual depende de un componente que la librería NO renderiza, y un enlace pegado
+    entre páginas rompe justo en el modo más común** (v0.21.0).
+    - **`<RadzenComponents />` monta CINCO hosts** —`RadzenDialog`, `RadzenNotification`,
+      `RadzenContextMenu`, `RadzenTooltip`, `RadzenChartTooltip`— y lo pone el **anfitrión**, junto
+      al Router. La RCL no renderiza ninguno: ya dependía de ello para diálogos y notificaciones.
+      `ContextMenuService.Open` es `OnOpen?.Invoke(...)`, así que **sin el host no lanza: no hace
+      nada**. La diferencia de gravedad con un diálogo es que `RadzenTreeItem` ya hace
+      `preventDefault` del `oncontextmenu`, así que el usuario pierde también el menú nativo y se
+      queda sin nada. De ahí `TreeContextMenu`, para poder apagarlo.
+    - **El arnés de bUnit no lo veía**: registraba los servicios de Radzen pero no montaba
+      `<RadzenComponents />`, así que un menú que no abre habría pasado por verde. Ahora
+      `RenderRadzenOverlays()` lo monta, y el menú se lee de **su** markup, no del componente que lo
+      pidió.
+    - **El callback de `ContextMenuService.Open` es SÍNCRONO** (`Action<MenuItemEventArgs>`) y todo
+      lo que cuelga de él es async (portapapeles, crear página) → hay que marshalar con `InvokeAsync`
+      (gotcha 11). Y `ContextMenuItem` **no admite hijos**: para submenús hay que usar la otra
+      sobrecarga con `RenderFragment`.
+    - **El portapapeles necesita contexto seguro Y foco.** `navigator.clipboard.writeText` lanza
+      `NotAllowedError: Document is not focused` con la pestaña en segundo plano, y el respaldo
+      `document.execCommand('copy')` también falla sin foco. Por eso `copyText` devuelve un booleano
+      y la UI, si es `false`, **enseña el texto en la notificación** en vez de mentir. Medido: en el
+      panel de esta sesión `isSecureContext` es true pero `document.hasFocus()` es false, así que el
+      camino feliz no se pudo verificar aquí — el de respaldo sí, y funciona.
+    - **Interceptar enlaces: lo que NO hay que interceptar.** Clic con ctrl/cmd/shift/alt, botón
+      central, `target` distinto de `_self`, `download`, y cualquier href de otro origen. Todo eso
+      son cosas que el navegador ya le da al lector y quitárselas no gana nada. Verificado en el demo:
+      externo `false`, ctrl+clic `false`, clic normal `true`.
+    - **El mismo-origen se decide en JS, no en C#**: `TryGetPagePk` solo ve un path, así que aceptar
+      un `/kh/page/{pk}` de otro dominio sería cosa suya. El JS resuelve con `new URL(...)` y compara
+      `origin` antes de retener el clic.
+    - Resultado medido en el demo embebido: clic en un enlace entre páginas y la URL **sigue siendo**
+      `/mi-app/documentacion`, el contenido cambia, el árbol marca el destino y la topbar del
+      anfitrión sigue ahí. En portal navega sin recarga completa (`navigation` entries no sube).
 
 ## Pendientes / siguientes pasos
 
