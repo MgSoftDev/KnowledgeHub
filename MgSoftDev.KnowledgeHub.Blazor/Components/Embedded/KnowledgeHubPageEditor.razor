@@ -29,7 +29,7 @@ else
             <RadzenTextBox @bind-Value="SelectItem.Title" Placeholder="Título" class="rz-w-100" />
         </div>
 
-        <div class="kh-editor-host">
+        <div class="kh-editor-host" @ref="_editorHost">
             <RadzenHtmlEditor @bind-Value="SelectItem.ContentHtml" style="position:absolute; inset:0;"
                               Execute="@OnEditorExecute" Paste="@PasteCallback">
                 <RadzenHtmlEditorUndo /> <RadzenHtmlEditorRedo />
@@ -54,6 +54,7 @@ else
                 @foreach (var tool in Options.EditorTools)
                 {
                     <RadzenHtmlEditorCustomTool CommandName="@tool.CommandName" Icon="@tool.Icon" Title="@tool.Title"
+                                                EnabledModes="@tool.EnabledModes"
                                                 Selected="@(tool.IsSelected?.Invoke(Services) ?? false)"
                                                 Visible="@(tool.IsVisible?.Invoke(Services) ?? true)" />
                 }

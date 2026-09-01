@@ -650,6 +650,32 @@ El **índice lleva enlaces internos pero no números de página**: Chromium no s
 cada sección hasta haber maquetado, y no hay segunda pasada. Para navegar en pantalla sobran los
 enlaces y los marcadores; solo se echa de menos al imprimir en papel.
 
+### El título de cada página
+
+```csharp
+o.SectionTitle = PdfSectionTitleMode.Auto;  // por defecto desde la v0.22.0
+```
+
+El exportador encabeza cada página con su nombre, para que el índice tenga a dónde apuntar. Si tú ya
+escribes un `<h1>` con el título dentro del contenido —lo habitual, sobre todo si el nombre de la
+página va recortado y el del documento completo— salían **dos títulos**.
+
+| Valor | Qué hace |
+|---|---|
+| `Auto` | **Por defecto.** No pone el título si el contenido ya trae un `<h1>` propio; lo pone si no |
+| `TreeLevel` | Lo de antes de la v0.22.0: siempre, con `<h1>` en la raíz, `<h2>` en la hija… |
+| `Heading1` | Siempre, y siempre como `<h1>` (no encoge con la profundidad) |
+| `Hidden` | Nunca |
+
+> **`Auto` cambia el PDF de quien ya escribía su propio `<h1>`**, que es justo el arreglo. Solo puede
+> quitar un título **duplicado**, nunca dejar una página sin ninguno. Pon `TreeLevel` para volver
+> exactamente a lo anterior.
+
+El índice sigue funcionando en todos los modos: el ancla vive en la sección, no en el encabezado. Lo
+que sí cambia al ocultar el título es el **esquema de marcadores** — Chromium lo construye desde los
+encabezados, así que la entrada de esa página pasa a ser tu `<h1>` (con el título completo) en vez de
+una entrada anidada por profundidad en el árbol.
+
 ### Memoria y concurrencia
 
 El navegador **no se queda residente**: se abre, imprime y se cierra en cada exportación. Exportar
@@ -769,6 +795,26 @@ el lector como en el `KnowledgeHubBrowser`:
 Con menos de dos encabezados el panel no aparece: un índice de un solo enlace estorba más de lo que
 ayuda. Y si el panel de contenido es estrecho —el caso típico al embeber bajo tu propia topbar— el
 índice pasa solo a un bloque plegable encima del texto en vez de robar ancho de lectura.
+
+### Formatear el HTML
+
+En la **vista código** del editor (el botón `</>`) hay un botón para **sangrar el HTML** y poder
+leerlo. Solo está activo ahí: en la vista visual no se vería nada de lo que hace.
+
+Lo único que añade son saltos de línea y sangría, y **solo donde no se pueden ver**: junto a los
+límites de los elementos de bloque. Dentro de una tirada de texto en línea (`<b>`, `<span>`, `<a>`)
+no toca nada, porque ahí un salto se vería como un espacio de más; y dentro de `<pre>`, `<code>` o
+`<textarea>` tampoco, porque ahí el espacio ES el contenido. Formatear dos veces da el mismo
+resultado que formatear una.
+
+Viene con el paquete del saneador —`AddKnowledgeHubHtmlSanitizer(...)` lo registra— y si prefieres
+solo el formateador tienes `services.AddKnowledgeHubHtmlFormatter()`. Sin ninguno de los dos, el
+botón no aparece. En un montaje WASM va **solo en el cliente**: es comodidad de edición y nada del
+guardado lo usa.
+
+De paso, desde la v0.22.0 la escoba y los tres niveles de limpieza **también funcionan en la vista
+código** (antes estaban apagados ahí sin decirlo). Los avisos y el tamaño de imagen siguen siendo de
+la vista visual, porque insertan en la posición del cursor.
 
 ### Enlazar una página desde otra
 

@@ -7,6 +7,7 @@ using MgSoftDev.PrismPlus.Returning.Commands;
 using MgSoftDev.ReturningCore;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 using Radzen;
 
 namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
@@ -16,7 +17,7 @@ namespace MgSoftDev.KnowledgeHub.Blazor.Components.Embedded;
 /// supply the callbacks to stay inside your own screen after publishing/discarding, or omit
 /// them to fall back to URL navigation over the built-in /kh routes.
 /// </summary>
-public partial class KnowledgeHubPageEditor : ComponentBase
+public partial class KnowledgeHubPageEditor : ComponentBase, IAsyncDisposable
 {
     [Parameter] public Guid PagePk { get; set; }
 
@@ -35,6 +36,10 @@ public partial class KnowledgeHubPageEditor : ComponentBase
     [Inject] private NotificationService Notify { get; set; } = null!;
     [Inject] private DialogService Dialog { get; set; } = null!;
     [Inject] private KnowledgeHubUiState UiState { get; set; } = null!;
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+
+    private IJSObjectReference? _module;
+    private ElementReference _editorHost;
 
     protected PageEditDto? SelectItem { get; private set; }
     protected bool Loading { get; private set; } = true;
@@ -175,6 +180,7 @@ public partial class KnowledgeHubPageEditor : ComponentBase
             User = User,
             Editor = args.Editor,
             GetHtml = () => SelectItem?.ContentHtml ?? string.Empty,
+            GetHtmlAsync = GetEditorHtmlAsync,
             ReplaceAllAsync = ReplaceEditorHtmlAsync
         };
         var html = await tool.ExecuteAsync(context);
@@ -184,14 +190,73 @@ public partial class KnowledgeHubPageEditor : ComponentBase
     }
 
     /// <summary>
-    /// Swaps the whole document (used by document-wide tools such as the HTML cleanup button).
-    /// Goes through the bound property so the change survives and re-renders the editor.
+    /// The document as it stands now. In the code view the bound value can be BEHIND what the
+    /// author has typed —Radzen propagates the textarea on blur, and the toolbar buttons keep the
+    /// focus on purpose— so the textarea is asked first. Everywhere else, and whenever JS is
+    /// unavailable, this is exactly the old behaviour.
     /// </summary>
-    private Task ReplaceEditorHtmlAsync(string html)
+    private async Task<string> GetEditorHtmlAsync() =>
+        await InvokeModuleAsync<string?>(m => m.InvokeAsync<string?>("readEditorSource", _editorHost))
+        ?? SelectItem?.ContentHtml ?? string.Empty;
+
+    /// <summary>
+    /// Swaps the whole document (used by document-wide tools such as cleanup and formatting).
+    ///
+    /// In the code view it writes the textarea and lets Radzen's own change event carry the value
+    /// back, instead of assigning the bound property: Radzen only copies that property into its
+    /// internal field during OnAfterRender, which under Blazor Server lands after the batch is
+    /// acknowledged — long enough for a re-render to repaint the textarea with the previous text.
+    /// </summary>
+    private async Task ReplaceEditorHtmlAsync(string html)
     {
-        if (SelectItem is null) return Task.CompletedTask;
+        if (SelectItem is null) return;
+
+        if (await InvokeModuleAsync<bool>(m => m.InvokeAsync<bool>("writeEditorSource", _editorHost, html)))
+            return;
+
         SelectItem.ContentHtml = html;
-        return InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task<T?> InvokeModuleAsync<T>(Func<IJSObjectReference, ValueTask<T>> call)
+    {
+        try
+        {
+            _module ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/MgSoftDev.KnowledgeHub.Blazor/knowledgehub.js");
+            return await call(_module);
+        }
+        catch (JSDisconnectedException)
+        {
+            return default;
+        }
+        catch (JSException)
+        {
+            return default;
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering, or the circuit went away mid-call: fall back to the bound value.
+            return default;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null) return;
+
+        try
+        {
+            await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+
+        _module = null;
     }
 
     /// <summary>

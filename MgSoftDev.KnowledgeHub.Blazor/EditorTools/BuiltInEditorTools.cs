@@ -77,6 +77,8 @@ public static class BuiltInEditorTools
             Icon = "cleaning_services",
             Title = "Aplicar la limpieza a todo el documento",
             IsVisible = HasSanitizer,
+            // Actúa sobre el documento entero, así que tiene sentido también mirando el código.
+            EnabledModes = HtmlEditorMode.Design | HtmlEditorMode.Source,
             ExecuteAsync = async ctx =>
             {
                 var sanitizer = ctx.Services.GetService<IKnowledgeHubHtmlSanitizer>();
@@ -93,8 +95,9 @@ public static class BuiltInEditorTools
                 }
 
                 var level = CurrentLevel(ctx.Services);
-                var current = ctx.GetHtml();
-                var clean = sanitizer.Sanitize(current ?? string.Empty, HtmlSanitizeContext.Manual, level);
+                // Async: en la vista código el valor enlazado va por detrás de lo tecleado.
+                var current = await ctx.GetHtmlAsync();
+                var clean = sanitizer.Sanitize(current, HtmlSanitizeContext.Manual, level);
 
                 var notify = ctx.Services.GetService<NotificationService>();
                 if (clean == current)
@@ -113,10 +116,67 @@ public static class BuiltInEditorTools
                 {
                     Severity = NotificationSeverity.Success,
                     Summary = "HTML limpiado",
-                    Detail = $"Se quitaron {current!.Length - clean.Length} caracteres de marcado no permitido."
+                    Detail = $"Se quitaron {current.Length - clean.Length} caracteres de marcado no permitido."
                 });
 
                 // The whole document was replaced already; nothing to insert at the caret.
+                return null;
+            }
+        },
+        new EditorToolDescriptor
+        {
+            CommandName = "FormatHtml",
+            Icon = "format_indent_increase",
+            Title = "Formatear el HTML para poder leerlo",
+            IsVisible = HasFormatter,
+            // Solo en la vista código: sangrar el editor visual no se ve por ningún lado.
+            EnabledModes = HtmlEditorMode.Source,
+            ExecuteAsync = async ctx =>
+            {
+                var formatter = ctx.Services.GetService<IKnowledgeHubHtmlFormatter>();
+                var notify = ctx.Services.GetService<NotificationService>();
+                if (formatter is null) return null;
+
+                var current = await ctx.GetHtmlAsync();
+                if (string.IsNullOrWhiteSpace(current)) return null;
+
+                string formatted;
+                try
+                {
+                    formatted = formatter.Format(current);
+                }
+                catch (Exception ex)
+                {
+                    // El formateador parsea HTML de verdad; si algo lo tumba, el autor tiene que
+                    // enterarse y conservar su texto, no verlo desaparecer.
+                    notify?.Notify(new NotificationMessage
+                    {
+                        Severity = NotificationSeverity.Error,
+                        Summary = "No se pudo formatear",
+                        Detail = ex.Message
+                    });
+                    return null;
+                }
+
+                if (formatted == current)
+                {
+                    notify?.Notify(new NotificationMessage
+                    {
+                        Severity = NotificationSeverity.Info,
+                        Summary = "Nada que formatear",
+                        Detail = "El HTML ya está como quedaría."
+                    });
+                    return null;
+                }
+
+                await ctx.ReplaceAllAsync(formatted);
+                notify?.Notify(new NotificationMessage
+                {
+                    Severity = NotificationSeverity.Success,
+                    Summary = "HTML formateado",
+                    Detail = "Solo se añadieron saltos y sangría; lo que se ve no cambia.",
+                    Duration = 2500
+                });
                 return null;
             }
         },
@@ -155,6 +215,9 @@ public static class BuiltInEditorTools
             Icon = icon,
             Title = title,
             IsVisible = HasSanitizer,
+            // Solo cambian el nivel que usarán pegar y la escoba: poder elegirlo y no poder
+            // aplicarlo mientras miras el código no tendría sentido.
+            EnabledModes = HtmlEditorMode.Design | HtmlEditorMode.Source,
             IsSelected = services => CurrentLevel(services) == level,
             ExecuteAsync = ctx =>
             {
@@ -167,6 +230,10 @@ public static class BuiltInEditorTools
     /// <summary>Level buttons and the broom are pointless without a sanitizer, so they hide.</summary>
     private static bool HasSanitizer(IServiceProvider services) =>
         services.GetService<IKnowledgeHubHtmlSanitizer>() is not null;
+
+    /// <summary>Sin formateador registrado el botón no tiene nada que hacer, así que se esconde.</summary>
+    private static bool HasFormatter(IServiceProvider services) =>
+        services.GetService<IKnowledgeHubHtmlFormatter>() is not null;
 
     private static HtmlCleanupLevel CurrentLevel(IServiceProvider services) =>
         services.GetService<KnowledgeHubUiState>()?.CleanupLevel ?? HtmlCleanupLevel.Standard;

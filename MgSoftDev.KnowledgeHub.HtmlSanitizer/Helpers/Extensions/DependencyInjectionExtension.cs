@@ -32,7 +32,7 @@ public static class DependencyInjectionExtension
         // Careful: it also means an EARLIER plain AddKnowledgeHubHtmlSanitizer() call wins over
         // this one, and your configuration is dropped without a word. Register it once.
         services.TryAddSingleton<IKnowledgeHubHtmlSanitizer>(new DefaultKnowledgeHubHtmlSanitizer(sanitizer));
-        return services;
+        return services.AddKnowledgeHubHtmlFormatter();
     }
 
     /// <summary>
@@ -55,6 +55,20 @@ public static class DependencyInjectionExtension
         ArgumentNullException.ThrowIfNull(options);
 
         services.TryAddSingleton<IKnowledgeHubHtmlSanitizer>(new DefaultKnowledgeHubHtmlSanitizer(options));
+        return services.AddKnowledgeHubHtmlFormatter();
+    }
+
+    /// <summary>
+    /// Registers the HTML formatter, which puts the "format the html" button in the editor's code
+    /// view. Both <c>AddKnowledgeHubHtmlSanitizer</c> overloads already call this, so a host that
+    /// cleans also formats; it is public for the host that wants only the formatter.
+    ///
+    /// This one belongs in the UI container only — formatting is an authoring convenience, and
+    /// nothing on the save path uses it. In a WASM setup that means the client, not the API server.
+    /// </summary>
+    public static IServiceCollection AddKnowledgeHubHtmlFormatter(this IServiceCollection services)
+    {
+        services.TryAddSingleton<IKnowledgeHubHtmlFormatter>(new KnowledgeHubHtmlFormatter());
         return services;
     }
 }

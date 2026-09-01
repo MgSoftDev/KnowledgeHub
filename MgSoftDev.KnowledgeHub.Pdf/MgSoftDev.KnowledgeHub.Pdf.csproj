@@ -16,6 +16,12 @@
     <ProjectReference Include="..\MgSoftDev.KnowledgeHub.Abstractions\MgSoftDev.KnowledgeHub.Abstractions.csproj" />
   </ItemGroup>
 
+  <!-- El arnés comprueba el HTML que se imprime (títulos y anclas del índice), que es donde un
+       "ocultar el título" mal hecho rompe el índice en silencio. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="KnowledgeHub.ParityHarness" />
+  </ItemGroup>
+
   <!-- Le fija a quien consuma el paquete la plataforma del driver de Playwright: sin esto cada app
        se llevaría 548 MB a su salida en vez de 87. Ver el comentario del .props. -->
   <ItemGroup>

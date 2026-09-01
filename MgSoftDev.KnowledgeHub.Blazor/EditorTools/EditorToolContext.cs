@@ -29,6 +29,14 @@ public sealed class EditorToolContext
     public required Func<string> GetHtml { get; init; }
 
     /// <summary>
+    /// The document as it stands RIGHT NOW, which in the code view is not the same thing as
+    /// <see cref="GetHtml"/>. Radzen propagates the code view on blur, and a toolbar button
+    /// deliberately keeps the focus, so the bound value can still hold the text from before the
+    /// author started typing. Any tool that rewrites the whole document must use this one.
+    /// </summary>
+    public required Func<Task<string>> GetHtmlAsync { get; init; }
+
+    /// <summary>
     /// Replaces the WHOLE document, for tools that reformat everything rather than insert at the
     /// caret (the built-in cleanup tool uses it). Return null from <c>ExecuteAsync</c> afterwards
     /// so nothing extra is inserted.

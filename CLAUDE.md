@@ -168,6 +168,25 @@ automático** (v0.8.0-preview.1).
   sanitizador. Strict conserva lo que produce la propia librería: las `<img>` (tamaño/zoom) y los
   callouts, que desde esta versión se marcan con `class="kh-callout"` (los creados antes no la
   llevan → pierden el fondo si les pasas la escoba en nivel 2).
+- **Formatear el HTML (v0.22.0)**: contrato propio `IKnowledgeHubHtmlFormatter` (Abstractions) +
+  implementación en el paquete `HtmlSanitizer`, que ya trae AngleSharp; lo registra
+  `AddKnowledgeHubHtmlSanitizer` y también hay `AddKnowledgeHubHtmlFormatter()` suelto. Contrato
+  propio y **no** un método más en el sanitizador: un anfitrión con sanitizador propio heredaría un
+  `Format` identidad y el botón saldría sin hacer nada (la forma de fallo de la gotcha 28).
+  El botón vive en la barra del editor con `EnabledModes = Source` — parámetro **nuevo** de
+  `EditorToolDescriptor` que la librería nunca pasaba, así que hasta ahora TODAS sus tools estaban
+  apagadas en vista código; la escoba y los 3 niveles pasan a `Design | Source`.
+  El formateador **no usa `PrettyMarkupFormatter`** (rompe `<pre>` y separa elementos en línea) sino
+  uno propio sobre `HtmlMarkupFormatter`. Ver gotcha 38.
+- **Un solo título en el PDF (v0.22.0)**: `KnowledgeHubPdfOptions.SectionTitle`
+  (`PdfSectionTitleMode`), **default `Auto`**: el exportador no pone el nombre de la página si el
+  contenido ya trae un `<h1>` propio. Era un defecto — quien encabezaba sus páginas veía dos títulos,
+  y el del exportador además encogía con la profundidad (`section.Level`). `TreeLevel` restaura el
+  comportamiento anterior; están también `Heading1` y `Hidden`.
+  **El ancla del índice pasó del encabezado a la `<section>`**: vivía solo en el `<hN>`, así que
+  ocultarlo habría dejado los enlaces del índice apuntando a la nada. Consecuencia a saber: los
+  marcadores del PDF los construye Chromium desde los encabezados, así que sin el sintético la
+  entrada de esa página pasa a ser el `<h1>` del autor y **se pierde el anidamiento por profundidad**.
 - **Exportación a PDF (v0.11.0, motor cambiado en v0.12.0)**: **dos** contratos, no uno.
   `IKnowledgeHubPdfExportService` (core, Scoped) es donde vive TODA la seguridad —`CanExport` una
   vez, `GetTreeAsync` para la rama y luego `GetPageForReadAsync` **página por página** como defensa
@@ -266,22 +285,22 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
 
 ## Verificación (cómo se probó)
 
-- **Guion de paridad** (218 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
+- **Guion de paridad** (246 checks; 7 de icono en v0.3.0, 3 de data-URI en v0.3.1, 6 de saneado en
   v0.4.0, 10 de huérfanas en v0.5.0, 11 de orden en v0.6.0, 15 de niveles de limpieza en v0.7.0/0.7.1,
   7 de slug en v0.8.0, 14 de exportación a PDF en v0.11.0/0.12.0, 10 de clases del anfitrión en
   v0.13.0, 12 de páginas excluidas/vacías en v0.14.0, 8 de fugas por Guid en v0.15.0, 16 de creación
   visible + escalada cerrada en v0.16.0, 9 de borrado en cascada en v0.17.0 18 de datos vivos en
-  v0.19.0, 13 del índice de la página en v0.20.0 y 7 de enlaces entre páginas en v0.21.0
+  v0.19.0, 13 del índice de la página en v0.20.0, 7 de enlaces entre páginas en v0.21.0 y 28 de formateo de HTML y título del PDF en v0.22.0
   —los de limpieza llaman al sanitizador DIRECTAMENTE, porque los niveles son de UI): contra InMemory,
   LiteDB, SQL Server (`DEVSQL2022` o `(localdb)\MSSQLLocalDB`, BD temporal `KnowledgeHubParity`)
   y a través de HTTP (Kestrel real). `dotnet run --project Tests/KnowledgeHub.ParityHarness --
   <modo>`; sqlserver necesita `KH_SQLSERVER_CS` y BD vacía; http levanta Kestrel en
   127.0.0.1:5599. El ALTER-ADD del icono se verificó además creando una tabla `DocPages` v0.2
   vacía y confirmando la migración en caliente.
-- **Pruebas de componentes** (36, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
+- **Pruebas de componentes** (39, bUnit, `Tests/KnowledgeHub.ComponentTests`): 13 de humo —cada
   componente embebible se monta una vez—, 4 de flujo del `KnowledgeHubBrowser`, 6 de la marca de
-  selección del árbol en los dos modos, 7 del panel «En esta página» y 6 del menú contextual y los
-  enlaces entre páginas. Desde la v0.21.0 el arnés puede montar `<RadzenComponents />`
+  selección del árbol en los dos modos, 7 del panel «En esta página», 6 del menú contextual y los
+  enlaces entre páginas, y 3 de los botones del editor. Desde la v0.21.0 el arnés puede montar `<RadzenComponents />`
   (`RenderRadzenOverlays`): sin ese host `ContextMenuService` no abre nada **ni lanza**, así que un
   menú roto pasaría por verde. Cubren lo que ni el compilador ni el arnés ven: **un
   componente que revienta al renderizar** (el comentario Razor dentro de la lista de atributos,
@@ -808,6 +827,43 @@ release = tag/versión nuevo (nuget.org no permite re-publicar una versión exis
     - Resultado medido en el demo embebido: clic en un enlace entre páginas y la URL **sigue siendo**
       `/mi-app/documentacion`, el contenido cambia, el árbol marca el destino y la topbar del
       anfitrión sigue ahí. En portal navega sin recarga completa (`navigation` entries no sube).
+
+38. **Embellecer HTML de usuario puede cambiar lo que se ve, y el formateador de AngleSharp lo
+    cambia** (v0.22.0). `PrettyMarkupFormatter`, decompilado del paquete 1.5.2:
+    - Su `Text()` empieza con `data.Replace('
+', ' ')` → **colapsa un `<pre>` de código a una sola
+      línea**. Solo `script` y `style` escapan por `LiteralText` (son los únicos con
+      `NodeFlags.LiteralText`); `pre`, `code` y `textarea` pasan por `Text()`.
+    - Su `OpenTag()` mete `
+`+sangría si el hermano anterior no es un nodo de texto, **sin distinguir
+      bloque de línea** → `<b>a</b><i>b</i>` pasa a renderizar «a b». Y como depende de cómo viniera
+      espaciada la entrada, sobre HTML minificado —lo que produce el editor— indenta TODO.
+    - El ctor `preserveTextFormatting` no salva: protege **hijos directos**, así que el texto de un
+      `<pre><code>` es nieto y queda fuera; y aun protegido inyecta sangría tras cada `
+`.
+    **La regla que sí es segura**: insertar espacio **solo junto a un límite de bloque**. El espacio
+    colapsable en el borde de una línea no se pinta, y una caja anónima de solo espacio entre bloques
+    no se renderiza. Dentro de una tirada de elementos en línea no se toca NADA.
+    Y lo que hace que sea **idempotente**: antes de serializar se recorta la **tirada de espacio del
+    borde** de cada nodo de texto (no el nodo). Borrar solo nodos de solo-espacio no basta: tras una
+    pasada, `<div>foo<p>x</p></div>` deja un único nodo `"foo
+  "` y la sangría se acumularía en
+    cada pulsación. Espacio colapsable es `' ' 	 
+  ` — **no `char.IsWhiteSpace`**, que
+    incluye `U+00A0`, contenido visible.
+    Otras dos cosas medidas al hacerlo:
+    - **Solo se serializa el `<body>`**, así que si el parser manda algo al `<head>` —un `<script>` o
+      `<style>` al principio— se perdería. El formateador **devuelve la entrada intacta** en ese caso:
+      un formateador que pierde contenido en silencio es peor que uno que no hace nada.
+    - **La vista código de Radzen propaga con `onchange`, que dispara al perder el foco**, y los
+      botones de la barra hacen `preventDefault` en `mousedown` justo para NO perderlo. Así que el
+      valor enlazado —lo que devolvía `ctx.GetHtml()`— **va por detrás de lo que el autor acaba de
+      teclear**, y formatear con él se lo habría machacado. Se lee y se escribe el `<textarea>` por
+      JS (`readEditorSource`/`writeEditorSource`, acotados al `@ref` del host), despachando `input` +
+      `change` para que corra `SourceChanged`. Eso esquiva de paso la segunda trampa: Radzen copia el
+      valor enlazado a su campo interno en `OnAfterRender`, que en Server llega tras el ACK del batch.
+      Descartado `Immediate="true"`: sería un round-trip de SignalR **por tecla** con el documento
+      entero (gotcha 18) para resolver algo de un clic, y no arregla la segunda trampa.
 
 ## Pendientes / siguientes pasos
 

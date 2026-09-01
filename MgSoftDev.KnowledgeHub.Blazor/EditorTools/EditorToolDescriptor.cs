@@ -1,3 +1,5 @@
+using Radzen;
+
 namespace MgSoftDev.KnowledgeHub.Blazor.EditorTools;
 
 /// <summary>
@@ -35,4 +37,12 @@ public sealed class EditorToolDescriptor
     /// the host never registered. Defaults to always visible.
     /// </summary>
     public Func<IServiceProvider, bool>? IsVisible { get; init; }
+
+    /// <summary>
+    /// Editor views the button is enabled in. <c>Design</c> — Radzen's own default, and therefore
+    /// today's behaviour — because most tools insert at the caret of the visual editor, which is
+    /// hidden in the code view. Tools that rewrite the whole document can safely add
+    /// <c>HtmlEditorMode.Source</c>.
+    /// </summary>
+    public HtmlEditorMode EnabledModes { get; init; } = HtmlEditorMode.Design;
 }

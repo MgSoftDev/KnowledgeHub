@@ -366,3 +366,44 @@ export function stopInterceptingPageLinks(container) {
     container.removeEventListener('click', container.__khLinks);
     container.__khLinks = null;
 }
+
+/**
+ * Reads what is actually in the editor's code view, straight from the textarea.
+ *
+ * It exists because the bound value can be STALE there, and acting on it would overwrite what the
+ * author just typed. Radzen propagates the code view with `onchange`, which fires on blur — and the
+ * toolbar buttons preventDefault on mousedown precisely so the editor does not lose focus. So the
+ * click that runs a document-wide tool is the one click that never lets `change` fire first.
+ *
+ * Scoped to the editor host, so a page holding two editors gets the right one.
+ * @param {Element} host
+ * @returns {string | null} Null when the code view is not open (design mode has no textarea).
+ */
+export function readEditorSource(host) {
+    const box = host?.querySelector?.('textarea.rz-html-editor-source');
+    return box ? box.value : null;
+}
+
+/**
+ * Writes the code view back and lets Radzen know, by dispatching the event it listens to.
+ *
+ * Assigning `.value` alone would be invisible to Blazor: it reads the value off the event. Writing
+ * here rather than through the bound property also sidesteps the second half of the problem —
+ * Radzen only copies the bound value into its own field during OnAfterRender, which under Blazor
+ * Server lands after the batch is acknowledged, so a re-render can paint the textarea with the
+ * previous text.
+ * @param {Element} host
+ * @param {string} html
+ * @returns {boolean} False when the code view is not open.
+ */
+export function writeEditorSource(host, html) {
+    const box = host?.querySelector?.('textarea.rz-html-editor-source');
+    if (!box) return false;
+
+    box.value = html;
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+    box.selectionStart = box.selectionEnd = 0;
+    box.scrollTop = 0;
+    return true;
+}

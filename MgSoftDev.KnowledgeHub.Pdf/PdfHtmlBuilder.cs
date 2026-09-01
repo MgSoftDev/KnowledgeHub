@@ -43,17 +43,41 @@ internal sealed class PdfHtmlBuilder
 
         foreach (var section in document.Sections)
         {
-            var level = Math.Clamp(section.Level, 1, 6);
-            html.Append("<section class=\"kh-pdf-section\">")
-                .Append("<h").Append(level).Append(" id=\"").Append(anchors[section.PagePk]).Append("\">")
-                .Append(WebUtility.HtmlEncode(section.Title))
-                .Append("</h").Append(level).Append('>')
-                .Append(InlineImages(section.ContentHtml, document.Images))
+            // El ancla vive en la SECCIÓN, no en el encabezado: si viviera en el encabezado, ocultar
+            // el título dejaría los enlaces del índice apuntando a la nada. Aterriza en el mismo
+            // sitio, porque la sección abre página.
+            html.Append("<section class=\"kh-pdf-section\" id=\"")
+                .Append(anchors[section.PagePk])
+                .Append("\">");
+
+            if (SectionTitleLevel(section) is { } level)
+                html.Append("<h").Append(level).Append('>')
+                    .Append(WebUtility.HtmlEncode(section.Title))
+                    .Append("</h").Append(level).Append('>');
+
+            html.Append(InlineImages(section.ContentHtml, document.Images))
                 .Append("</section>");
         }
 
         return html.Append("</body></html>").ToString();
     }
+
+    /// <summary>
+    /// Heading level for the page's own title, or null when the exporter stays quiet.
+    ///
+    /// Auto asks whether the content already opens with an <c>h1</c> through
+    /// <c>KnowledgeHubHtml.BuildOutline</c>, reusing the same rule the reader's index uses — a
+    /// heading with no readable text does not count as one.
+    /// </summary>
+    private int? SectionTitleLevel(PdfExportSection section) => _options.SectionTitle switch
+    {
+        PdfSectionTitleMode.Hidden => null,
+        PdfSectionTitleMode.Heading1 => 1,
+        PdfSectionTitleMode.TreeLevel => Math.Clamp(section.Level, 1, 6),
+        _ => KnowledgeHubHtml.BuildOutline(section.ContentHtml, maxLevel: 1).Headings.Count > 0
+            ? null
+            : Math.Clamp(section.Level, 1, 6)
+    };
 
     /// <summary>Base stylesheet (or the host's), then the extras, then the file — el último manda.</summary>
     private string BuildCss()

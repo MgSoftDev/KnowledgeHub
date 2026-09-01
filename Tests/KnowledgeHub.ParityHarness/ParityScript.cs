@@ -1227,6 +1227,164 @@ public static class ParityScript
             !KnowledgeHubRoutes.TryGetPagePk("", out _) &&
             !KnowledgeHubRoutes.TryGetPagePk("/otra/cosa", out _));
 
+        // ---- 32. Formateo del HTML ---------------------------------------------------------------------
+        // El botón de formatear sangra el HTML para poder leerlo en la vista código. El contrato es
+        // duro: NO puede cambiar lo que se ve. En HTML el espacio entre elementos EN LÍNEA es
+        // significativo y dentro de <pre> ES el contenido, así que casi todos estos checks
+        // comprueban lo que NO debe pasar. También se llama al servicio directamente: es de UI.
+        Console.WriteLine();
+        Console.WriteLine("== 32. Formateo del HTML ==");
+
+        var fmt = (seederProvider ?? sp).GetService<IKnowledgeHubHtmlFormatter>();
+        Check("Formateador disponible", fmt is not null);
+
+        if (fmt is not null)
+        {
+            Check("Bloques anidados: cada uno en su línea, sangrado",
+                fmt.Format("<div><p>a</p><p>b</p></div>") ==
+                "<div>\n  <p>a</p>\n  <p>b</p>\n</div>", fmt.Format("<div><p>a</p><p>b</p></div>"));
+
+            // Lo que rompe el formateador de AngleSharp: dos elementos en línea pegados se separan
+            // y pasan a verse con un espacio en medio.
+            Check("Dos elementos EN LÍNEA pegados siguen pegados",
+                fmt.Format("<p><b>a</b><i>b</i></p>") == "<p><b>a</b><i>b</i></p>",
+                fmt.Format("<p><b>a</b><i>b</i></p>"));
+            Check("Y un espacio entre ellos NO se pierde",
+                fmt.Format("<p><b>a</b> <i>b</i></p>") == "<p><b>a</b> <i>b</i></p>",
+                fmt.Format("<p><b>a</b> <i>b</i></p>"));
+
+            // La otra: Replace('\n', ' ') dejaba un bloque de código en una sola línea.
+            const string code = "<pre><code>if (a) {\n    b();\n}</code></pre>";
+            Check("Un <pre><code> sale intacto, byte a byte",
+                fmt.Format(code).Contains("if (a) {\n    b();\n}"), fmt.Format(code));
+
+            Check("Un párrafo con solo texto en línea se queda en una línea",
+                fmt.Format("<p>Hola <b>mundo</b></p>") == "<p>Hola <b>mundo</b></p>");
+
+            // Idempotencia: sin normalizar antes, la sangría se acumula en cada pulsación.
+            string Twice(string html) => fmt.Format(fmt.Format(html));
+            foreach (var (name, sample) in new[]
+                     {
+                         ("bloques", "<div><p>a</p><ul><li>x</li><li>y</li></ul></div>"),
+                         ("tabla", "<table><tbody><tr><td>a</td><td>b</td></tr></tbody></table>"),
+                         ("mixto", "<div>foo<p>x</p></div>"),
+                         ("código", code),
+                         ("callout", "<div class=\"kh-callout\" style=\"background:#e3f2fd\"><p><strong>Nota:</strong> ojo</p></div><p><br></p>")
+                     })
+                Check($"Formatear dos veces da lo mismo ({name})",
+                    Twice(sample) == fmt.Format(sample), Twice(sample));
+
+            Check("Un &nbsp; no se confunde con espacio y sobrevive",
+                fmt.Format("<p>a&nbsp;b</p>").Contains("&nbsp;"), fmt.Format("<p>a&nbsp;b</p>"));
+
+            // Un <li> puesto en línea por estilo: ahí el salto SÍ se vería.
+            const string inlineLi = "<ul><li style=\"display:inline\">a</li><li style=\"display:inline\">b</li></ul>";
+            Check("Un bloque con display en su style se trata como en línea",
+                fmt.Format(inlineLi) == inlineLi, fmt.Format(inlineLi));
+
+            // Misma trampa que el saneador (gotcha 33): parsear expulsa el bucle fuera de la tabla.
+            const string loop = "<table><tbody>{{ for e in equipos }}<tr><td>{{ e.ip }}</td></tr>{{ end }}</tbody></table>";
+            var looped = fmt.Format(loop);
+            Check("Un {{ for }} que envuelve filas NO sale de la tabla",
+                looped.IndexOf("{{ for", StringComparison.Ordinal) >
+                looped.IndexOf("<table", StringComparison.Ordinal), looped);
+
+            // Dentro del cuerpo, el contenido de un <script> es texto crudo: ni se escapa ni se sangra.
+            const string script = "<p>x</p><script>if (a<b) { }</script>";
+            Check("El contenido de un <script> ni se escapa ni se sangra",
+                fmt.Format(script).Contains("if (a<b) { }"), fmt.Format(script));
+
+            // Y si el parser decide que algo va al <head> —un <script> o <style> al principio— el
+            // documento vuelve TAL CUAL: perder contenido en silencio es peor que no formatear.
+            const string leading = "<style>p{color:red}</style><p>x</p>";
+            Check("Lo que el parser mandaría al <head> se devuelve intacto",
+                fmt.Format(leading) == leading, fmt.Format(leading));
+
+            // Y lo que garantiza que formatear no rompe nada del resto de la librería.
+            const string doc = "<h1>T</h1><p>x</p><p><img src=\"docimg://019f8d8a-0001-7000-8000-000000000001\"></p>";
+            var formatted = fmt.Format(doc);
+            Check("Formatear no cambia si la página está vacía o no",
+                KnowledgeHubHtml.IsVisuallyEmpty(formatted) == KnowledgeHubHtml.IsVisuallyEmpty(doc));
+            Check("Ni los encabezados que ve el índice de la página",
+                KnowledgeHubHtml.BuildOutline(formatted).Headings.Select(h => h.Text)
+                    .SequenceEqual(KnowledgeHubHtml.BuildOutline(doc).Headings.Select(h => h.Text)));
+            Check("Ni las imágenes referenciadas",
+                KnowledgeHubHtml.ExtractDocImagePks(formatted)
+                    .SequenceEqual(KnowledgeHubHtml.ExtractDocImagePks(doc)));
+
+            if (san is not null)
+            {
+                // Se guarda saneando SIEMPRE, así que el HTML formateado pasa por el saneador en el
+                // siguiente guardado: tiene que salir igual, o la sangría bailaría en cada versión.
+                var clean = san.Sanitize(formatted, HtmlSanitizeContext.Save, HtmlCleanupLevel.Standard);
+                Check("Sanear el HTML ya formateado no lo mueve", clean == formatted, clean);
+            }
+
+            Check("Cadena vacía o solo espacios: se devuelve tal cual",
+                fmt.Format("") == "" && fmt.Format("   ") == "   ");
+        }
+
+        // ---- 33. El título de cada página en el PDF ----------------------------------------------------
+        // El exportador ponía SIEMPRE el nombre de la página, así que quien escribía su propio <h1>
+        // acababa con dos títulos. Se comprueba sobre el HTML que se imprime, y el invariante que de
+        // verdad importa es el ancla: si el índice enlaza a un id que ya no existe, no se nota hasta
+        // que alguien pulsa en el PDF.
+        Console.WriteLine();
+        Console.WriteLine("== 33. Título de sección en el PDF ==");
+
+        var pdfDoc = new PdfExportDocument
+        {
+            Title = "Manual",
+            GeneratedAt = DateTime.Now,
+            Sections =
+            [
+                new PdfExportSection
+                {
+                    PagePk = Guid.NewGuid(), Title = "Manual", Level = 1, VersionNumber = 1,
+                    ContentHtml = "<h1>Manual completo de la planta</h1><p>Texto.</p>"
+                },
+                new PdfExportSection
+                {
+                    PagePk = Guid.NewGuid(), Title = "Pagina sin encabezado", Level = 2, VersionNumber = 1,
+                    ContentHtml = "<p>Solo un párrafo.</p>"
+                }
+            ]
+        };
+
+        string BuildPdfHtml(PdfSectionTitleMode mode) =>
+            // Sin portada: su <h1> lleva el título del documento y confundiría lo que se afirma.
+            new PdfHtmlBuilder(new KnowledgeHubPdfOptions { SectionTitle = mode, IncludeCover = false })
+                .Build(pdfDoc, null);
+
+        var auto = BuildPdfHtml(PdfSectionTitleMode.Auto);
+        Check("Auto: la página que ya trae su <h1> no recibe otro título",
+            !auto.Contains("<h1>Manual</h1>") && auto.Contains("<h1>Manual completo de la planta</h1>"), auto);
+        Check("Auto: la que no trae ninguno sí lo recibe",
+            auto.Contains("<h2>Pagina sin encabezado</h2>"), auto);
+
+        // El que rompe todo si el ancla se queda en el encabezado que acabamos de quitar.
+        Check("Y el índice sigue enlazando a un ancla que EXISTE",
+            auto.Contains("href=\"#kh-sec-0\"") && auto.Contains("id=\"kh-sec-0\"") &&
+            auto.Contains("href=\"#kh-sec-1\"") && auto.Contains("id=\"kh-sec-1\""), auto);
+
+        var treeLevel = BuildPdfHtml(PdfSectionTitleMode.TreeLevel);
+        Check("TreeLevel reproduce lo de siempre: h1 en la raíz, h2 en la hija",
+            treeLevel.Contains("<h1>Manual</h1>") && treeLevel.Contains("<h2>Pagina sin encabezado</h2>"), treeLevel);
+
+        var h1 = BuildPdfHtml(PdfSectionTitleMode.Heading1);
+        Check("Heading1: el título no encoge con la profundidad",
+            h1.Contains("<h1>Manual</h1>") && h1.Contains("<h1>Pagina sin encabezado</h1>"), h1);
+
+        var hidden = BuildPdfHtml(PdfSectionTitleMode.Hidden);
+        // Ojo al afirmar: el ÍNDICE sí sigue nombrando las páginas, que es justo lo que se quería
+        // conservar. Lo que no debe haber es el encabezado dentro de la sección.
+        Check("Hidden: ningún encabezado del exportador, pero el índice y las anclas siguen",
+            !hidden.Contains("<h1>Manual</h1>") && !hidden.Contains("<h2>Pagina sin encabezado</h2>") &&
+            hidden.Contains("id=\"kh-sec-1\"") && hidden.Contains(">Pagina sin encabezado</a>"), hidden);
+
+        Check("El contenido del autor se copia intacto en todos los modos",
+            new[] { auto, treeLevel, h1, hidden }.All(h => h.Contains("<p>Solo un párrafo.</p>")));
+
         Console.WriteLine();
         var omitted = _omitted > 0 ? $" / {_omitted} OMIT" : string.Empty;
         Console.WriteLine($"===== RESULTADO: {_passed} PASS / {_failed} FAIL{omitted} =====");

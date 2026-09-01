@@ -173,3 +173,13 @@ public sealed class FakeDiagnostics : IKnowledgeHubDiagnostics
 
     public void ResetCumulative() { }
 }
+
+/// <summary>
+/// Stand-in for the real formatter, which lives in the HtmlSanitizer package. What it produces does
+/// not matter here: the 21 parity checks own that. These tests are about whether the toolbar button
+/// shows up and in which view it is usable.
+/// </summary>
+public sealed class FakeHtmlFormatter : IKnowledgeHubHtmlFormatter
+{
+    public string Format(string html) => html + "\n";
+}

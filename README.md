@@ -3,7 +3,7 @@
 > Módulo reutilizable de **documentación colaborativa** para .NET 10 — multi-motor de base de
 > datos y multi-hosting.
 
-![status](https://img.shields.io/badge/estado-v0.21.0--preview.1-blue)
+![status](https://img.shields.io/badge/estado-v0.22.0--preview.1-blue)
 ![net](https://img.shields.io/badge/.NET-10-512BD4)
 ![license](https://img.shields.io/badge/licencia-MIT-green)
 
@@ -55,8 +55,8 @@ en tu contenido, el editor en una pestaña…). Ver la
 | `MgSoftDev.KnowledgeHub.AspNetCore` | Endpoint de imágenes `/kh/assets` (caché `immutable`) |
 | `MgSoftDev.KnowledgeHub.Http.Server` | API minimal de los contratos (para clientes WASM) |
 | `MgSoftDev.KnowledgeHub.Http.Client` | Implementaciones `HttpClient` de los contratos (WASM-safe) |
-| `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (pegado desde Word, guardado y botón manual), con 3 niveles seleccionables y clases CSS propias del anfitrión declarables por nombre o prefijo |
-| `MgSoftDev.KnowledgeHub.Pdf` | Exportación a PDF impresa por Chromium vía Playwright: sale igual que el lector, con temas CSS, portada/cabecera/pie propios y marcadores. Se pueden marcar páginas como no exportables, y las vacías se saltan solas |
+| `MgSoftDev.KnowledgeHub.HtmlSanitizer` | Limpieza de HTML por defecto (pegado desde Word, guardado y botón manual), con 3 niveles seleccionables y clases CSS propias del anfitrión declarables por nombre o prefijo. Trae también el botón de **formatear el HTML** de la vista código |
+| `MgSoftDev.KnowledgeHub.Pdf` | Exportación a PDF impresa por Chromium vía Playwright: sale igual que el lector, con temas CSS, portada/cabecera/pie propios y marcadores. Se pueden marcar páginas como no exportables, las vacías se saltan solas, y el título de cada página no se repite si ya la encabezas con un H1 |
 | `MgSoftDev.KnowledgeHub.Templating` | Datos vivos en las páginas (Scriban): listas que se actualizan solas, bloques según el rol de quien lee, y contenido que se omite al exportar a PDF. Opt-in por página y con permiso propio |
 
 ### Qué instalar según el hosting
@@ -78,8 +78,8 @@ Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.BlazorServer       Blazor Server + LiteDB
   KnowledgeHub.Demo.Wasm(+ .Server)    Blazor WASM hosted + Web API
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
-Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (218 checks) sobre 4 modos de store
-Tests/KnowledgeHub.ComponentTests/ Pruebas de componentes con bUnit (36: humo, flujos, árbol, índice y menú)
+Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (246 checks) sobre 4 modos de store
+Tests/KnowledgeHub.ComponentTests/ Pruebas de componentes con bUnit (39: humo, flujos, árbol, índice, menú y editor)
 ```
 
 ## Compilar y probar
@@ -142,8 +142,8 @@ Workflow: [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuge
 
 ## Estado
 
-**v0.21.0-preview.1**. Las 12 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
-218/218 en los 4 modos de store, las pruebas de componentes 36/36; los demos están verificados
+**v0.22.0-preview.1**. Las 12 librerías + 3 demos compilan sin warnings; el arnés de paridad pasa
+246/246 en los 4 modos de store, las pruebas de componentes 39/39; los demos están verificados
 end-to-end.
 
 ## Licencia

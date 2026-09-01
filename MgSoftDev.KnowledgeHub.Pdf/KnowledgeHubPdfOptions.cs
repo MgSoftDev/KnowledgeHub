@@ -116,6 +116,42 @@ public sealed class KnowledgeHubPdfOptions
     /// when you want accessibility without bookmarks.
     /// </summary>
     public bool TaggedPdf { get; set; }
+
+    /// <summary>
+    /// What the exporter does with the page's own title at the top of each section.
+    /// <para>
+    /// It defaults to <see cref="PdfSectionTitleMode.Auto"/> because the previous behaviour printed
+    /// TWO titles on any page whose author had written their own <c>&lt;h1&gt;</c> — a very common
+    /// habit, since the page name is often shortened for the tree while the document spells it out.
+    /// Auto can only ever remove a duplicate, never leave a page untitled. Set
+    /// <see cref="PdfSectionTitleMode.TreeLevel"/> to get exactly what earlier versions produced.
+    /// </para>
+    /// <para>
+    /// Whatever the mode, the index keeps working: the anchor it links to lives on the section, not
+    /// on the heading. What DOES change when a title is dropped is the PDF outline — Chromium builds
+    /// it from the headings, so that page's entry becomes the author's own heading instead of an
+    /// entry nested by its depth in the tree.
+    /// </para>
+    /// </summary>
+    public PdfSectionTitleMode SectionTitle { get; set; } = PdfSectionTitleMode.Auto;
+}
+
+/// <summary>How each exported page is titled in the PDF.</summary>
+public enum PdfSectionTitleMode
+{
+    /// <summary>Add the page's title only when the content does not already open with an
+    /// <c>&lt;h1&gt;</c> of its own. The default.</summary>
+    Auto,
+
+    /// <summary>Always add it, sized by depth in the exported branch: h1 for the root, h2 for its
+    /// children, and so on. What versions before 0.22 did.</summary>
+    TreeLevel,
+
+    /// <summary>Always add it, always as <c>&lt;h1&gt;</c>, so it does not shrink with depth.</summary>
+    Heading1,
+
+    /// <summary>Never add it — only what the author wrote shows up.</summary>
+    Hidden
 }
 
 /// <summary>Page margins, in any CSS length Chromium accepts.</summary>
