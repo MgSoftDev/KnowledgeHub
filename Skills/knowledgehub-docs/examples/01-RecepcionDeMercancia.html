@@ -1,0 +1,56 @@
+<h1>Recepción de Mercancía</h1>
+<p><strong>Recepción de mercancía</strong> es la pantalla con la que el almacenista da entrada a lo
+que llega del proveedor: captura la orden de compra, confirma las cantidades recibidas y el sistema
+actualiza las existencias en el momento. Sin esta captura, la mercancía existe en el piso pero no en
+<strong>AlmacénLite</strong>, y ninguna salida podrá descontarla.</p>
+<blockquote><p><strong>Consejos:</strong> Los datos de este documento corresponden a la versión
+<strong>2.4.0</strong>. La versión instalada se lee en la parte inferior de la ventana principal.
+Conviene confirmarla antes de comparar contra lo aquí descrito.</p>
+</blockquote>
+
+<h2 style="margin-top: 1.6em">Quién Puede Usarla</h2>
+<p>Cualquier usuario con el permiso <strong>Almacen.Recibir</strong>. Los supervisores tienen además
+<strong>Almacen.RecibirSinOrden</strong>, que permite dar entrada a mercancía que no viene amparada por
+una orden de compra. Ese caso se explica en <a href="04-SalidasPorOrden.html">Salidas por orden de
+trabajo</a>.</p>
+
+<h2 style="margin-top: 1.6em">Pantalla Principal</h2>
+<p style="text-align: center; color: #6b7280; border: 1px dashed #9ca3af; border-radius: 6px; padding: 12px; margin: 8px 0">[IMAGEN: pantalla completa de Recepción de mercancía con una orden cargada y dos renglones confirmados]</p>
+<ol>
+<li><strong>Orden de compra</strong>: número de la orden a recibir. Se captura o se lee con el escáner.</li>
+<li><strong>Renglones</strong>: los productos de la orden, con la cantidad pedida y la recibida.</li>
+<li><strong>Confirmar</strong>: registra la entrada y actualiza existencias. Se habilita cuando hay al
+menos un renglón con cantidad.</li>
+<li><strong>Cancelar</strong>: descarta la captura sin registrar nada.</li>
+</ol>
+
+<h2 style="margin-top: 1.6em">Cómo Registrar una Entrada</h2>
+<h3 style="margin-top: 1.2em">1. Capturar la Orden de Compra</h3>
+<p>Escanee el código de barras de la orden o escriba su número en <strong>Orden de compra</strong> y
+presione <strong>Buscar</strong>. Los renglones de la orden aparecen con la cantidad pedida.</p>
+<p style="text-align: center; color: #6b7280; border: 1px dashed #9ca3af; border-radius: 6px; padding: 12px; margin: 8px 0">[IMAGEN: campo Orden de compra con una orden recién buscada]</p>
+<div class="kh-callout" style="background:#eff6ff;border:1px solid #bfdbfe;border-left:5px solid #3b82f6;border-radius:8px;padding:16px;margin:8px 0;"><p style="margin:0;"><strong>💡 Nota:</strong> Una orden ya recibida por completo no se puede volver a cargar. Si la busca, la pantalla muestra <em>"La orden ya fue recibida"</em> y no carga renglones.</p></div><p><br></p>
+
+<h3 style="margin-top: 1.2em">2. Confirmar las Cantidades</h3>
+<p>En cada renglón, capture en <strong>Recibido</strong> la cantidad que llegó. Si coincide con la
+pedida, presione <strong>Todo</strong> para copiarla. Un renglón en cero se omite de la entrada.</p>
+
+<h3 style="margin-top: 1.2em">3. Registrar</h3>
+<p>Presione <strong>Confirmar</strong>. El sistema pide una confirmación cuando alguna cantidad
+recibida es mayor que la pedida.</p>
+<div class="kh-callout" style="background:#fef2f2;border:1px solid #fecaca;border-left:5px solid #ef4444;border-radius:8px;padding:16px;margin:8px 0;"><p style="margin:0;"><strong>❗ Importante:</strong> <strong>Una entrada confirmada no se puede editar.</strong> Un error de captura se corrige con un ajuste de inventario, que requiere el permiso de supervisor y deja rastro en el historial.</p></div><p><br></p>
+
+<h2 style="margin-top: 1.6em">Errores Comunes</h2>
+<figure><table>
+<thead>
+<tr><th>Mensaje</th><th>Causa</th><th>Solución</th></tr></thead>
+<tbody><tr><td>La orden no existe</td><td>El número no corresponde a ninguna orden de compra activa</td><td>Verifique el número en el documento del proveedor. Si la orden es nueva, aún no se ha sincronizado</td></tr><tr><td>La orden ya fue recibida</td><td>Todos sus renglones tienen entrada registrada</td><td>Si llegó mercancía adicional, use una entrada sin orden (permiso de supervisor)</td></tr><tr><td>No tiene permiso para esta acción</td><td>Falta <strong>Almacen.Recibir</strong> en su perfil</td><td>Solicite el permiso al administrador del sistema</td></tr></tbody>
+</table></figure>
+
+<h2 style="margin-top: 1.6em">Preguntas Frecuentes</h2>
+<p><strong>P: ¿Puedo recibir una orden en varias veces?</strong>
+R: Sí. Cada confirmación registra lo capturado, y los renglones pendientes siguen disponibles hasta completar la orden.</p>
+<p><strong>P: ¿Qué pasa si recibo más de lo pedido?</strong>
+R: El sistema lo permite tras una confirmación adicional, y el excedente queda marcado en el historial de la orden.</p>
+<p><strong>P: ¿Dónde veo las entradas de hoy?</strong>
+R: En <strong>Inventario → Movimientos</strong>, filtrando por tipo <strong>Entrada</strong>. Vea <a href="05-Inventario.html">Conteo de inventario</a>.</p>

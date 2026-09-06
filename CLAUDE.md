@@ -268,6 +268,8 @@ Demos/Wpf/            anfitrión WPF+LiteDB (TFM net10.0-windows10.0.19041.0, vi
 Demos/BlazorServer/   anfitrión Server+LiteDB (cookie auth, patrón AcceptsInteractiveRouting, puerto 5210)
 Demos/Wasm(+.Server)/ anfitrión WASM hosted + API (token opaco en memoria, puerto 5220)
 Tests/KnowledgeHub.ParityHarness/  guion de paridad: modos inmemory|litedb|sqlserver|http
+Skills/knowledgehub-docs/          skill (SKILL.md + references + scripts + examples) para generar documentación
+                                   HTML que sobrevive al saneador; copia de ~/.claude/skills/knowledgehub-docs
 .github/workflows/publish-nuget.yml  CI: publica a nuget.org al pushear tag v* (Trusted Publishing/OIDC)
 artifacts/       feed NuGet local, git-ignored (dotnet pack -c Release -o artifacts)
 ```

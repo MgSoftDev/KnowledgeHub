@@ -80,6 +80,7 @@ Demos/                             3 apps anfitrionas completas y funcionales:
   KnowledgeHub.Demo.SharedAuth         Auth de demo compartida (usuarios/roles del anfitrión)
 Tests/KnowledgeHub.ParityHarness/  Arnés de paridad (246 checks) sobre 4 modos de store
 Tests/KnowledgeHub.ComponentTests/ Pruebas de componentes con bUnit (39: humo, flujos, árbol, índice, menú y editor)
+Skills/knowledgehub-docs/          Skill para que una IA genere documentación en HTML que el editor acepta
 ```
 
 ## Compilar y probar

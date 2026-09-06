@@ -1,0 +1,82 @@
+[
+  {
+    "query": "Genera el manual de usuario de la pantalla de recepción de mercancía para KnowledgeHub",
+    "should_trigger": true
+  },
+  {
+    "query": "Necesito documentar el módulo Mod-AlertasDeStock como referencia técnica",
+    "should_trigger": true
+  },
+  {
+    "query": "Hazme las notas de versión de la 3.3.0 en HTML para pegar en el editor",
+    "should_trigger": true
+  },
+  {
+    "query": "Escribe la documentación del modelo de datos con diagrama ER del esquema Common",
+    "should_trigger": true
+  },
+  {
+    "query": "Documenta cómo se instala el servicio en una estación nueva",
+    "should_trigger": true
+  },
+  {
+    "query": "Quiero un tutorial paso a paso de cómo dar de alta una línea, para subirlo a KnowledgeHub",
+    "should_trigger": true
+  },
+  {
+    "query": "Crea la página de arquitectura de la app (host, plugins, servicios) para la documentación",
+    "should_trigger": true
+  },
+  {
+    "query": "Redacta un documento HTML explicando la configuración por SQL de los catálogos, va en la carpeta Documentos junto a los demás NN-Nombre.html",
+    "should_trigger": true
+  },
+  {
+    "query": "Actualiza el manual de usuario del lector de páginas con la nueva opción del menú",
+    "should_trigger": true
+  },
+  {
+    "query": "Documenta este plugin para el portal de documentación",
+    "should_trigger": true
+  },
+  {
+    "query": "Agrega un README al repositorio con instrucciones de compilación",
+    "should_trigger": false
+  },
+  {
+    "query": "Escribe comentarios XML de documentación en las clases públicas de MgSoftDev.IndustrialController",
+    "should_trigger": false
+  },
+  {
+    "query": "Convierte este HTML que viene de Word a Markdown",
+    "should_trigger": false
+  },
+  {
+    "query": "Corrige el bug del árbol que no marca la página abierta",
+    "should_trigger": false
+  },
+  {
+    "query": "Genera un reporte en Excel de los movimientos del mes",
+    "should_trigger": false
+  },
+  {
+    "query": "Diseña la tabla Almacen.Movimientos con sus índices y claves foráneas",
+    "should_trigger": false
+  },
+  {
+    "query": "Explícame qué hace HtmlSanitizer con los atributos data-",
+    "should_trigger": false
+  },
+  {
+    "query": "Crea una vista WPF para el catálogo de líneas",
+    "should_trigger": false
+  },
+  {
+    "query": "Exporta las páginas publicadas a PDF con el paquete Pdf desde el demo",
+    "should_trigger": false
+  },
+  {
+    "query": "Traduce este manual al inglés",
+    "should_trigger": false
+  }
+]

@@ -1,0 +1,53 @@
+<h1>Módulo · Alertas de Stock</h1>
+<p><strong>AlertasDeStock</strong> es el módulo que avisa cuando la existencia de un producto cae por
+debajo de su mínimo. No tiene pantalla propia: se registra como widget de la ventana principal y
+muestra un contador en la esquina inferior derecha que abre la lista al presionarlo.</p>
+<p>Sirve además como ejemplo mínimo de un widget que consulta la base de datos en un intervalo.</p>
+
+<h2 style="margin-top: 1.6em">Registro</h2>
+<figure><table>
+<thead>
+<tr><th>Elemento</th><th>Tipo</th><th>GUID</th><th>Región</th></tr></thead>
+<tbody><tr><td><strong>AlertasDeStock</strong></td><td>widget</td><td><code>3c1d2a44-9b7e-4f0a-8e21-6d5f0c9a1b77</code></td><td><strong>BottomRight</strong></td></tr></tbody>
+</table></figure>
+<pre style="background: rgba(243, 244, 246, 1); border-radius: 6px; padding: 12px; overflow-x: auto"><code>INSERT INTO dbo.Widgets (Pk, Name, Description, RowIsActive, RowUpdateDate)
+VALUES ('3c1d2a44-9b7e-4f0a-8e21-6d5f0c9a1b77', 'AlertasDeStock',
+        'Avisa de productos por debajo del mínimo', 1, GETDATE());
+
+INSERT INTO dbo.WidgetSettings
+    (Fk_Widget, Fk_User, Fk_Workstation, IsEnable, IndexOrder, RowIsActive, RowUpdateDate)
+VALUES ('3c1d2a44-9b7e-4f0a-8e21-6d5f0c9a1b77', NULL, NULL, 1, 0, 1, GETDATE());</code></pre>
+<div class="kh-callout" style="background:#fef2f2;border:1px solid #fecaca;border-left:5px solid #ef4444;border-radius:8px;padding:16px;margin:8px 0;"><p style="margin:0;"><strong>❗ Importante:</strong> <strong>Comparte la región <code>BottomRight</code> con el widget <code>FechaHora</code></strong>. Si los dos están habilitados en la misma estación aparecen juntos en esa esquina y <strong>su orden relativo no está definido</strong>: la columna <strong>IndexOrder</strong> se lee, pero la ventana principal no ordena por ella.</p></div><p><br></p>
+
+<h2 style="margin-top: 1.6em">Configuración</h2>
+<p>Una clave en <strong>dbo.Settings</strong>:</p>
+<figure><table>
+<thead>
+<tr><th>Clave</th><th>Tipo</th><th>Qué controla</th></tr></thead>
+<tbody><tr><td><strong>AlertasDeStock.IntervaloSegundos</strong></td><td>int</td><td>Cada cuántos segundos consulta existencias. Por defecto 300. Por debajo de 30 se ignora y se usa 30</td></tr></tbody>
+</table></figure>
+<p>El mínimo de cada producto sale de <strong>Almacen.Productos.StockMinimo</strong>, y un producto sin
+mínimo (NULL) nunca genera alerta.</p>
+
+<h2 style="margin-top: 1.6em">Permisos</h2>
+<p>Ninguno. Los widgets no tienen control de acceso, así que el contador lo ve cualquier usuario de la
+estación donde esté habilitado.</p>
+
+<h2 style="margin-top: 1.6em">Depende de</h2>
+<p>De <strong>AlmacenLite.Api</strong> (contrato de widget) y de <strong>AlmacenLite.DL</strong>, por la
+consulta a <strong>Almacen.Productos</strong>. Vea <a href="03-ModeloDeDatos.html">Modelo de datos</a>.</p>
+
+<h2 style="margin-top: 1.6em">Diagnóstico</h2>
+<figure><table>
+<thead>
+<tr><th>Síntoma</th><th>Causa</th></tr></thead>
+<tbody><tr><td>No aparece el contador</td><td>Faltan las filas en <strong>dbo.Widgets</strong> y <strong>dbo.WidgetSettings</strong>, o la DLL no está bajo <strong>Extensiones\Widgets</strong></td></tr><tr><td>Aparece encimado con otro widget</td><td>Comparte región con <strong>FechaHora</strong></td></tr><tr><td>El contador no cambia</td><td>El intervalo está en el máximo permitido o la consulta falla. Revise el registro de la aplicación</td></tr></tbody>
+</table></figure>
+
+<h2 style="margin-top: 1.6em">Preguntas Frecuentes</h2>
+<p><strong>P: ¿Se puede mover a otra esquina?</strong>
+R: No desde la base. La región está en el código del widget.</p>
+<p><strong>P: ¿La alerta llega por correo?</strong>
+R: No. Es un contador en pantalla. El envío de correo es otro módulo.</p>
+<p><strong>P: ¿Sirve como plantilla para un widget nuevo?</strong>
+R: Sí, es el ejemplo más pequeño que consulta la base. Copie su proyecto y cambie el GUID.</p>

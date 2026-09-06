@@ -1,0 +1,74 @@
+{
+  "skill_name": "knowledgehub-docs",
+  "evals": [
+    {
+      "id": 1,
+      "eval_name": "manual-de-usuario-lector",
+      "prompt": "Necesito el manual de usuario del lector de páginas de KnowledgeHub para pegarlo en KnowledgeHub: cómo se usa el panel «En esta página» (el índice de secciones que sale a la derecha) y el menú de clic derecho del árbol de páginas (copiar ruta, copiar enlace, nueva página, editar, gestionar). El código está en C:\\Users\\miger\\OneDrive\\9 Proyectos\\1 Personales\\MgSoftDev\\KnowledgeHub\\Source\\MgSoftDev.KnowledgeHub.Blazor\\Components\\Embedded\\ (KnowledgeHubPageView.razor(.cs) y KnowledgeHubNavTree.razor(.cs)). Guárdalo como archivo HTML en la carpeta de salida. Es para operadores, no para desarrolladores.",
+      "expected_output": "Un archivo NN-Nombre.html que es un fragmento (empieza en <h1>, sin <html>/<head>/<body>), con secciones h2 con margin-top, pasos como <h3>N. Título</h3> en tono de usted («presione»), marcadores visibles [IMAGEN: …] (párrafo punteado, no comentario HTML) donde irían las capturas, al menos un callout del editor con class=\"kh-callout\", una tabla <figure><table> de Errores Comunes y cierre con Preguntas Frecuentes en formato P:/R:. Sin id, sin data-*, sin clases inventadas, sin SVG. Al final, la lista de imágenes pendientes.",
+      "files": [],
+      "expectations": [
+        "El archivo HTML generado empieza con un <h1> con texto (sin nada antes)",
+        "No contiene <html>, <head>, <body>, <!DOCTYPE>, <style> ni <script>",
+        "No contiene ningun atributo id=",
+        "No contiene <svg inline ni data:image/svg+xml",
+        "Toda <img> lleva src=\"data:image/(png|jpeg|webp);base64,...\" (ninguna a archivo ni URL)",
+        "Todas las clases CSS usadas empiezan por kh-",
+        "Cada tabla va como <figure><table> con <thead> y <tbody>",
+        "La ultima <h2> del documento es Preguntas Frecuentes con pares P:/R:",
+        "validate_html.py --allow-class-prefix kh- --convenciones devuelve codigo 0 sobre el archivo",
+        "La prosa usa el punto y coma con moderacion: como maximo 5 por cada 1000 palabras fuera de <pre>/<code> (espanol de Mexico)",
+        "Contiene al menos un marcador visible [IMAGEN: ...] en un parrafo punteado (no en comentario HTML)",
+        "Contiene una tabla de Errores Comunes con cabecera Mensaje|Sintoma, Causa, Solucion",
+        "Usa tono de usted (presione/seleccione/capture) y no aparece 'haga clic' ni tuteo",
+        "Contiene al menos un callout del editor (div.kh-callout con su <p><br></p> de cierre)"
+      ]
+    },
+    {
+      "id": 2,
+      "eval_name": "referencia-tecnica-modulo-pdf",
+      "prompt": "Documenta como referencia técnica para KnowledgeHub el paquete MgSoftDev.KnowledgeHub.Pdf (exportación a PDF con Playwright): cómo se registra en la app anfitriona, sus opciones de configuración (KnowledgeHubPdfOptions), qué permiso exige exportar, de qué depende y una tabla de diagnóstico con síntomas y causas. El código está en C:\\Users\\miger\\OneDrive\\9 Proyectos\\1 Personales\\MgSoftDev\\KnowledgeHub\\Source\\MgSoftDev.KnowledgeHub.Pdf\\ y el README de ese paquete. Guarda el HTML en la carpeta de salida. Lo va a leer el desarrollador que integra la librería.",
+      "expected_output": "Un fragmento HTML con las seis secciones de la plantilla de módulo (Registro, Configuración, Permisos, Depende de, Diagnóstico, Preguntas Frecuentes), código C# de registro en <pre><code> con < y > escapados, tablas <figure><table> con thead/tbody y celdas sin atributos, al menos un callout kh-callout, sin clases propias ni id, y que validate_html.py acepte sin errores.",
+      "files": [],
+      "expectations": [
+        "El archivo HTML generado empieza con un <h1> con texto (sin nada antes)",
+        "No contiene <html>, <head>, <body>, <!DOCTYPE>, <style> ni <script>",
+        "No contiene ningun atributo id=",
+        "No contiene <svg inline ni data:image/svg+xml",
+        "Toda <img> lleva src=\"data:image/(png|jpeg|webp);base64,...\" (ninguna a archivo ni URL)",
+        "Todas las clases CSS usadas empiezan por kh-",
+        "Cada tabla va como <figure><table> con <thead> y <tbody>",
+        "La ultima <h2> del documento es Preguntas Frecuentes con pares P:/R:",
+        "validate_html.py --allow-class-prefix kh- --convenciones devuelve codigo 0 sobre el archivo",
+        "La prosa usa el punto y coma con moderacion: como maximo 5 por cada 1000 palabras fuera de <pre>/<code> (espanol de Mexico)",
+        "Contiene las secciones Registro, Configuracion, Permisos, Depende de y Diagnostico como <h2>",
+        "Contiene <pre style=...><code> con codigo C# de registro y sin '<' crudo dentro (escapado como &lt;)",
+        "Contiene al menos un callout kh-callout",
+        "La tabla de Diagnostico tiene cabecera Sintoma | Causa"
+      ]
+    },
+    {
+      "id": 3,
+      "eval_name": "modelo-de-datos-con-diagrama-er",
+      "prompt": "Quiero la página de modelo de datos de KnowledgeHub para KnowledgeHub, con diagrama entidad-relación: las entidades DocPage, DocPageVersion, DocImage y DocPagePermission (y sus relaciones) están en C:\\Users\\miger\\OneDrive\\9 Proyectos\\1 Personales\\MgSoftDev\\KnowledgeHub\\Source\\MgSoftDev.KnowledgeHub.Abstractions\\Entities\\ y el DDL en MgSoftDev.KnowledgeHub.Storage.SqlServer\\CreateSchema.sql. Guarda el resultado en la carpeta de salida (el HTML y, en una subcarpeta diagramas/, el SVG fuente). Recuerda que las imágenes tienen que ir embebidas para poder pegarlo en el editor.",
+      "expected_output": "Un fragmento HTML con el diagrama ER embebido como <img src=\"data:image/png;base64,…\"> (nunca data:image/svg+xml ni <svg> inline), el SVG fuente guardado en una subcarpeta diagramas/, una tabla Tabla | Qué es por grupo, tablas Columna | Tipo | Descripción para las entidades clave, y cierre con Preguntas Frecuentes. El SVG sigue las convenciones ER (cajas azules #2E75B6, cabecera sólida, zebra, pata de gallo).",
+      "files": [],
+      "expectations": [
+        "El archivo HTML generado empieza con un <h1> con texto (sin nada antes)",
+        "No contiene <html>, <head>, <body>, <!DOCTYPE>, <style> ni <script>",
+        "No contiene ningun atributo id=",
+        "No contiene <svg inline ni data:image/svg+xml",
+        "Toda <img> lleva src=\"data:image/(png|jpeg|webp);base64,...\" (ninguna a archivo ni URL)",
+        "Todas las clases CSS usadas empiezan por kh-",
+        "Cada tabla va como <figure><table> con <thead> y <tbody>",
+        "La ultima <h2> del documento es Preguntas Frecuentes con pares P:/R:",
+        "validate_html.py --allow-class-prefix kh- --convenciones devuelve codigo 0 sobre el archivo",
+        "La prosa usa el punto y coma con moderacion: como maximo 5 por cada 1000 palabras fuera de <pre>/<code> (espanol de Mexico)",
+        "Contiene al menos una <img src=\"data:image/png;base64,...\"> (el diagrama rasterizado)",
+        "Existe un archivo .svg fuente en una subcarpeta diagramas/ junto al HTML",
+        "El SVG usa las convenciones ER: stroke #2E75B6 en las cajas y #5B7DB1 en las relaciones",
+        "Contiene una tabla con cabecera Tabla | Que es y al menos una Columna | Tipo | Descripcion"
+      ]
+    }
+  ]
+}

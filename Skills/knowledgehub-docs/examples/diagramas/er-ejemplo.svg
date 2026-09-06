@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="380" viewBox="0 0 1000 380">
+<rect width="1000" height="380" fill="#FFFFFF"/>
+<text x="20" y="30" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#1F4E79">Almacen — Productos, categorías y movimientos</text>
+<text x="20" y="48" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#767676">La existencia de un producto es la suma de sus movimientos: no hay columna de existencia</text>
+
+<!-- Almacen.Productos: x=40 y=80 w=220, 5 filas -->
+<rect x="40" y="80" width="220" height="119" rx="5" fill="#FFFFFF" stroke="#2E75B6" stroke-width="1.4"/>
+<path d="M40 109 L40 85 Q40 80 45 80 L255 80 Q260 80 260 85 L260 109 Z" fill="#2E75B6"/>
+<text x="49" y="100" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#FFFFFF">Almacen.Productos</text>
+<rect x="41" y="127" width="218" height="18" fill="#EEF3FA"/>
+<rect x="41" y="163" width="218" height="18" fill="#EEF3FA"/>
+<text x="49" y="122" font-family="Consolas, Courier New, monospace" font-size="10.6" font-weight="700" fill="#1A1A1A">Pk</text>
+<text x="251" y="122" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">uniqueidentifier</text>
+<text x="49" y="140" font-family="Consolas, Courier New, monospace" font-size="10.6" fill="#1A1A1A">Codigo</text>
+<text x="251" y="140" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">varchar(40)</text>
+<text x="49" y="158" font-family="Consolas, Courier New, monospace" font-size="10.6" fill="#1A1A1A">Nombre</text>
+<text x="251" y="158" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">varchar(200)</text>
+<text x="49" y="176" font-family="Consolas, Courier New, monospace" font-size="10.6" font-weight="700" fill="#1A1A1A">Fk_Categoria</text>
+<text x="251" y="176" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">uniqueidentifier</text>
+<text x="49" y="194" font-family="Consolas, Courier New, monospace" font-size="10.6" fill="#1A1A1A">StockMinimo</text>
+<text x="251" y="194" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">decimal(18,3) NULL</text>
+
+<!-- Almacen.Categorias: x=400 y=80 w=200, 3 filas -->
+<rect x="400" y="80" width="200" height="83" rx="5" fill="#FFFFFF" stroke="#2E75B6" stroke-width="1.4"/>
+<path d="M400 109 L400 85 Q400 80 405 80 L595 80 Q600 80 600 85 L600 109 Z" fill="#2E75B6"/>
+<text x="409" y="100" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#FFFFFF">Almacen.Categorias</text>
+<rect x="401" y="127" width="198" height="18" fill="#EEF3FA"/>
+<text x="409" y="122" font-family="Consolas, Courier New, monospace" font-size="10.6" font-weight="700" fill="#1A1A1A">Pk</text>
+<text x="591" y="122" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">uniqueidentifier</text>
+<text x="409" y="140" font-family="Consolas, Courier New, monospace" font-size="10.6" fill="#1A1A1A">Nombre</text>
+<text x="591" y="140" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">varchar(100)</text>
+<text x="409" y="158" font-family="Consolas, Courier New, monospace" font-size="10.6" fill="#1A1A1A">RowIsActive</text>
+<text x="591" y="158" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">bit</text>
+
+<!-- Almacen.Movimientos: x=400 y=220 w=220, 5 filas -->
+<rect x="400" y="220" width="220" height="119" rx="5" fill="#FFFFFF" stroke="#2E75B6" stroke-width="1.4"/>
+<path d="M400 249 L400 225 Q400 220 405 220 L615 220 Q620 220 620 225 L620 249 Z" fill="#2E75B6"/>
+<text x="409" y="240" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#FFFFFF">Almacen.Movimientos</text>
+<rect x="401" y="267" width="218" height="18" fill="#EEF3FA"/>
+<rect x="401" y="303" width="218" height="18" fill="#EEF3FA"/>
+<text x="409" y="262" font-family="Consolas, Courier New, monospace" font-size="10.6" font-weight="700" fill="#1A1A1A">Pk</text>
+<text x="611" y="262" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">uniqueidentifier</text>
+<text x="409" y="280" font-family="Consolas, Courier New, monospace" font-size="10.6" font-weight="700" fill="#1A1A1A">Fk_Producto</text>
+<text x="611" y="280" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">uniqueidentifier</text>
+<text x="409" y="298" font-family="Consolas, Courier New, monospace" font-size="10.6" fill="#1A1A1A">Cantidad</text>
+<text x="611" y="298" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">decimal(18,3)</text>
+<text x="409" y="316" font-family="Consolas, Courier New, monospace" font-size="10.6" fill="#1A1A1A">Fecha</text>
+<text x="611" y="316" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">datetime2</text>
+<text x="409" y="334" font-family="Consolas, Courier New, monospace" font-size="10.6" font-weight="700" fill="#1A1A1A">Fk_Usuario</text>
+<text x="611" y="334" font-family="Consolas, Courier New, monospace" font-size="9.4" text-anchor="end" fill="#767676">uniqueidentifier</text>
+
+<!-- Categorias (1) → Productos (muchos): pata de gallo en Productos.Fk_Categoria -->
+<path d="M400 121 L330 121 L330 172 L271 172" stroke="#5B7DB1" stroke-width="1.3" fill="none"/>
+<path d="M260 172 L269 166 M260 172 L269 172 M260 172 L269 178" stroke="#5B7DB1" stroke-width="1.3" fill="none"/>
+
+<!-- Productos (1) → Movimientos (muchos): pata de gallo en Movimientos.Fk_Producto -->
+<path d="M150 199 L150 276 L389 276" stroke="#5B7DB1" stroke-width="1.3" fill="none"/>
+<path d="M400 276 L391 270 M400 276 L391 276 M400 276 L391 282" stroke="#5B7DB1" stroke-width="1.3" fill="none"/>
+</svg>
