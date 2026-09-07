@@ -1,21 +1,17 @@
 ---
 name: knowledgehub-docs
 description: >
-  Genera o actualiza documentación de aplicaciones (manuales de usuario, referencia técnica de
-  módulos y plugins, tutoriales paso a paso, notas de versión, instalación, arquitectura y modelo de
-  datos con diagramas ER) como fragmentos HTML listos para pegar en el editor de
-  MgSoftDev.KnowledgeHub: HTML que sobrevive a su saneador, imágenes embebidas en base64, diagramas
-  dibujados en SVG y rasterizados a PNG, y el estilo de documentación de Fers (MG Soft AI), que es
-  español de usted, tablas figure, callouts del editor y Preguntas Frecuentes al cierre.
-  USA SIEMPRE esta skill cuando el usuario pida escribir, redactar, generar o ACTUALIZAR
-  documentación de una app, un módulo, un plugin, una pantalla, un catálogo, una base de datos, una
-  instalación o una versión. También cuando mencione «manual», «documentación», «documentar»,
-  «HTML para el editor», «pegar en KnowledgeHub», «portal de documentación», «base de conocimiento»,
-  «wiki interna», «notas de versión», «diagrama ER» o «modelo de datos». Y también cuando pida un
-  documento HTML sin decir para qué, si nombra una carpeta de documentos o archivos con nombres
-  del estilo NN-Nombre.html, o si el proyecto ya tiene una carpeta así.
-  NO la uses para responder preguntas sobre cómo funciona la librería KnowledgeHub por dentro, para
-  arreglar su código, para un README de repositorio ni para comentarios XML de C#.
+  Genera o actualiza documentación de aplicaciones como fragmentos HTML listos para pegar en el
+  editor de MgSoftDev.KnowledgeHub: HTML que sobrevive a su saneador, imágenes en base64 y
+  diagramas SVG rasterizados a PNG. USA SIEMPRE esta skill cuando pidan escribir, redactar, generar
+  o ACTUALIZAR documentación, un manual o una página de una app, módulo, plugin, pantalla,
+  catálogo, base de datos, instalación o versión, incluso si ya existe y solo hay que ampliarlo.
+  También al mencionar «manual», «documentación», «documentar», «referencia técnica», «HTML para el
+  editor», «pegar en KnowledgeHub», «portal de documentación», «base de conocimiento», «wiki
+  interna», «notas de versión», «tutorial», «arquitectura», «diagrama ER» o «modelo de datos». Y al
+  pedir un documento HTML sin decir para qué, si nombran una carpeta de documentos o archivos
+  NN-Nombre.html. NO la uses para responder preguntas sobre cómo funciona la librería KnowledgeHub
+  por dentro, arreglar su código, un README ni comentarios XML de C#.
 ---
 
 # Documentación para KnowledgeHub — Skill de uso
